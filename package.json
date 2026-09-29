@@ -2,11 +2,13 @@
   "name": "mml-games",
   "private": true,
   "type": "module",
+  "main": "./server.js",
   "engines": { "node": "22.x" },
   "scripts": {
-    "start": "mml serve-dir . --host 0.0.0.0 --port ${PORT:-10000} --idle-timeout 1200"
+    "start": "node ./server.js"
   },
   "dependencies": {
-    "@mml-io/mml-cli": "0.26.1"
+    "@mml-io/networked-dom-server": "0.26.1",
+    "ws": "8.21.3"
   }
 }
