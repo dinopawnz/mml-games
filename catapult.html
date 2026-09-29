@@ -1,0 +1,267 @@
+<!--
+  PLAYER CATAPULT  v9
+  ============================================================
+  v9: A FIRE BUTTON. A red FIRE button on the control panel, under the
+  LOFT row: click it (or use its interact prompt) and the catapult
+  throws straight away - with whoever is in the bucket, or empty. It
+  also cuts a countdown short. Stepping into the bucket no longer fires
+  it - ONLY the FIRE button does (AUTO_FIRE = true in SETTINGS below
+  brings back the 3-second auto-fire).
+  One catapult (the same one as in Gray Ashlar Castle Battle) that flings
+  PLAYERS. Place it anywhere on the ground. It throws towards its FRONT
+  (the side away from the bucket) - turn the whole document to aim it,
+  and leave a big open space in front of it.
+
+  YOU RIDE IN THE BUCKET. The catapult is bigger (SCALE) so a person
+  fits in the bucket. Jump into the bucket from the back. After 3 seconds
+  in it, the arm swings up in one smooth motion with you in the bucket
+  and flings you over the top at the release point.
+  v8: A CONTROL PANEL, like the ones in the castle game, standing to the
+  right of the catapult (behind it, facing you as you walk up):
+    AIM LEFT / AIM RIGHT  turn the catapult 5 degrees
+    POWER - / POWER +     how hard it throws (100% = v7's 170 m/s)
+    LOFT - / LOFT +       how high it throws (50% = v7's 42 degrees)
+  Use the interact prompt (or click the words). The panel ignores presses
+  while a throw is under way. (v9 adds a FIRE button - see above.)
+  v7: DOUBLE v6's SPEED: 170 m/s (about four times v6's distance, if
+  Otherside lets you keep it all). Same 30 m carry, which now takes under
+  0.2 s.
+  v6: EVEN FURTHER. Same 85 m/s throw as v5 (which went about twice as
+  far as v4), but the invisible floor now carries you CARRY_M = 30 m along
+  the throw (a third of a second - it still feels like one launch) before
+  it vanishes, so you start your flight about 10 m further out and 9 m
+  higher up than in v5.
+  v5: THROWS TWICE AS FAR. Distance goes with the square of the launch
+  speed, so the speed is up by the square root of 2: 60 -> 85 m/s. The
+  floor also carries you a little further before letting go, so it still
+  lets go about 0.2 s after the release point, as before.
+  v4: THE BUCKET TIPS FORWARD as it swings up, like the castle's catapults
+  (v3 kept it upright the whole way, so it never looked like it threw
+  anything), and the arm speeds up through the swing the same way theirs
+  does, then slams to a stop. Your invisible floor rides with the tipping
+  bucket but stays flat, so you stay on it until you're thrown.
+  v3: no crates. The swing is one smooth animation (v2 was built from
+  pieces that could arrive late and skip ahead), it starts LEAD_MS after
+  the countdown so it reaches everyone in time to play from the start,
+  and the invisible floor follows the bucket's exact curve.
+
+  HOW IT WORKS (found with the Launch Lab): an invisible floor inside
+  the bucket is moved by animations - up with the bucket, then out at
+  full speed - and a moment later it vanishes from under you while still
+  moving. Otherside hands you its speed and you fly on your own.
+
+  SETTINGS TO TRY
+  * The panel's POWER range: SPEED_MIN / SPEED_MAX (m/s)
+  * The panel's LOFT range: ANGLE_MIN / ANGLE_MAX (degrees)
+  * What it's set to when the document starts: START
+  * If you change SCALE here, change sx/sy/sz on the "yaw" group to match
+-->
+<m-group id="root">
+  <m-group id="yaw" sx="1.8" sy="1.8" sz="1.8">
+    <m-model cast-shadows="false" src="https://mmlstorage.com/f3c4bd58762094beb2c83639f2259dc96ac7809ea431f557fdf48c68b8efc4c1" x="-1.5999" y="1.4768" z="-0.0065" collide="false" clickable="false" rx="-126.8218" ry="89.8454" rz="126.9454" sx="3.6803" sy="3.6803" sz="3.6803"></m-model>
+    <m-model cast-shadows="false" src="https://mmlstorage.com/f3c4bd58762094beb2c83639f2259dc96ac7809ea431f557fdf48c68b8efc4c1" x="1.6001" y="1.4768" z="-0.0065" collide="false" clickable="false" rx="-126.8218" ry="89.8454" rz="126.9454" sx="3.6803" sy="3.6803" sz="3.6803"></m-model>
+    <m-model cast-shadows="false" src="https://mmlstorage.com/3ec1ffa87acddfe51619a1fd947b39ab5f27f362524672b98ec2a9a36bc8e48b" y="0.1609" z="-1.5825" collide="false" clickable="false" sx="3.5" sy="2.4638" sz="3.2856"></m-model>
+    <m-model cast-shadows="false" src="https://mmlstorage.com/3ec1ffa87acddfe51619a1fd947b39ab5f27f362524672b98ec2a9a36bc8e48b" y="0.1609" z="1.5825" collide="false" clickable="false" sx="3.5" sy="2.4638" sz="3.2856"></m-model>
+    <m-model cast-shadows="false" src="https://mmlstorage.com/a934500702d0e863cf4f5e63f21010465ac063943209be83df774fc1d12391e1" y="2.6047" z="-0.0007" collide="false" clickable="false" ry="90" sx="5.4917" sy="5.4919" sz="4.2"></m-model>
+    <m-group id="arm" y="2.6" rx="58">
+      <m-model cast-shadows="false" src="https://mmlstorage.com/3ec1ffa87acddfe51619a1fd947b39ab5f27f362524672b98ec2a9a36bc8e48b" y="0.0009" z="0.5" collide="false" clickable="false" ry="-90" sx="2.8" sy="2.3611" sz="2.738"></m-model>
+      <m-group id="counterweight" z="-0.9" rx="-58">
+        <m-model cast-shadows="false" src="https://mmlstorage.com/6d8753bde5f1958e08e0b636dda64436201a457bcea1d59ac6a899baf712635a" y="-0.4193" collide="false" clickable="false" sx="0.72" sy="0.7512" sz="0.8447"></m-model>
+      </m-group>
+      <m-group id="sling" z="1.9" rx="-58">
+        <m-model cast-shadows="false" src="https://mmlstorage.com/2d0c8535663f74d1ba4384224133604e2e4b4d9e124a3e6aa9c93e49b668af88" y="-0.4005" z="0.31" collide="false" clickable="false" sx="1.0186" sy="0.5313" sz="0.9"></m-model>
+        <m-model cast-shadows="false" src="https://mmlstorage.com/588246c9b7d88301e5a6ee0607403bce560095dbec062ab8b348da93d8cef83a" y="-0.1805" z="0.62" collide="false" clickable="false" sy="1.0001"></m-model>
+      </m-group>
+    </m-group>
+    <!-- the frame's sides are solid (invisible), as in the castle -->
+    <m-cube collide="true" clickable="false" visible="false" x="-1.6" y="1.3" width="1" height="2.6" depth="3.64"></m-cube>
+    <m-cube collide="true" clickable="false" visible="false" x="1.6" y="1.3" width="1" height="2.6" depth="3.64"></m-cube>
+  </m-group>
+</m-group>
+
+<script>
+(function () {
+  "use strict";
+
+  // ==========================================================
+  // SETTINGS
+  // ==========================================================
+  const SPEED_MIN = 25, SPEED_MAX = 170;   // launch speed at POWER 0% and 100%, m/s
+  const ANGLE_MIN = 12, ANGLE_MAX = 72;    // throw angle at LOFT 0% and 100%, degrees above the ground
+  const START = { yaw: 0, power: 100, loft: 50 };   // settings when the document starts (= v7's throw)
+  const CARRY_MS = 200;               // after the swing, the invisible floor carries you this long, then vanishes
+  const RUN_MS = 120;                 // and keeps going this much longer, empty
+  const PANEL_X = 5.2, PANEL_Z = 5.5; // where the control panel stands
+  const SWING_MS = 350;               // the arm swings up (with you in the bucket) over this long
+  const COUNT_S = 3;
+  const LEAD_MS = 500;                // the swing is sent this far ahead, so it plays from the very start for everyone
+  const SCALE = 1.8;                  // must match sx/sy/sz on the "yaw" group above
+  const AUTO_FIRE = false;            // v9: false = ONLY the FIRE button throws it; true = stepping into the bucket fires it after COUNT_S
+
+  // ==========================================================
+  const rootEl = document.getElementById("root");
+  const arm = document.getElementById("arm");
+  const sling = document.getElementById("sling");
+  const cw = document.getElementById("counterweight");
+  const DEG = Math.PI / 180;
+  const r3 = (v) => Math.round(v * 1000) / 1000;
+  function el(tag, attrs, parent) {
+    const n = document.createElement(tag);
+    if ((tag === "m-cube" || tag === "m-cylinder" || tag === "m-label") && !(attrs && attrs.collide !== undefined)) n.setAttribute("collide", "false");
+    for (const k in attrs) n.setAttribute(k, typeof attrs[k] === "number" ? String(r3(attrs[k])) : String(attrs[k]));
+    (parent || rootEl).appendChild(n);
+    return n;
+  }
+  function set(n, k, v) { const sv = typeof v === "number" ? String(r3(v)) : String(v); if (n.getAttribute(k) !== sv) n.setAttribute(k, sv); }
+  function guard(fn) { return function () { try { return fn.apply(this, arguments); } catch (e) { console.log("catapult:", e && e.message); } }; }
+  const on = (n, t, fn) => n.addEventListener(t, guard(fn));
+  const idOf = (e) => (e && e.detail && e.detail.connectionId !== undefined ? e.detail.connectionId : null);
+  const T0 = Date.now();
+  function docNow() {
+    try { if (document.timeline && typeof document.timeline.currentTime === "number") return document.timeline.currentTime; } catch (e) {}
+    return Date.now() - T0;
+  }
+
+  // ---- where the bucket's floor is, for an arm angle (the castle catapult's own measurements, scaled)
+  const PIVOT_Y = 2.6, ARM_R = 1.9, IN_Y = -0.3, IN_Z = 0.62;    // bucket floor sits 0.3 below the sling, 0.62 along it
+  const READY = 58, RELEASE = -60.4, FOLLOW = -78;
+  const bucketAt = (a) => ({ y: SCALE * (PIVOT_Y - ARM_R * Math.sin(a * DEG) + IN_Y), z: SCALE * (ARM_R * Math.cos(a * DEG) + IN_Z) });
+  const REST = bucketAt(READY);
+  const BUCKET = 0.9 * SCALE;         // inside of the bucket
+
+  const say = () => {};               // no sign
+
+  // ---- THE INVISIBLE FLOOR IN THE BUCKET - moved ONLY by animations (that's what makes the launch work)
+  // It hangs off its own (invisible) copy of the arm, so it follows the bucket's exact curve:
+  // padArm swings like the arm, padSling tips like the bucket, level keeps the floor itself flat,
+  // and fling throws it out at the top.
+  // v8: everything that turns when you aim sits in "aimG": the catapult model and the pad's arm
+  const aimG = el("m-group", {});
+  aimG.appendChild(document.getElementById("yaw"));
+  const padArm = el("m-group", { y: PIVOT_Y * SCALE, rx: READY }, aimG);
+  const padSling = el("m-group", { z: ARM_R * SCALE, rx: -READY }, padArm);
+  const inBucket = el("m-group", { y: IN_Y * SCALE, z: IN_Z * SCALE }, padSling);
+  const level = el("m-group", {}, inBucket);
+  const fling = el("m-group", {}, level);
+  const pad = el("m-cube", { y: -0.15, width: BUCKET, height: 0.3, depth: BUCKET, color: "#5a4020", visible: "false",
+    collide: "true", "collision-interval": 100 }, fling);
+
+  const onIt = new Map();
+  let state = "idle", count = 0, anims = [], held = [];
+  const heard = (id) => { if (id !== null) onIt.set(id, Date.now()); if (state === "idle" && AUTO_FIRE) startCount(); };
+  on(pad, "collisionstart", (e) => heard(idOf(e)));
+  on(pad, "collisionmove", (e) => heard(idOf(e)));
+  on(pad, "collisionend", (e) => onIt.delete(idOf(e)));
+  const anyone = () => { const now = Date.now(); let n = 0; onIt.forEach((t, id) => { if (now - t < 8000) n++; else onIt.delete(id); }); return n; };
+
+  function startCount() { state = "count"; count = COUNT_S; say(String(count)); setTimeout(guard(countDown), 1000); }
+  function countDown() {
+    if (state !== "count") return;                        // v9: the FIRE button already threw it
+    if (!anyone()) { state = "idle"; say(""); return; }   // stepped out: cancelled
+    count--;
+    if (count > 0) { say(String(count)); setTimeout(guard(countDown), 1000); return; }
+    launch();
+  }
+
+  // ---- v8: THE CONTROL PANEL (same words, layout and prompts as the castle game's)
+  const WORDS = {"FIRE": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAAAoCAYAAACoy/XoAAABp0lEQVR42u3cvyuEcRzA8fdz0RnULbqRsiqyiUGRYvIHSPkDDBYWWdiwqLNZjcqmrCKzWQYm3IC6Quqx3KDHuTv34+nued6vusH3uOfbR++ee+6uC8IwREqrjCOQAUgGIBmAZACSAUgGIBmAZACSASTbERD+81ao4zHmGzjWO/AIXAK7wEgMezcAdYwskAcmgXXgBth2LAaQ5v/TFrDsKAwgTgtAUOW22oZj9QFjwHmF31nr0L0bgFrmo/yUZwn4jNw3DvQ4IgNIgyJwH1kLgH5HYwBpEUR+LgEvjsUA4nJG9ZcSB9p47DwwGFm76JK9G4AalgVGgWOg98f6F7DjeFrLC6rOOtv85RVYAa4ck2eAONV6KbEYwx7ugAngtAv3bgBq2jBwDcw6CgNI+tkmU77w3YvclwNOgCHHZABJFgIPwAa/P6yWAw4ckQGkxWaF5+mL5esBGUDivQH7Fdb9VKgBpEYBeI6szQFTdfxtrTfCbh2vAXS6UoULYs8CBpAqh8BTZG0GmHY0zQv8clx5BpAMQDIAyQAkA5AMQDIAyQAkA5AMQEqObywGcIQJnVqVAAAAAElFTkSuQmCC", "AIM LEFT": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAAAoBAMAAABa5ejbAAAAMFBMVEX///////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAxs2SiAAAACHRSTlMAJEltkrbb/1y0/6IAAAHDSURBVHja7ZQxb9QwHMV/dk5iNQF2J9D9OnTvwl4J5XvwNZCQYOUzILF364pKpagzSrxWosEdEY3NgHvn3DmXlA0pT4r+jpO/X/zec2DBggX/P0RirsS3gNS+JVd0locClGFQAtBZqQG8KUJzeG2DVYKzgk8Wjs7697zWfL3goYCs/g5kBcB5fXQG0H+oQvd5PVxN7hNkgAbAA3AMQkfPbWLTflQimZ7Sw/vsX5QelagIV7SjPNV6aaAD+i/g3WfkGy4N3TSBpi3ijQltihRB1wR5GoAGCY2ZIZFYcxVr0rJm7eysTKo5EkloEHrzLT2FVL/tfm9eQgOIEpyZ74HEeatigiyjS3zbyQm8A7IKfn2cn6Ich4ljVMuSOt3tD0V3jEDjqOPc1OIUM5FO9YiYrmn5GbvcoXo7ElNCTN18Aql4UQmkslsT0v3DmM6WSEJeFvFZdpYmlUU1eYrHCIJSWxOGHtud6g8SrPZ/FP2F4pl+up36fj/w+NVz7P11qPXU2Vvte/zjGzx5G7l8ezt44yVwcx3qJMGuREJjAIc8qG4sk3jUDqS/M4DzQuP9dqmh4HZTsX7jgb+b98dasGDBgl38AVLwlm5X04fVAAAAAElFTkSuQmCC", "AIM RIGHT": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAAAoBAMAAABa5ejbAAAAMFBMVEX///////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAxs2SiAAAACHRSTlMAJEltkrbb/1y0/6IAAAJfSURBVHja7ZQxb9NAFIC/O0cMTFdn6MglrcTqtNCuqVTUtWJhhIkZhNQfAWLhb0TQP9BWWQtV6xXa2kaMpc7BiGQfg+P4HOoExATKm+7dvXvfu/fuPVjIQhby74v4m8srijT+I4B4quxLYPlx9ppHiuMQdjQfhwBiD+zo8ghuPbOvQDzoARdvC2t29O03Lwp35jicuJQ1gFQIDSghAKUCEIFSVSzCv98vw9roAayW1qhJuMp1WQN4QACABcCfNgDWS9s+pHFhaJtT1KppS0CnDvTc8w+f7+mSuAqf9mlvKzM5zk+EWOPSmKQJEDBakrWUGZdHevnleVm1Ptk+XA/yqpL2ELnGSUJjijSn7s6IgMBWEaKqZEjFV4D8lxQpGgFSESErg5Se0JkDMIjSmYTqqwgx5bYhRR42NSoYlnqG9Midq2ppg2zypyqyt/d7RfbJSAI90W1yp83Z3cpgcxOOnPd4D+E8nNlosl6CnAS/2ghFn6n7V64uu92unt3JrTogJnaZMTo39Qvt6ltWq/wM2nruC4SmtR24Wxllysd98A65S9mJiuykYOQHBwdmfoo8WFnfKobFODJIa31wntCeHAXkh2beyJQ3rIOqymG9BIph2dq5KVGzR4UL6GCjKDLusDiNam1puEaM+UNaWzR+/xuLrPkxgOUnDvRqMGWfQVA86gI2Vr/NBcgaIAFG9fk2JTYsM5MNwe+47TYP4ClCIEPoprIpCPHGh+/PAHsxnF1k50h0iAC6pN+1jfFVasZ6EWWX1CA6RFLbGBBdZSMDheqrPAHRKa0XspCF/EfyE+XsvD8l2iRbAAAAAElFTkSuQmCC", "POWER -": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAAAoBAMAAABa5ejbAAAAMFBMVEX///////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAxs2SiAAAACHRSTlMAJEltkrbb/1y0/6IAAAI2SURBVHja7ZW7blNBEIa/WTupx3ZQ2rUleiNEn6AAbS6KeAKgJRISDwHiEVD6AEkNEUobTHEeILG3RSTxUKLYuxTHjnEuJieiAfnX0ZzVmV/nn53LLkwxxRT/PmSyu1rn0P62wOwGpG4rA26vQvqYMfs8vsa9+LGf8cj/3HysCnzbnNmQIfNKuCt0qw8VyquAPFCSOHCiHlQNdBReziwsALICa3BiuGUiojhQxBMGjDOV5UkC5cs+pneypDVKnu9v5anOEUGtAhUEDOhnWA9gy61RLbyD1D7cwVGCz6RtSpoMj4JDSAHo7e5+zQDaB3uTG+WqFHURrRMDHEMTw+NjEBxpjKf8ocncBJ8nAhGUQAWNwSG5wFnQhp6TvE4NgArJlAgkU8UQ8adhQeeJALMvsf0MUNfkpLCANGQp/9EQHZyQDB3FqwrwDNJOcYF14His7IjQjfh5uufZXwZVuOdh69opIm2PCzhHSKjmY9DPsKOB7+5e/m54ULumQOq2DMMBohgR6oRIdSDQ2x0Qt+YWyz4UTVF8BUBourzPjAR3sEQtn7NRF7U7iyxs5svIJT1bniDewflADTJS8D4ZwZMsT9mw1JY1a/my1So6B324j6zQNzCIQwu4RqPh8znIKN1kDgD6wd964pQjIDRJQwvMrMPpGwCOkWZ2s0nmPVSVuMOFHYy6iz40ix0Vo7Or9wFInwzo/vaMc1NGrdiN5nzqXLgypc6JDSxVBYhB6rTH+VNMMcX/iV+Q2NOJ5FIyAAAAAABJRU5ErkJggg==", "POWER +": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAAAoBAMAAABa5ejbAAAAMFBMVEX///////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAxs2SiAAAACHRSTlMAJEltkrbb/1y0/6IAAAJdSURBVHja7ZW/TxRBFMc/M0vv20WlMWbuYqwoMHJee4mxJxJDS+NfQMI/QfAPMBa0Foq9QK6ygYSrEbglxsIQb1+rYXcsdpe9g8M70EKT+2bzsnnz3nzfzPsxMMEEE/z/ML9Zs4/odf82QbBiIDncAW4vChxsEqzwWlmSHxvcXU7XZ5YBn66bVfDJ0c4IAjuMMWy0wC4K8HCOzBiHcRJCaDxSWBnARI3WdQlyzMMdIevCU7wiGLDg6F08+ePKKaoN2WnqsuqjNlwgukD6RputKVEVhwUDggLZPt4D7J7Mu74IG7PrY52gd/weXCAcKnvQIibEoBaEGMi2trZ3AHpHm/1J1LGvKAWx0IZUqaEYIjpGrAxuIviRVWSvWojwCsQYuljEdxGTR2nMechmJMXUMGUASu6a72EQn+C+kikQrMK3DUDCJ6TXJ4hsA+KZKrYMK8573KdKJwDNJlR9IILx4xA8A1KdqRQeRLIMCckuGp92ip8lEVj1fm2cK4I9tKoPD6H89FiXnyDbR8+KtWnR8/iHTp6hBMlhuzQWPD52dRIf3xMSgGyrsNv98twubJQJFyj6YwTBW1WghxEFhwclIkbvO+KBMHufYzddeiHN2Vd+rDLVPLO0IBC6EBOhxGUb9GW6TVC56bCavbIPUuWBMA/tnDEuJGDq9Xotj+Q7Zu4GfQDAh+Xg5UmNM4UEvBYSCF5Atlb2/FznZp3MqWJrsJ1fly/lIHyH6RuOCrJ3Chx0coLzb3AW0elLgozzopkax5efzDpZXErrAHyXOj0dsI9u/fEDO8EEE/yb+AWFZt1IOVK41gAAAABJRU5ErkJggg==", "LOFT -": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAAAoBAMAAABa5ejbAAAAMFBMVEX///////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAxs2SiAAAACHRSTlMAJEltkrbb/1y0/6IAAAFQSURBVHja7Za9TsMwFIU/p5FYL03ZjSXE2omuXWBGCPECPAISD4HUd2BF/IgZMVRiKgP0AWjJTls8MJKYISlIBZGEhAGRs9m+yqdzdK8dqFWr1t+XylVkxN1VD2gcqJMQQO1pmJ5Z1CGAHSy1BcBFvWyAlwO+oYFgZ74hIPnde9kljS5uDCsy35AiEfnZJS24Grb22T4GRhY7eYkk0PG9i6sBdHkdMgl1APAwBJiwrqNrqolIaaZAf7FUURUAQuAZTwCRgm3q5wFYwCWrTgd3VATg5S10792jKnaQ6XAX4vPygDSpkXWLJwaiMg7SbNJgkjatNCIHGlgmtt6XUzyGuBQgGbFu8hX7+fy0RBc1jTHSx2/TSsatuL53sAkMbmBrzcDljwDZc2CjPsrAk/0lgHAbAtOL4ld1xliqVQBm9uPJNMxSH01xj/UPR61a/0ZvbZtXzZ3xtS0AAAAASUVORK5CYII=", "LOFT +": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAAAoBAMAAABa5ejbAAAAMFBMVEX///////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAxs2SiAAAACHRSTlMAJEltkrbb/1y0/6IAAAFkSURBVHja7ZY7TsNAEIa/dZIWjQw00NiR6JOKHimihSBETUEOQAGXQEGiS4O4AJCa1wmC5AsAbhEPbYsS71JgRASJbUwoQP5Le8af/5mxZ6FQoUJ/Xyo9xPW50ZMHbMjLEQALTbBnASzWBOgfbMc5nUxUZ+wdEQDKTUA1BJDMpjMBYq3Bs8ZZSfDsegn55ZTnlzweDlVLZgCiAGuinnLqXA/FNOb2fwCAK+zpZkk0RBcAl5Tr9PSESuRjQniC2rernw3gYQATdzgHIa1EggGsFgEqO+j77mQdfAWOuKR+4CCNoFoI7FqzNwlAFKAHI4EqtwONAyhB8z6mnwMEsHkACiCsOW+d0qPf03aQ5fl2riZbgDscD6YhSDBp802RU61W/QiWUKtEeX/YCSWqrEO/HXqzW47wmHcfpH4Hx+AKpvtrgMEJYM9zr7SxA+wKgAk/VqYrJoyTfG6HQ6fC4uxRqND/1ivKNFnnOhWrkgAAAABJRU5ErkJggg=="};
+  const settings = { yaw: START.yaw, power: START.power, loft: START.loft };
+  const panel = el("m-group", { x: PANEL_X, z: PANEL_Z });
+  const readout = el("m-label", { content: "", width: 3.4, height: 0.5, "font-size": 15, color: "rgba(27,43,52,0)", "font-color": "#eff4ee",
+    "cast-shadows": "false", clickable: "false", y: 3.02, z: 0.05 }, panel);
+  const wrapYaw = (v) => { v = ((v + 180) % 360 + 360) % 360 - 180; return v === -180 ? 180 : v; };
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  function showSettings() {
+    set(aimG, "ry", -settings.yaw);                  // positive aim turns right, as in the game
+    const yt = (settings.yaw > 0 ? "+" : "") + settings.yaw.toFixed(0);
+    set(readout, "content", "YAW " + yt + " deg     POWER " + settings.power.toFixed(0) + "%\n" + "LOFT " + settings.loft.toFixed(0) + "%");
+  }
+  function press(cmd) {
+    if (state === "launch") return;                 // not while a throw is under way
+    if (cmd === "yaw-minus") settings.yaw = wrapYaw(settings.yaw - 5);
+    if (cmd === "yaw-plus") settings.yaw = wrapYaw(settings.yaw + 5);
+    if (cmd === "power-minus") settings.power = clamp(settings.power - 10, 0, 100);
+    if (cmd === "power-plus") settings.power = clamp(settings.power + 10, 0, 100);
+    if (cmd === "loft-minus") settings.loft = clamp(settings.loft - 10, 0, 100);
+    if (cmd === "loft-plus") settings.loft = clamp(settings.loft + 10, 0, 100);
+    showSettings();
+  }
+  [["yaw-minus", "AIM LEFT", -0.89, 2.5], ["yaw-plus", "AIM RIGHT", 0.89, 2.5],
+   ["power-minus", "POWER -", -0.89, 2], ["power-plus", "POWER +", 0.89, 2],
+   ["loft-minus", "LOFT -", -0.89, 1.5], ["loft-plus", "LOFT +", 0.89, 1.5]].forEach(([cmd, word, x, y]) => {
+    const btn = el("m-cube", { collide: "false", clickable: "true", x: x, y: y, z: 0.09, width: 1.62, height: 0.4, depth: 0.07, opacity: 0, color: "#a9c4d0", "cast-shadows": "false" }, panel);
+    const img = el("m-image", { src: WORDS[word], width: 1.56, height: 0.33, x: x, y: y, z: 0.14, emissive: 1, collide: "false", clickable: "true", "cast-shadows": "false" }, panel);
+    const it = el("m-interaction", { x: x, y: y, z: 0.2, range: 7, prompt: word, "in-focus": "false", "line-of-sight": "false" }, panel);
+    on(btn, "click", () => press(cmd)); on(img, "click", () => press(cmd)); on(it, "interact", () => press(cmd));
+  });
+  // v9: THE FIRE BUTTON - a red button across the panel under the LOFT row.
+  // Throws now (cuts a countdown short); ignored while a throw is under way.
+  function fireNow() {
+    if (state === "launch") return;
+    launch();
+  }
+  {
+    const x = 0, y = 0.95;
+    const btn = el("m-cube", { collide: "false", clickable: "true", x: x, y: y, z: 0.07, width: 3.4, height: 0.5, depth: 0.08, color: "#a8321e", "cast-shadows": "false" }, panel);
+    const img = el("m-image", { src: WORDS["FIRE"], width: 1.9, height: 0.4, x: x, y: y, z: 0.14, emissive: 1, collide: "false", clickable: "true", "cast-shadows": "false" }, panel);
+    const it = el("m-interaction", { x: x, y: y, z: 0.2, range: 7, prompt: "FIRE", "in-focus": "false", "line-of-sight": "false" }, panel);
+    on(btn, "click", fireNow); on(img, "click", fireNow); on(it, "interact", fireNow);
+  }
+  showSettings();
+
+  // forward is -z (the way the castle catapults throw)
+  const speedNow = () => Math.sqrt(SPEED_MIN * SPEED_MIN + (SPEED_MAX * SPEED_MAX - SPEED_MIN * SPEED_MIN) * settings.power / 100);   // distance goes up evenly with POWER
+  const angleNow = () => ANGLE_MIN + (ANGLE_MAX - ANGLE_MIN) * settings.loft / 100;
+  const drop = (a) => { if (a.parentNode) a.parentNode.removeChild(a); };
+  const anim = (node, attr, a, b, t, ms, easing) => {
+    const o = { attr: attr, start: a, end: b, duration: Math.max(1, Math.round(ms)), "start-time": Math.round(t), loop: "false" };
+    if (easing) o.easing = easing;
+    return el("m-attr-anim", o, node);
+  };
+  // The swing speeds up all the way (easeInCubic, like the castle). The visible arm carries on
+  // past RELEASE to FOLLOW on the same curve, so it passes RELEASE exactly when the pad lets fly,
+  // then stops dead. The bucket tips from upright to lined up with the arm by RELEASE.
+  const EASE = "easeInCubic";
+  const ARM_MS = SWING_MS * Math.cbrt((READY - FOLLOW) / (READY - RELEASE));
+  function launch() {
+    state = "launch"; say("");
+    const v = speedNow(), ang = angleNow(), cy = Math.sin(ang * DEG), cz = -Math.cos(ang * DEG);
+    const carryMs = CARRY_MS, flingMs = CARRY_MS + RUN_MS;
+    const ts = docNow() + LEAD_MS, L = (v * flingMs) / 1000;
+    anims = [
+      // 1. up with the bucket: one smooth, speeding-up swing, READY -> RELEASE
+      anim(padArm, "rx", READY, RELEASE, ts, SWING_MS, EASE),
+      anim(padSling, "rx", -READY, 0, ts, SWING_MS, EASE),            // tips with the bucket...
+      anim(level, "rx", 0, -RELEASE, ts, SWING_MS, EASE),             // ...but the floor stays flat
+      // 2. at the release point: out over the top at full speed
+      anim(fling, "y", 0, L * cy, ts + SWING_MS, flingMs), anim(fling, "z", 0, L * cz, ts + SWING_MS, flingMs),
+      // the visible arm and bucket, and the counterweight (which stays hanging level)
+      anim(arm, "rx", READY, FOLLOW, ts, ARM_MS, EASE),
+      anim(sling, "rx", -READY, 0, ts, SWING_MS, EASE),
+      anim(cw, "rx", -READY, -FOLLOW, ts, ARM_MS, EASE),
+    ];
+    held.forEach(drop); held = [];               // the "stay at home" anims from last time are no longer needed
+    setTimeout(guard(letGo), LEAD_MS + SWING_MS + carryMs);
+  }
+  function letGo() {
+    set(pad, "collide", "false");                  // gone from under you while still moving: you fly on
+    onIt.clear();
+    setTimeout(guard(reload), 2500);
+  }
+  function reload() {
+    // bring everything home with NEW animations that end later than the throw's, so they win
+    // even if Otherside keeps playing the old ones after they're removed
+    const t0 = docNow() + 60;
+    held = [
+      anim(padArm, "rx", READY, READY, t0, 1), anim(padSling, "rx", -READY, -READY, t0, 1), anim(level, "rx", 0, 0, t0, 1),
+      anim(fling, "y", 0, 0, t0, 1), anim(fling, "z", 0, 0, t0, 1),
+      // wind the arm back down slowly
+      anim(arm, "rx", FOLLOW, READY, t0, 1500, "easeInOutQuad"),
+      anim(sling, "rx", 0, -READY, t0, 1500, "easeInOutQuad"),
+      anim(cw, "rx", -FOLLOW, -READY, t0, 1500, "easeInOutQuad"),
+    ];
+    anims.forEach(drop); anims = [];
+    setTimeout(guard(() => { set(pad, "collide", "true"); state = "idle"; say(""); }), 1700);
+  }
+})();
+</script>
