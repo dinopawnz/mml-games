@@ -1,4 +1,5 @@
-// MML GAMES SERVER  v4
+// MML GAMES SERVER  v5
+// v5: uses the oldest MML protocol (v0.1) first - the newest one crashed Otherside
 // v4: connects properly with Otherside (protocol handshake) + newest MML server
 // v3: also finds games in the main folder (next to server.js), not just docs/
 // Serves every .html file in the "docs" folder as a live MML document.
@@ -72,12 +73,18 @@ function sleep(name) {
 }
 for (const name of ALWAYS_ON) if (files.has(name)) wake(name);
 
-// v4: agree on the connection's protocol with the client, the way the official MML server
-// does. Without this, Otherside's newest protocol was picked and nothing ever arrived
-// ("Connection Open" in the preview, then "Failed to capture screenshot").
-const { app } = enableWs(express(), undefined, {
-  wsOptions: { handleProtocols: (protocols) => NetworkedDOM.handleWebsocketSubprotocol(protocols) },
-});
+// v5: agree on the connection's protocol with the client. Otherside's in-world (Unreal)
+// client offers the newest protocol too, but crashes on it - so the OLDEST one it offers,
+// networked-dom-v0.1 (plain JSON, what every MML client supports), is picked first.
+// To try another order, set PROTOCOLS on Render, e.g. "networked-dom-v0.2.1,networked-dom-v0.1".
+const PROTOCOLS = (process.env.PROTOCOLS || "networked-dom-v0.1,networked-dom-v0.2,networked-dom-v0.2.1")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+function pickProtocol(offered) {
+  const set = new Set(offered);
+  for (const p of PROTOCOLS) if (set.has(p)) return p;
+  return NetworkedDOM.handleWebsocketSubprotocol(set);   // something else we still understand
+}
+const { app } = enableWs(express(), undefined, { wsOptions: { handleProtocols: pickProtocol } });
 app.enable("trust proxy");
 
 // players (and host remotes) connect here
@@ -88,6 +95,7 @@ app.ws("/:name", (ws, req) => {
   clearTimeout(g.timer); g.timer = null;
   g.sockets.add(ws);
   g.doc.addWebSocket(ws);
+  console.log(`join /${name} (${ws.protocol || "no protocol"}), ${g.sockets.size} connected`);
   ws.on("close", () => {
     try { g.doc.removeWebSocket(ws); } catch (e) {}
     g.sockets.delete(ws);
