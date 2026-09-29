@@ -5,5 +5,5 @@ services:
     plan: starter
     buildCommand: npm install
     startCommand: npm start
-    healthCheckPath: /healthz
+    healthCheckPath: /
     autoDeploy: true
