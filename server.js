@@ -1,4 +1,5 @@
-// MML GAMES SERVER  v3
+// MML GAMES SERVER  v4
+// v4: connects properly with Otherside (protocol handshake) + newest MML server
 // v3: also finds games in the main folder (next to server.js), not just docs/
 // Serves every .html file in the "docs" folder as a live MML document.
 //   docs/emberhold.html  ->  wss://<your-server>/emberhold
@@ -19,7 +20,7 @@ import path from "path";
 import url from "url";
 import express from "express";
 import enableWs from "express-ws";
-import { EditableNetworkedDOM, LocalObservableDOMFactory } from "@mml-io/networked-dom-server";
+import { EditableNetworkedDOM, LocalObservableDOMFactory, NetworkedDOM } from "@mml-io/networked-dom-server";
 
 const dirname = url.fileURLToPath(new URL(".", import.meta.url));
 const DOCS_DIR = path.resolve(dirname, "./docs");
@@ -71,7 +72,12 @@ function sleep(name) {
 }
 for (const name of ALWAYS_ON) if (files.has(name)) wake(name);
 
-const { app } = enableWs(express());
+// v4: agree on the connection's protocol with the client, the way the official MML server
+// does. Without this, Otherside's newest protocol was picked and nothing ever arrived
+// ("Connection Open" in the preview, then "Failed to capture screenshot").
+const { app } = enableWs(express(), undefined, {
+  wsOptions: { handleProtocols: (protocols) => NetworkedDOM.handleWebsocketSubprotocol(protocols) },
+});
 app.enable("trust proxy");
 
 // players (and host remotes) connect here
