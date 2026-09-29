@@ -1,0 +1,466 @@
+<!--
+  EASTER EGG HATCH  v1
+  ============================================================
+  Colorful Easter eggs float above glowing pads, bobbing and turning.
+
+  1. Step onto a pad. The egg above it blooms open, swoops down, grows
+     and snaps shut around you. From outside nobody can see you.
+     (Invisible walls keep you inside while it's closed.)
+  2. 5 seconds after the FIRST egg closes, EVERY closed egg starts
+     hatching together: it wobbles, hops and shakes, glowing cracks
+     spread over the shell, light leaks out of the seams, it squashes...
+  3. ...and BURSTS: the top pops off and spins away, shell shards and
+     sparkles fly out, and the shell opens out flat like a flower's
+     petals, with you standing in the middle.
+  4. The flower stays open until you step off the pad. Then the egg
+     closes up, floats back up and waits for the next person.
+
+  More people can hop on other pads during the 5-second countdown; their
+  eggs join the same hatch. Anyone who closes in after the hatch has
+  started gets their own new 5-second countdown.
+
+  Everything is built from plain MML shapes: no models, nothing to upload.
+  Put this group wherever you like (it is centered on 0,0,0, eggs in a
+  ring around a sign). Settings are at the top of the script.
+-->
+<m-group id="root"></m-group>
+
+<script>
+(function () {
+  "use strict";
+
+  // ==========================================================
+  // SETTINGS
+  // ==========================================================
+  const N_EGGS = 8;               // how many eggs / pads
+  const LAYOUT = "ring";          // "ring" (around the sign) or "row" (a straight line)
+  const SPACING = 9;              // metres between neighbouring pads (open flowers are ~7.5 m across)
+  const HATCH_DELAY_S = 5;        // seconds from the first egg closing until they all start cracking
+  const CRACK_MS = 3200;          // how long the shaking + cracking lasts before they burst
+  const OPEN_MIN_MS = 6000;       // the flower stays open at least this long...
+  const OPEN_MAX_MS = 45000;      // ...and closes up anyway after this long, even if someone is still on the pad
+  const TRAP_PLAYERS = true;      // invisible walls keep you inside while the egg is closed
+  const SIGN = true;              // the countdown sign in the middle
+  const LIGHTS = true;            // a glow inside each egg while it hatches
+
+  const IDLE_Y = 2.3;             // how high the floating egg hovers over its pad (above everyone's head)
+  const IDLE_SCALE = 0.4;         // how big the floating egg is (1 = full size, 3.5 m tall)
+
+  // ---- the egg's shape (metres, full size)
+  const PETALS = 10;              // shell pieces around (each one opens like a petal)
+  const ROWS = 8;                 // pieces up each petal
+  const R = 1.25;                 // widest radius
+  const A = 1.75;                 // half height
+  const K = 0.1;                  // how much fatter the bottom is than the top
+  const BOTTOM = -0.4;            // the egg's bottom tip (just under the floor)
+  const HINGE_Y = 0.35;           // where the petals are hinged (the broken base cup stays below this)
+  const CAP_Y = 2.8;              // the lid that pops off starts here
+  const TH = 0.07;                // shell thickness
+
+  // ---- colors
+  const GLOW = "#fff0a0";         // light glow (the cracks turn this color just before the burst)
+  const CRACK = "#3b2418";        // fresh cracks
+  const PATTERNS = [
+    { kind: "stripes",   c: ["#ff8fc8", "#fff4d6", "#ffd84a", "#fff4d6"] },
+    { kind: "dots",      c: ["#5cc8ff"], band: "#ffd84a", dot: "#ffffff" },
+    { kind: "harlequin", c: ["#7de3a8", "#b38cff"] },
+    { kind: "stripes",   c: ["#ff9f43", "#2ec4b6", "#fff4d6"] },
+    { kind: "dots",      c: ["#b38cff"], band: "#ff8fc8", dot: "#ffe45c" },
+    { kind: "rainbow",   c: ["#ff5a5f", "#ff9f43", "#ffd84a", "#7de3a8", "#5cc8ff", "#8a7dff", "#d77dff", "#ff8fc8"] },
+    { kind: "zigzag",    c: ["#ffd84a", "#ff5a5f"] },
+    { kind: "dots",      c: ["#4d7cff"], band: "#ffffff", dot: "#ff8fc8" },
+  ];
+
+  // ==========================================================
+  const rootEl = document.getElementById("root");
+  const DEG = Math.PI / 180;
+  const r3 = (v) => Math.round(v * 1000) / 1000;
+  function el(tag, attrs, parent) {
+    const n = document.createElement(tag);
+    if ((tag === "m-cube" || tag === "m-cylinder" || tag === "m-sphere" || tag === "m-label") && !(attrs && attrs.collide !== undefined)) n.setAttribute("collide", "false");
+    if ((tag === "m-cube" || tag === "m-cylinder" || tag === "m-sphere") && !(attrs && attrs["cast-shadows"] !== undefined)) n.setAttribute("cast-shadows", "false");
+    for (const k in attrs) n.setAttribute(k, typeof attrs[k] === "number" ? String(r3(attrs[k])) : String(attrs[k]));
+    (parent || rootEl).appendChild(n);
+    return n;
+  }
+  function set(n, k, v) { if (!n) return; const sv = typeof v === "number" ? String(r3(v)) : String(v); if (n.getAttribute(k) !== sv) n.setAttribute(k, sv); }
+  function guard(fn) { return function () { try { return fn.apply(this, arguments); } catch (e) { console.log("eggs:", e && e.message); } }; }
+  const on = (n, t, fn) => n.addEventListener(t, guard(fn));
+  const idOf = (e) => (e && e.detail && e.detail.connectionId !== undefined ? e.detail.connectionId : null);
+  const later = (fn, ms) => setTimeout(guard(fn), ms);
+  const rand = (a, b) => a + Math.random() * (b - a);
+
+  // ---- smooth moves: the server sets the end value, every screen glides there by itself
+  // (m-attr-lerp - no shared clock needed, so nobody sees it out of step)
+  function lerpOf(node, attrs) {
+    node.__l = node.__l || {};
+    let l = node.__l[attrs];
+    if (!l) { l = el("m-attr-lerp", { attr: attrs, duration: 300, easing: "easeInOutQuad" }, node); node.__l[attrs] = l; }
+    return l;
+  }
+  function go(node, attrs, vals, ms, easing) {
+    const l = lerpOf(node, attrs);
+    set(l, "duration", Math.max(1, Math.round(ms)));
+    set(l, "easing", easing || "easeInOutQuad");
+    for (const k in vals) set(node, k, vals[k]);
+  }
+  // looping wiggles (bob, spin, shake) - a loop has no start or end, so clocks don't matter
+  function loopAnim(node, attr, a, b, ms, pingpong, easing) {
+    const o = { attr, start: a, end: b, duration: Math.round(ms), loop: "true" };
+    if (pingpong) o["ping-pong"] = "true";
+    if (easing) o.easing = easing;
+    return el("m-attr-anim", o, node);
+  }
+  const kill = (n) => { if (n && n.parentNode) n.parentNode.removeChild(n); };
+
+  // ==========================================================
+  // THE EGG'S SHAPE
+  // ==========================================================
+  const C = BOTTOM + A;                                         // egg centre height
+  const prof = (phi) => ({ r: R * Math.sin(phi) * (1 + K * Math.cos(phi)), y: C - A * Math.cos(phi) });
+  const phiAtY = (y) => Math.acos(Math.max(-1, Math.min(1, (C - y) / A)));
+  const PHI0 = phiAtY(HINGE_Y), PHIC = phiAtY(CAP_Y), PHIB = 0.05;
+  const H0 = prof(PHI0);                                        // the hinge ring
+  const TAN = Math.tan(Math.PI / PETALS);
+  const bands = (a, b, n) => { const out = []; for (let i = 0; i < n; i++) out.push([a + (b - a) * i / n, a + (b - a) * (i + 1) / n]); return out; };
+  const PETAL_ROWS = bands(PHI0, PHIC, ROWS);
+  const CAP_ROWS = bands(PHIC, Math.PI - 0.02, 2);
+  const CUP_ROWS = bands(PHIB, PHI0, 4);
+
+  // one flat shell piece between two points of the profile, relative to (ox, oy)
+  function piece(parent, pa, pb, ox, oy, color) {
+    const a = prof(pa), b = prof(pb);
+    const dx = b.r - a.r, dy = b.y - a.y, len = Math.hypot(dx, dy);
+    return el("m-cube", {
+      x: (a.r + b.r) / 2 - ox, y: (a.y + b.y) / 2 - oy, rz: -Math.atan2(dx, dy) / DEG,
+      width: TH, height: len * 1.04, depth: 2 * Math.max(a.r, b.r) * TAN * 1.04, color,
+    }, parent);
+  }
+
+  // how far the petals can fold out before they'd dig into the floor
+  const OPEN_DEG = (() => {
+    const pts = [];
+    PETAL_ROWS.forEach(([pa, pb]) => [pa, pb].forEach((p) => { const q = prof(p); pts.push([q.r - H0.r + TH / 2, q.y - H0.y]); }));
+    let best = 60;
+    for (let t = 60; t <= 110; t++) {
+      const s = Math.sin(t * DEG), c = Math.cos(t * DEG);
+      if (pts.every(([x, y]) => HINGE_Y + (-x * s + y * c) >= 0.04)) best = t; else break;
+    }
+    return best;
+  })();
+
+  // pattern colors: row j of petal k
+  function colorOf(P, k, j) {
+    const c = P.c, n = c.length, jj = ((j % 64) + 64) % 64;
+    switch (P.kind) {
+      case "stripes": return c[jj % n];
+      case "rainbow": return c[jj % n];
+      case "harlequin": return c[(jj + k) % n];
+      case "zigzag": return c[Math.floor((jj + (k % 2)) / 2) % n];
+      case "dots": return (j === 1 || j === ROWS - 2) ? P.band : c[0];
+    }
+    return c[0];
+  }
+
+  // ==========================================================
+  // ONE EGG
+  // ==========================================================
+  const eggs = [];
+  function buildEgg(i, px, pz, face) {
+    const P = PATTERNS[i % PATTERNS.length];
+    const E = { i, P, state: "idle", gen: 0, occ: new Map(), t: 0 };
+    const root = el("m-group", { x: px, z: pz, ry: face });
+    E.root = root;
+
+    // ---- the pad
+    el("m-cylinder", { y: 0.02, radius: 0.85, height: 0.04, color: "#ffffff" }, root);
+    E.padTop = el("m-cylinder", { y: 0.045, radius: 0.72, height: 0.03, color: P.c[0] }, root);
+    el("m-cylinder", { y: 0.065, radius: 0.34, height: 0.02, color: P.band || P.c[1 % P.c.length] }, root);
+    const pad = el("m-cube", { y: 0.035, width: 1.0, height: 0.07, depth: 1.0, color: "#ffffff", visible: "false",
+      collide: "true", "collision-interval": 100 }, root);
+    const heard = (id) => { if (id === null) return; E.occ.set(id, Date.now()); if (E.state === "idle") engulf(E); };
+    on(pad, "collisionstart", (e) => heard(idOf(e)));
+    on(pad, "collisionmove", (e) => heard(idOf(e)));
+    on(pad, "collisionend", (e) => { E.occ.delete(idOf(e)); });
+
+    // ---- invisible walls + roof (only solid while the egg is closed)
+    E.walls = [];
+    const WR = 1.0, WN = 8;
+    for (let w = 0; w < WN; w++) {
+      const a = (w / WN) * 360;
+      const g = el("m-group", { ry: a }, root);
+      E.walls.push(el("m-cube", { x: WR, y: 1.4, width: 0.12, height: 2.8, depth: 2 * WR * Math.tan(Math.PI / WN) * 1.15,
+        visible: "false", collide: "false" }, g));
+    }
+    E.walls.push(el("m-cube", { y: 2.75, width: 2.1, height: 0.12, depth: 2.1, visible: "false", collide: "false" }, root));
+
+    // ---- the egg: float (up/down, size) > spin > bob > wob (shake, hop, squash)
+    E.F = el("m-group", { y: IDLE_Y, sx: IDLE_SCALE, sy: IDLE_SCALE, sz: IDLE_SCALE }, root);
+    E.SP = el("m-group", {}, E.F);
+    E.BO = el("m-group", {}, E.SP);
+    E.W = el("m-group", {}, E.BO);
+
+    // inner body: fills the hairline gaps between pieces, glows through them when it cracks
+    E.core = el("m-sphere", { radius: 1, y: C, sx: R * 0.86, sy: A * 0.93, sz: R * 0.86, color: P.c[0] }, E.W);
+    if (LIGHTS) E.light = el("m-light", { type: "point", y: 1.5, intensity: 0, distance: 7, color: "#ffd27a", "cast-shadows": "false" }, E.W);
+
+    // petals
+    E.petals = []; E.hinges = []; E.pieces = [];
+    for (let k = 0; k < PETALS; k++) {
+      const base = (k / PETALS) * 360;
+      const pg = el("m-group", { ry: base }, E.W);
+      const hg = el("m-group", { x: H0.r, y: H0.y }, pg);
+      pg.__base = base;
+      E.petals.push(pg); E.hinges.push(hg);
+      const col = [];
+      PETAL_ROWS.forEach(([pa, pb], j) => {
+        const pc = piece(hg, pa, pb, H0.r, H0.y, colorOf(P, k, j));
+        col.push(pc);
+        if (P.kind === "dots" && j % 2 === 0 && j > 0 && j < ROWS - 1) {        // diamond dots
+          el("m-cube", { x: TH / 2, z: (j % 4 === 0 ? 0.18 : -0.18), rx: 45, width: 0.02, height: 0.17, depth: 0.17, color: P.dot }, pc);
+        }
+      });
+      E.pieces.push(col);
+      // broken base cup (stays when it opens)
+      const cg = el("m-group", { ry: base }, E.W);
+      CUP_ROWS.forEach(([pa, pb], j) => piece(cg, pa, pb, 0, 0, colorOf(P, k, j < 2 ? -2 : -1)));
+    }
+    // the lid
+    E.cap = el("m-group", {}, E.W);
+    for (let k = 0; k < PETALS; k++) {
+      const cg = el("m-group", { ry: (k / PETALS) * 360 }, E.cap);
+      CAP_ROWS.forEach(([pa, pb], j) => piece(cg, pa, pb, 0, 0, colorOf(P, k, ROWS + j)));
+    }
+
+    // ---- cracks: glowing zigzags that spread up and down some petals in 3 stages
+    E.cracks = [[], [], []];
+    const crackPetals = [];
+    for (let k = 0; k < PETALS; k++) crackPetals.push(k);
+    crackPetals.sort(() => Math.random() - 0.5);
+    crackPetals.forEach((k, idx) => {
+      const long = idx < 5;                                   // 5 long cracks, the rest short ones
+      const mid = 2 + Math.floor(Math.random() * (ROWS - 4));
+      const from = long ? Math.max(0, mid - 3) : mid, to = long ? Math.min(ROWS - 1, mid + 3) : mid + 1;
+      const firstStage = long ? (idx < 2 ? 0 : 1) : 2;
+      let z = rand(-0.2, 0.2);
+      for (let j = from; j <= Math.min(to, ROWS - 1); j++) {
+        const pc = E.pieces[k][j];
+        const h = +pc.getAttribute("height"), d = +pc.getAttribute("depth");
+        const lim = d * 0.35, z2 = Math.max(-lim, Math.min(lim, z + (Math.random() < 0.5 ? -1 : 1) * rand(0.08, 0.2)));
+        const z1 = Math.max(-lim, Math.min(lim, z));
+        const seg = el("m-cube", { x: TH / 2 + 0.008, z: (z1 + z2) / 2, rx: Math.atan2(z2 - z1, h) / DEG,
+          width: 0.016, height: Math.hypot(h, z2 - z1) * 1.05, depth: 0.04, color: CRACK, visible: "false" }, pc);
+        const stage = Math.min(2, firstStage + Math.floor(Math.abs(j - mid) / 2));
+        E.cracks[stage].push(seg);
+        z = z2;
+      }
+    });
+
+    // ---- shell shards + sparkles for the burst (hidden until then)
+    E.shards = [];
+    for (let s = 0; s < 14; s++) {
+      const a = rand(0, 360) * DEG, phi = rand(PHI0, PHIC), q = prof(phi);
+      const home = { x: Math.cos(a) * q.r * 0.9, y: q.y, z: Math.sin(a) * q.r * 0.9 };
+      const sz = rand(0.14, 0.26);
+      const n = el("m-cube", { x: home.x, y: home.y, z: home.z, width: sz, height: TH, depth: sz * rand(0.6, 1),
+        color: P.c[s % P.c.length], visible: "false" }, E.W);
+      E.shards.push({ n, home, a });
+    }
+    E.sparks = [];
+    for (let s = 0; s < 10; s++) {
+      const n = el("m-cube", { y: 1.6, width: 0.1, height: 0.1, depth: 0.1, rx: 45, rz: 45, color: s % 2 ? "#ffffff" : GLOW, visible: "false" }, E.W);
+      E.sparks.push(n);
+    }
+
+    idleLoops(E);
+    eggs.push(E);
+    return E;
+  }
+
+  function idleLoops(E) {
+    E.loops = [
+      loopAnim(E.SP, "ry", 0, 360, 9000 + E.i * 700, false),
+      loopAnim(E.BO, "y", -0.12, 0.12, 1700 + E.i * 90, true, "easeInOutSine"),
+    ];
+  }
+  function stopIdleLoops(E) { (E.loops || []).forEach(kill); E.loops = []; }
+  function wobble(E, amp, ms) {
+    (E.wob || []).forEach(kill); E.wob = [];
+    if (amp > 0) {
+      E.wob.push(loopAnim(E.W, "rz", -amp, amp, ms, true, "easeInOutSine"));
+      E.wob.push(loopAnim(E.W, "rx", -amp * 0.6, amp * 0.6, ms * 1.37, true, "easeInOutSine"));
+    }
+  }
+  const walls = (E, solid) => { if (TRAP_PLAYERS || !solid) E.walls.forEach((w) => set(w, "collide", solid ? "true" : "false")); };
+  const glow = (E, v, ms, easing) => { if (E.light) go(E.light, "intensity", { intensity: v }, ms, easing || "easeOutQuad"); };
+  const setPetals = (E, deg, ms, easing, stagger) => E.hinges.forEach((h, k) => {
+    const d = stagger ? (k % 2) * 90 + Math.random() * 50 : 0;
+    const f = () => go(h, "rz", { rz: -deg }, ms, easing);
+    if (d) later(f, d); else f();
+  });
+  const twist = (E, deg, ms, easing) => E.petals.forEach((p) => go(p, "ry", { ry: p.__base + deg }, ms, easing));
+  function hop(E, h, ms) {
+    go(E.W, "y", { y: h }, ms, "easeOutQuad");
+    later(() => go(E.W, "y", { y: 0 }, ms * 1.1, "easeInQuad"), ms);
+  }
+
+  // ==========================================================
+  // WHAT AN EGG DOES
+  // ==========================================================
+  // idle -> engulf -> closed -> cracking -> open -> reset -> idle
+  function engulf(E) {
+    const g = ++E.gen;
+    E.state = "engulf";
+    stopIdleLoops(E);
+    setPetals(E, 38, 450, "easeOutQuad");                           // bloom open...
+    go(E.F, "y,sx,sy,sz", { y: 0, sx: 1, sy: 1, sz: 1 }, 950, "easeInOutCubic");   // ...swoop down and grow
+    later(() => {
+      if (E.gen !== g) return;
+      setPetals(E, 0, 500, "easeOutBounce");                        // ...and snap shut
+      walls(E, true);
+    }, 950);
+    later(() => { if (E.gen !== g) return; E.state = "closed"; joinRound(E); }, 1500);
+  }
+
+  function crack(E) {
+    const g = ++E.gen;
+    E.state = "cracking";
+    const at = (ms, fn) => later(() => { if (E.gen === g) fn(); }, ms);
+    const T = CRACK_MS / 3200;                                      // stretch the timeline if CRACK_MS changes
+    at(0, () => { wobble(E, 3, 170); E.cracks[0].forEach((c) => set(c, "visible", "true")); glow(E, 4, 600); });
+    at(900 * T, () => { hop(E, 0.18, 150); wobble(E, 7, 140); E.cracks[1].forEach((c) => set(c, "visible", "true")); glow(E, 9, 500); });
+    at(1800 * T, () => {
+      hop(E, 0.3, 170); wobble(E, 11, 110);
+      E.cracks[2].forEach((c) => set(c, "visible", "true"));
+      E.cracks.forEach((st) => st.forEach((c) => set(c, "color", GLOW)));   // light pours through the cracks
+      go(E.core, "color", { color: GLOW }, 600, "easeInQuad");      // the inside lights up...
+      setPetals(E, 4, 220, "easeOutQuad");                          // ...and leaks out of the seams
+      glow(E, 16, 500);
+    });
+    at(2500 * T, () => hop(E, 0.14, 120));
+    at(2900 * T, () => { wobble(E, 0); go(E.W, "sx,sy,sz", { sx: 1.07, sy: 0.88, sz: 1.07 }, 280, "easeOutQuad"); });
+    at(CRACK_MS, () => burst(E));
+  }
+
+  function burst(E) {
+    const g = E.gen;
+    const at = (ms, fn) => later(() => { if (E.gen === g) fn(); }, ms);
+    E.state = "open"; E.t = Date.now();
+    walls(E, false);
+    set(E.core, "visible", "false");
+    go(E.W, "sx,sy,sz", { sx: 1, sy: 1, sz: 1 }, 380, "easeOutBack");
+    setPetals(E, OPEN_DEG, 1150, "easeOutBack", true);             // open like a flower
+    twist(E, 14, 1150, "easeOutCubic");
+    // the lid pops off, spins up and vanishes
+    go(E.cap, "y,ry", { y: 1.9, ry: 170 }, 650, "easeOutCubic");
+    at(650, () => go(E.cap, "sx,sy,sz", { sx: 0.01, sy: 0.01, sz: 0.01 }, 450, "easeInQuad"));
+    at(1100, () => set(E.cap, "visible", "false"));
+    // flash
+    glow(E, 45, 120, "easeOutQuad");
+    at(180, () => glow(E, 0, 1800, "easeOutQuad"));
+    at(700, () => E.cracks.forEach((st) => st.forEach((c) => set(c, "visible", "false"))));
+    // shards fly out, then fall to the floor
+    E.shards.forEach((s) => {
+      const d = rand(2.6, 5.2), up = rand(1.6, 3.2);
+      set(s.n, "visible", "true");
+      go(s.n, "x,y,z", { x: Math.cos(s.a) * d * 0.7, y: s.home.y + up, z: Math.sin(s.a) * d * 0.7 }, 420, "easeOutQuad");
+      go(s.n, "rx,ry", { rx: rand(-170, 170), ry: rand(-170, 170) }, 1000, "linear");
+      at(420, () => go(s.n, "x,y,z", { x: Math.cos(s.a) * d, y: 0.05, z: Math.sin(s.a) * d }, 560, "easeInQuad"));
+    });
+    // sparkles rise and twinkle out
+    E.sparks.forEach((n) => {
+      set(n, "visible", "true");
+      go(n, "x,y,z,sx,sy,sz", { x: rand(-1.6, 1.6), y: rand(3.8, 5.6), z: rand(-1.6, 1.6), sx: 0.01, sy: 0.01, sz: 0.01 }, rand(1100, 1600), "easeOutCubic");
+    });
+    at(1700, () => E.sparks.forEach((n) => set(n, "visible", "false")));
+  }
+
+  function reset(E) {
+    const g = ++E.gen;
+    E.state = "reset";
+    const at = (ms, fn) => later(() => { if (E.gen === g) fn(); }, ms);
+    E.shards.forEach((s) => set(s.n, "visible", "false"));
+    set(E.core, "color", E.P.c[0]);
+    E.cracks.forEach((st) => st.forEach((c) => set(c, "color", CRACK)));
+    setPetals(E, 0, 900, "easeInOutQuad");                          // fold the petals back up
+    twist(E, 0, 900, "easeInOutQuad");
+    // (hidden things glide home while nobody can see them)
+    E.shards.forEach((s) => { go(s.n, "x,y,z", s.home, 300, "linear"); go(s.n, "rx,ry", { rx: 0, ry: 0 }, 300, "linear"); });
+    E.sparks.forEach((n) => go(n, "x,y,z,sx,sy,sz", { x: 0, y: 1.6, z: 0, sx: 1, sy: 1, sz: 1 }, 300, "linear"));
+    at(900, () => {
+      set(E.core, "visible", "true");
+      set(E.cap, "visible", "true");                                // the lid drops back on
+      go(E.cap, "y,ry", { y: 0, ry: 0 }, 600, "easeOutBounce");
+      go(E.cap, "sx,sy,sz", { sx: 1, sy: 1, sz: 1 }, 400, "easeOutQuad");
+    });
+    at(1500, () => go(E.F, "y,sx,sy,sz", { y: IDLE_Y, sx: IDLE_SCALE, sy: IDLE_SCALE, sz: IDLE_SCALE }, 1100, "easeInOutCubic"));
+    at(2650, () => { idleLoops(E); E.state = "idle"; E.occ.clear(); });
+  }
+
+  // ==========================================================
+  // ROUNDS: 5 s after the first egg closes, every closed egg hatches together
+  // ==========================================================
+  let round = null;                                   // { at, eggs:Set }
+  function joinRound(E) {
+    if (!round) round = { at: Date.now() + HATCH_DELAY_S * 1000, eggs: new Set() };
+    round.eggs.add(E);
+  }
+
+  function tick() {
+    const now = Date.now();
+    if (round && now >= round.at) {
+      round.eggs.forEach((E) => { if (E.state === "closed") crack(E); });
+      round = null;
+    }
+    eggs.forEach((E) => {
+      if (E.state !== "open") return;
+      // people who left without a collisionend (disconnect / teleport) are dropped after a while
+      E.occ.forEach((t, id) => { if (now - t > OPEN_MAX_MS) E.occ.delete(id); });
+      const age = now - E.t;
+      if ((age > OPEN_MIN_MS && E.occ.size === 0) || age > OPEN_MAX_MS) reset(E);
+    });
+    let text;
+    if (round) text = "HATCHING IN " + Math.max(1, Math.ceil((round.at - now) / 1000));
+    else if (eggs.some((E) => E.state === "cracking")) text = "IT'S HATCHING!";
+    else if (eggs.some((E) => E.state === "open")) text = "HAPPY EASTER!";
+    else text = "STAND ON A PAD!";
+    signText(text);
+  }
+
+  // ==========================================================
+  // BUILD
+  // ==========================================================
+  let signLabels = [];
+  function signText(t) { signLabels.forEach((l) => { set(l, "content", t); set(l, "font-size", Math.max(8, Math.floor(Math.min(80 * 1.1, (118 * 3.9) / Math.max(1, t.length))))); }); }
+
+  const ringR = Math.max(5, SPACING / (2 * Math.sin(Math.PI / N_EGGS)));
+  for (let i = 0; i < N_EGGS; i++) {
+    if (LAYOUT === "row") buildEgg(i, (i - (N_EGGS - 1) / 2) * SPACING, 0, 0);
+    else { const a = (i / N_EGGS) * Math.PI * 2; buildEgg(i, Math.sin(a) * ringR, Math.cos(a) * ringR, a / DEG); }
+  }
+
+  if (SIGN) {
+    const sz = LAYOUT === "row" ? -6 : 0;
+    const s = el("m-group", { z: sz });
+    el("m-cylinder", { y: 1.6, radius: 0.12, height: 3.2, color: "#fff4d6" }, s);
+    // a 4-sided sign box, readable from every egg
+    const SW = 4.2, faces = LAYOUT === "row" ? [0] : [0, 90, 180, 270];
+    faces.forEach((a) => {
+      const g = el("m-group", { ry: a, y: 3.9 }, s);
+      el("m-cube", { z: SW / 2, width: SW + 0.08, height: 1.5, depth: 0.08, color: "#ff8fc8" }, g);
+      signLabels.push(el("m-label", { z: SW / 2 + 0.05, width: SW - 0.3, height: 1.1, content: "", alignment: "center",
+        color: "#fff4d6", "font-color": "#7a2e5a", "font-size": 60, clickable: "false" }, g));
+    });
+    if (faces.length > 1) el("m-cube", { y: 4.68, width: SW + 0.2, height: 0.08, depth: SW + 0.2, color: "#ffd84a" }, s);
+    // a little egg on top of the sign
+    const top = el("m-group", { y: 4.8, sx: 0.3, sy: 0.3, sz: 0.3 }, s);
+    loopAnim(top, "ry", 0, 360, 6000, false);
+    el("m-sphere", { radius: 1, y: C, sx: R, sy: A, sz: R, color: "#ffd84a" }, top);
+    [0.9, 1.5, 2.1].forEach((y, n) => el("m-cylinder", { y, radius: R * Math.sqrt(Math.max(0, 1 - ((y - C) / A) ** 2)) + 0.03, height: 0.22, color: ["#ff8fc8", "#5cc8ff", "#7de3a8"][n] }, top));
+  }
+
+  window.addEventListener("disconnected", guard((e) => { const id = idOf(e); eggs.forEach((E) => E.occ.delete(id)); }));
+  setInterval(guard(tick), 200);
+  tick();
+})();
+</script>
