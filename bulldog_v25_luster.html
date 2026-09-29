@@ -1,0 +1,3659 @@
+<!-- LUSTER V4 SIGNED GOLD / OBSIDIAN SOURCE PACK / September 16 2026. Original Bulldog v24 supplied by Honey B; original author not established. Original script retained byte-for-byte. Luster source meshes/textures supplied by Honey, original creators unidentified. Conversion/composition by Codex; decoration direction Honey B. Otherside testing of this variant pending. -->
+<!--
+  BULLDOG  v24
+  ============================================================
+  v24 - YOU CAN CLICK A CAGE FROM THE STANDS. Click it, type
+  1347, that person is out. Nothing else to remember.
+
+  Why it did not work: the boundary is concrete from the ground
+  to y 4.2 and an opacity-0 collider from 4.2 all the way up to
+  y 24.4. The decks are at y 4.3, so a spectator's eye sits at
+  about 5.9 - inside that invisible piece. A click is a ray and
+  it stops at the first RENDERED thing it meets, visible or not,
+  solid or not. Every shot at a cage died on the wall.
+
+  The wall does not need to be there at eye level. The glass
+  rail at x 49.0 already blocks bodies from 4.3 to 5.5. So the
+  invisible part is built in two now, with a slot between them:
+
+      24.4  ---------------  upper, exactly as before
+       6.4  ---------------  GLASS_HEAD
+                             <- 0.9m. rays through, bodies not
+       5.5  ---------------  GLASS_SILL, level with the rail top
+       4.2  ---------------  lower, behind the rail
+       0.0  ===============  concrete
+
+  The lower piece is not decoration. Without it there is a
+  1.2m-wide ledge on top of the concrete at 4.2 with open air
+  above it, and anyone who cleared the rail would land on it and
+  step off onto the pitch. With it, the only opening in the
+  whole barrier is 0.9m tall. An avatar is about twice that: it
+  cannot fit through, and it cannot stand in the slot either,
+  because its head is in the upper piece.
+
+  The touchline braziers had to move. They sat on the wall top
+  with their bowls at 5.3 and their flames at 5.8 - squarely in
+  the new slot, three a side, one of them on halfway where the
+  host stands, each throwing a 9-degree blind cone across the
+  pitch. They are on posts now, full thickness below the slot, a
+  0.12 stem through it, bowl and flame above it. They also look
+  better on posts.
+
+  Checked by sightline_verify.js, which marches a click ray from
+  a spectator's eye against every rendered piece in the document
+  - not just the colliders, because that is what a raycast does.
+  v21: no cage clickable from a deck, all seven stop on the
+  boundary. v24: all seven clickable, four of them square-on and
+  the rest half a step off, because something 0.2m wide happens
+  to be in the way. Same harness measures the barrier: one 0.9m
+  gap, nothing near avatar-sized.
+
+  GLASS_SILL and GLASS_HEAD are the slot. Raise GLASS_HEAD for a
+  wider shot at the cages; never above about 7.2, which is where
+  an avatar starts to fit through.
+
+  v22 - LEANING ON A CAGE IS NOT A HIDING PLACE. Reported from
+  a live game: get close enough to a cage to be touching it and
+  the dogs stop chasing you. They did, and here is why.
+
+  huntableAt - the one call that decides whether a dog may want
+  somebody, take a fix on them, keep a fix on them, or tag them -
+  asked inCage(x, z), and inCage was true within CAGE_A + 1.2,
+  which is 4.0m of a cage's centre. But the only solid part of a
+  cage is its six wall panels at CAGE_A = 2.8m. The base plinth
+  does not collide, so a runner walks straight over it and leans
+  on the wall, which puts them about 3.15m out - comfortably
+  inside 4.0. The game read them as a prisoner. Every dog
+  dropped them at once: their footsteps stopped calling
+  feedQuarry, forgetOldQuarries deleted whatever quarry was
+  them, pickTarget skipped them and tagAt refused to tag them
+  even on contact. There was a 0.85m ring of sanctuary drawn
+  round every cage on the pitch, and the more people you caught
+  the more of them there were.
+
+  The test is now insideCage, and it is CAGE_A - inside the
+  bars, which is what "caged" means. A prisoner cannot get
+  further out than 2.45m and a runner outside cannot get closer
+  in than 3.15m, so the line sits in a clean 0.7m gap between
+  the two. Past the wall is ordinary pitch.
+
+  Three smaller things in the same place, all found while
+  checking that one:
+
+  - Dogs kept 5.6m from every cage, but a dog's body only
+    touches the wall at 4.2m. Going PAST a cage it still gives
+    the old wide berth, so it rounds one just as cleanly as
+    before. Going FOR somebody standing at one it now clears
+    only its own body and comes right in to the bars.
+
+  - Caging somebody deleted every quarry within 8m, so a group
+    breaking together lost the dogs the moment one of them went
+    down. That broom is now one cage across.
+
+  - If the ground round somebody was already full of cages, no
+    legal spot existed, dropCage returned null and the catch
+    silently aborted - so a corner packed with cages was another
+    place you could not be caught. There is a last-resort
+    spacing now, at which two hexes clip by about half a metre.
+    It looks crowded. It beats immunity.
+
+  All of it is checked by cage_verify.js, which runs this
+  document and asks the questions the game asks: is a prisoner
+  prey, is a leaner prey, can a dog reach a leaner, can a leaner
+  be caged, does a dog still go round a cage, and does caging
+  one runner cost you the others. v21 fails three of those.
+
+  v21 - THE DOGS CHASE PEOPLE, NOT FOOTPRINTS. v19's air-hold
+  did not fix jumping and this explains why. It kept the last
+  FOOTSTEP and ran its line - but the line came from
+  trailVelocity, which reads a heading by pairing two footsteps
+  0.15 to 1.3 s apart. A hopping runner does not produce that.
+  They touch down for a fifth of a second, which the pads stamp
+  two or three times in one spot - too close together in time to
+  pair - and then go quiet for a second, which is too long a gap
+  to pair either. So trailVelocity returned no heading at all,
+  the air-hold dutifully saved a heading of zero, and the dog
+  ran to the takeoff point and sat on it. Worse, the old
+  "arrived and heard nothing, delete that footstep" rule then
+  ate the whole cluster in a second, and the dog patrolled away
+  underneath somebody still in the air.
+
+  The fix is a different unit. A footstep is no longer a target,
+  it is a FIX on a QUARRY: the game's running guess at one
+  person, holding a position, a heading, and when it was last
+  heard. A quarry moves on its heading every tick whether the
+  floor can hear it or not, and a touchdown near where a quarry
+  ought to be by now is that quarry landing, so it corrects the
+  heading instead of starting a fresh one. Hop, hop, hop reads
+  as one person crossing at a steady 8.4 m/s, because the
+  heading is measured takeoff to landing - which is exactly the
+  measurement a hop hands you - and not across a stride.
+
+  Dogs now pick quarries, not footsteps. Footsteps still do the
+  close-range catch backstop and still feed the speed clock.
+
+  And when a quarry really does die, a dog SEARCHES: it runs the
+  ground that quarry was heading over, weaving SWEEP_WIDE either
+  side of the line for SWEEP_MS, before it drops to patrol. A
+  dog that has lost you now looks like a dog that has lost you,
+  not one that has stopped caring.
+
+  New on the console readout: Q, the number of people the floor
+  currently believes are running. If somebody hops the length of
+  the pitch and Q sits at 0, the pads are not hearing them at
+  all - a floor problem, not a dog one, and worth telling me.
+
+  v20 - THE SPEED PAD TAKES A CODE. It was open to anybody who
+  walked up to a console. Now an entry has to begin with
+  SPEED_CODE - 2233 - and the number follows it: 2233 8.6.
+  Anything that does not start with the code does nothing and
+  says nothing, so the pad gives a curious player no reason to
+  think there is a code there at all.
+
+  On top of that, SPEED_HOST_ONLY refuses even a correct code
+  from anybody who is not the host, whenever the runtime will
+  tell us who typed and a host is known. When it cannot tell it
+  stands aside rather than locking the pad against everyone - the
+  same compromise the cages make. The code is the lock to rely
+  on; this is the one that helps when the world lets it.
+
+  SPEED_PAD false removes the pad from the world entirely.
+
+  v19 - JUMPING NO LONGER SHAKES A DOG. The floor is the dogs'
+  only sense and a player in the air is not touching it, so a
+  jump used to lose them outright: the dog ran to the last
+  footstep, deleted it, heard nothing and went back to patrol
+  while the runner was still airborne above it.
+
+  The floor cannot be taught to hear a jump - the pads are solid
+  geometry, so a taller pad is a wall and not a wider ear. So the
+  dogs stop needing to hear it. A dog now keeps the last trail it
+  had when the floor goes quiet and carries on running that line,
+  aiming further along it as the seconds pass, for AIR_HOLD - two
+  seconds, where a jump is well under one. It is waiting where you
+  land. A standing jump leaves it casting about on the spot you
+  left rather than walking away from it.
+
+  Also: TRAIL_SPAN 1.3 s (was 0.9), so a runner who only touches
+  down every other stride still gives the floor a heading to read;
+  and the dog's invisible body is 4.2 m tall (was 3.5), so jumping
+  over one is not a way through it. See JUMPERS.
+
+  v18 - A SPEED PAD, AND A DOG THAT GAINS. Two changes.
+
+  The dogs are slightly quicker: DOG_PACE 1.02 instead of 0.97,
+  which puts one at 8.6 m/s against the 8.4 estimate rather than
+  8.15. That crosses a line v13 to v17 kept backing away from -
+  under parity a runner in a straight line is safe, over it they
+  are not - so it is worth a test run before anything public.
+
+  And there is now a dial for it in the world instead of in this
+  file. A SPEED pad beside the keypad at each console takes a
+  number of metres per second, typed, and the dogs are on it from
+  the next tick, mid-game, no reload. It takes no code and does
+  nothing else - it cannot start the game or change the pack.
+  DOG on the console readout always shows what the dogs are
+  actually set to now, alongside CLOCKED. See THE SPEED PAD.
+
+  v17 - a shade slower again. DOG_PACE 0.97 instead of 1, which
+  puts a dog at 8.15 m/s against the 8.4 estimate rather than
+  level with it. Done on DOG_PACE and not on PLAYER_SPEED on
+  purpose: PLAYER_SPEED is meant to hold what your avatars
+  actually do, so when you read CLOCKED off a console and correct
+  it, the dogs keep this same margin underneath it instead of
+  needing the sum done again.
+
+  v16 - A CODE TO SEND ONE BACK. CULL_CODE - 4525 - takes a dog
+  off the pitch, one per entry, down to a single dog; for none at
+  all, stop the game. PACK_CODE no longer wraps round to one when
+  the pack is full - it just says so and stays there, because
+  there is a code for going the other way now.
+
+  v15 - THE SPEED, MEASURED. v14 set the dogs to 9.8 m/s on the
+  strength of a note further down this file claiming that was
+  avatar top speed. The note was wrong: at 9.3 the dogs were
+  already running people down in a straight line, so the real
+  figure is under that. PLAYER_SPEED is 8.4, which is a guess in
+  the right direction and nothing more, and there is now a way to
+  stop guessing - the consoles show CLOCKED, the floor's own
+  reading of the fastest anybody has moved this run, taken off
+  the footstep trail, beside DOG, what the dogs are set to.
+  Sprint the pitch once and put CLOCKED into PLAYER_SPEED. It
+  reads a touch low rather than high, so erring on it leaves you
+  with a dog slower than your people rather than quicker.
+  HUNT_ACCEL went back to 0 as well: full pace from the first
+  tick, the way it was before v14.
+
+  v14 - A PACK YOU CAN CALL. PACK_CODE - 1917 - on either console
+  keypad, or through TYPE CODE, calls another dog out, one per
+  entry, up to MAX_HUNTERS. It works whether the dogs are loose
+  or still in, the kennel marks re-space themselves across
+  however many are out, and a dog taken off the pitch is benched
+  rather than destroyed - call it back and it is the same dog.
+
+  v13 - THE FLAGS MEAN SOMETHING AGAIN. A dog was running the
+  length of the pitch, into the end zones and past the corner
+  flags, and catching people who were standing well behind the
+  line. Now the two flagged home lines are the ends of its world:
+
+  - A dog is held between them. Its nose stops at the flags and it
+    never sets foot in an end zone (DOG_Z_MAX).
+  - It cannot reach past a line either. A dog catches by getting
+    within CATCH_R, which is nearly four metres, so stopping it at
+    the line on its own would still have left it grabbing people
+    inside the end zone. Anybody standing on or behind a line is
+    now off limits: not chased, not heard, not caught. Touching
+    the line is enough - HOME_TOL.
+  - It does not patrol into the ends, and a cage can no longer land
+    in one, so nobody is ever penned up on home ground.
+
+  DOG_LINE turns the whole thing off and gives you back v11, where
+  nowhere was safe. Note that with it on, the slogan boards along
+  the walls still read NOWHERE ON THIS PITCH IS SAFE, which is no
+  longer true - SLOGANS, under THE SHOW.
+
+  v12 - TRIANGLES. v11 was over Otherside's triangle budget and
+  would not place. Nothing has been taken out of the game and the
+  arena is the same arena; what changed is which primitive draws
+  each thing.
+
+  In MML a cube is about a dozen triangles. A cylinder is built as
+  a many-sided tube and a sphere as a ball of quads, so each of
+  those costs tens to hundreds of times a cube - and it costs the
+  same whether it is a forty-metre tower or a five-centimetre bar.
+  v11 spent nearly all its budget on small round things repeated
+  hundreds of times.
+
+  Round primitives are down from 989 to 226 - cylinders 872 to 194,
+  spheres 117 to 32 - for roughly a 70% cut in triangles.
+  What changed:
+  - The paw-print trail along both side walls is off. It was ~50
+    paws of five discs each: the most expensive thing in the world
+    and the least visible, up above the gallery. WALL_PAWS.
+  - Two bulldog crests per wall instead of four, without their ring
+    of twelve studs. WALL_CRESTS, CREST_STUDS.
+  - Half as many paw prints on the pitch. PAW_STEP.
+  - Three touchline fires a side instead of five. FIRE_Z.
+  - Small round things are now square, which at their size nobody
+    can tell: lamp globes, gallery rail posts, the spikes on the
+    wall collar, the studs round the centre spot, the toes on every
+    paw print, the dog's paws and eyes. LOW_POLY turns all of this
+    back off in one go.
+  - Cage bars and corner posts are square section too. A cage was
+    26 cylinders and is now 2, which matters most when the pitch
+    fills up with them mid-game.
+  What was left alone: the centre-spot emblem, the crest faces, the
+  pillars and masts, the dog's body and head, and the big flame on
+  each fire - anything where round reads as round.
+
+  If Otherside still says no, the next things to reach for are
+  STATUE_ENDS (four colossal bulldogs are the biggest remaining
+  round cost, at five spheres each) and DETAIL, which takes out the
+  wall dressing altogether.
+
+  v11 - BULLDOG in the gold end zone read backwards: the label was
+  turned round with ry 180, which laid it face down so it showed
+  mirrored. Turned with rz now. Same fix for the TYPE CODE pad on
+  the lobby-end console.
+
+  v10 - the dog a little slower again (HUNT_SPEED 9.3, was 9.6), and
+  the side walls dressed to match the pitch: four bulldog crests
+  (a bulldog's face in a studded collar on a shield edged in the
+  team colours), a spiked crimson collar running the full length
+  of both walls up top, crimson banners with a gold paw on each,
+  and a trail of paw prints walking along both walls above the
+  gallery.
+
+  v9 - dimmer. Floodlights about a third down (FLOOD 22, was 34),
+  the touchline fires, the statues' eyes and floor light, the dog's
+  marker, the lobby, terrace, stair and console lamps all turned
+  well down. The dials are FLOOD, FIRE_GLOW, STATUE_GLOW and
+  MARKER_GLOW under "look", and LIGHT still dims everything at once.
+
+  v8
+  - There is no code to open every cage any more. The only way to
+    open a cage is from its own code box, with CAGE_CODE, which is
+    its own code - not the same as the one that starts the game.
+    No code is written anywhere a player can see it.
+  - The dog is a little slower again: HUNT_SPEED 9.6 (was 10.0).
+  - New pitch: a dark field with a spiked-collar ring and a bulldog's
+    head on the centre spot, crimson paw-print trails running the
+    length of it, a studded collar down both touchlines, and deep
+    blue and deep gold end zones with BULLDOG across them.
+
+  v7 - nothing anybody can see in the world says what any code is:
+  the cage's code box just says "Host code". The dog is a touch
+  slower: HUNT_SPEED 10.0 (was 10.5).
+
+  v6 - the sweeping searchlights in the roof are gone. Their beams
+  cut through the pitch and did not render see-through.
+
+  v5
+  - ONE bulldog, same speed (HUNTERS = 1).
+  - Getting out of a cage no longer needs the MML reset. Click any
+    wall of the cage you are in - from inside is fine - and a code
+    box pops up. Type the code:
+        CAGE_CODE  opens that cage
+    Nobody without the code can open one, including the person in
+    it. This replaces v4's "host clicks the cage", which depended on
+    the platform reporting who clicked - and let anybody out if it
+    did not.
+  - Everybody trapped: if nobody has run on the pitch outside a cage
+    for ALL_QUIET_MS (3 minutes), every cage opens by itself and the
+    boards say so. So even with the host caged and nobody at a
+    console, nobody is stuck for more than a few minutes.
+
+  v4
+  - (v4 had an open-every-cage code. v8 removed it.)
+  - Stopping takes the code TWICE: the first CODE while the dogs
+    are out only arms the stop (the boards say so), the second
+    within ten seconds stops it. One stray code can no longer wipe
+    a game. STOP_TWICE false puts it back to one.
+  - The arena is a night stadium: gunmetal walls instead of red
+    brick, cool white floodlights, two colossal bulldog statues with
+    burning red eyes at the ends, team-fire braziers along both
+    touchlines, LED ribbon boards,
+    BULLDOG in letters ten metres high on both end walls, and a paw
+    print on the centre spot.
+  - The reset hunt. Every event handler and timer now runs inside a
+    guard, so one bad event can never take the script down, and the
+    consoles show UP (how long this copy of the game has been
+    running) and why it last stopped. If the game ever resets by
+    itself, look at UP straight after: if it has gone back to 0:00,
+    the world reloaded the whole document - that is the platform,
+    not the game. If UP is still counting, the console says what
+    stopped it. The position probes, which v3 no longer used, are
+    no longer created at all (less traffic for the platform).
+
+  v3 - the dogs hunt the way Beacon's hunters do.
+
+  v2 steered the dogs by m-position-probe. In this world those
+  positions do not line up with where people actually are, so the
+  dogs ignored everybody, ran to the middle and caged thin air.
+  Beacon's hunters never used them to find anybody: they listen to
+  the FLOOR - invisible pads that report every footstep - and they
+  catch by BODY CONTACT. That is what works here, so that is what
+  the dogs do now. The probes are switched off for everything the
+  dogs do (USE_PROBES false); DEBUG_TRACK still shows them if you
+  want to see how far out they are.
+
+  - Jumping does not shake one. A dog is chasing you, not your last
+    footprint: silence while you are off the ground does not stop
+    you existing. See QUARRIES.
+  - Lose one and it searches the ground you were heading over
+    before it gives up - SWEEP_MS, under JUMPERS.
+  - A dog runs at the nearest person the floor believes in, and
+    reads which way they are going, so it cuts you
+    off instead of trailing behind you.
+  - It never stands still. With nothing to hear it roams the pitch,
+    and the moment anybody steps on, it turns on them.
+  - It catches you by touching you: its solid body, or a fresh
+    footstep of yours inside its reach. The cage is thrown slightly
+    ahead along your run, because by the time it lands you have
+    kept moving.
+  - A dog runs a hair over your speed. DOG_PACE sets where it
+    starts, the SPEED pad beside either keypad changes it while
+    you play, and the consoles clock what your avatars actually
+    do so you can set it honestly.
+  - Off the pitch (behind either end line) is where people wait.
+    The floor cannot hear you there and the dogs cannot go there.
+  - A cage the host opens makes that spot safe for GRACE_MS, so the
+    person let out can walk away.
+
+  Built on the Beacon arena - same shell, same gallery, same
+  operator consoles, same cages and hunter plumbing.
+
+  THE GAME
+  ------------------------------------------------------------
+  Three bulldogs loose on a pitch. They hunt whoever is on it and
+  cage them where they catch them. That is the whole of it.
+
+  There is no call, no run, no side you are sent to, and nowhere
+  on the pitch that is safe. Walk on and the dogs come for you;
+  walk off past the end line and they cannot follow. You shout
+  BULLDOG yourself when you host - the field does not need to
+  know you said it.
+
+  THE HOST
+  ------------------------------------------------------------
+  Click CODE on either console (or TYPE CODE) to let the
+  dogs out. On the same keypad, PACK_CODE - 1917 - calls another
+  dog out and CULL_CODE - 4525 - puts one back in the kennel, one
+  per entry, whether or not the dogs are already loose. The pack
+  runs between one dog and MAX_HUNTERS; for none at all, stop the
+  game. The starting code again puts them away and opens every
+  cage. Change CODE before you run anything public.
+
+  Beside each keypad is SPEED, on its own pad and behind its own
+  code. Type SPEED_CODE - 2233 - then a number of metres per
+  second, and the dogs run at that from the next tick. Nobody
+  without that code can touch it. See THE SPEED PAD below.
+
+  Whoever enters the code is the host for that session, and the
+  host is the only one who can open a cage:
+
+    - click any part of a cage to let that one person out
+    - hit OPEN ALL CAGES on either console to empty the lot
+
+  Somebody let out gets GRACE_MS of immunity - eight seconds by
+  default - so a mistaken catch can actually get away rather
+  than being re-caged on the spot. A green FREED ring follows
+  them while it lasts.
+
+  If your runtime does not report who clicked, the game cannot
+  tell the host from anybody else and the cages open for whoever
+  clicks them. Set HOST_FREE false to stop pretending otherwise.
+
+  WHO GETS HUNTED
+  ------------------------------------------------------------
+  Anybody the position probes can see between the touchlines,
+  the moment they can see them. There is no register and no
+  joining - jump on the pitch halfway through and a dog will be
+  on you. Step off and you are dropped from the list.
+
+  The host standing at a console is off the pitch, so the dogs
+  leave them alone without any special case.
+
+  CATCHING
+  ------------------------------------------------------------
+  A dog catches you when it gets within CATCH_R of you. That is
+  3.6 m, which sounds generous, and is: position reports arrive
+  every PROBE_MS, and an avatar at a dead sprint covers several
+  metres between two of them. A dog that trusts the last report
+  is always swiping at the grass behind you, which is why a
+  runner holding W used to be untouchable. So the dogs now
+  extrapolate - they aim at where PREDICT_MAX seconds of your
+  current speed puts you - and the catch radius covers what is
+  left of the error.
+
+HUNT_SPEED starts at PLAYER_SPEED times DOG_PACE, and DOG_PACE
+  is 1.02: a dog runs a hair over what an avatar runs at, where
+  v17 had it a hair under at 0.97. That is 8.6 m/s against the
+  8.4 estimate. It is a small change with a real edge in it - a
+  runner at a flat sprint no longer slowly pulls away, the dog
+  slowly gains - so if it plays too hard, the SPEED pad takes it
+  back down mid-game without a reload.
+
+  What makes a dog dangerous is still its reach more than its
+  legs: CATCH_R is 3.6 m and it aims PREDICT_MAX ahead of where
+  you were last seen. Those are the numbers to touch if it feels
+  unfair before you touch the speed.
+
+  THE SPEED PAD
+  ------------------------------------------------------------
+  A second pad sits beside the TYPE CODE pad at both consoles,
+  lipped in yellow and reading DOG SPEED and the figure the dogs
+  are on. Type SPEED_CODE and then a number of metres per second
+  - 2233 8.6 - and that is what they run at from the next
+  movement tick, loose or still in the kennel, no reload, no
+  restart. Patrol and walk-home pace follow it by their usual
+  shares.
+
+  It only takes a number between SPEED_MIN and SPEED_MAX (1 and
+  20). Anything outside is pulled to the nearest end and the
+  boards say so. Decimals are fine - 8.6 is a valid entry. So is
+  2233-8.6 or 2233 8.6: anything that is not a digit or a point
+  is treated as a separator.
+
+  WHO CAN USE IT
+  There are two locks on this pad, and they are not the same lock.
+
+  1. SPEED_CODE, which always works. An entry that does not begin
+     with it does nothing at all - no change, no message, no hint
+     on the boards that a code was wanted. A player prodding the
+     pad gets silence and learns nothing, which is v7's rule about
+     codes: nothing anybody can see in the world says what one is.
+     Change it before you run anything public, the same as CODE.
+
+  2. SPEED_HOST_ONLY, which works when it can. If a game is
+     running, the host is known, and the runtime reports who
+     typed, then even a correct code from anybody who is not the
+     host is refused and the boards say SPEED PAD: HOST ONLY. If
+     any of those three is missing - no game running, nobody has
+     entered the operator code yet, or the runtime will not say
+     who clicked - it stands aside and the code alone governs.
+     That is the same call the cages make, and for the same
+     reason: a lock that cannot be checked is better off open
+     than shut against everybody including you.
+
+  So in a public room the honest position is that the code is
+  what is really protecting the pad. Treat it like CODE.
+
+  SPEED_PAD false takes the pad out of the world altogether. No
+  pad, no entry, no lock to worry about - the dogs run at
+  DOG_PACE for the whole session and the only way to change it is
+  to edit this file and reload.
+
+  What it does NOT do: nothing typed into this pad starts or
+  stops the game, calls a dog out, or sends one back. Those are
+  the keypad's job, and the two pads do not share an entry, so a
+  number typed at one can never land as a code at the other.
+
+  DOG_PACE is now only the number the game boots at. Once you
+  have typed into the pad, the dogs are on whatever you typed
+  until the document reloads, and DOG on the console readout is
+  the figure to trust.
+
+  DO NOT TRUST PLAYER_SPEED UNTIL YOU HAVE READ IT OFF THE BOARD.
+  It is 8.4 here and that is an estimate. Let the dogs out, sprint
+  the length of the pitch, and the consoles show CLOCKED - the
+  floor's own measurement of the fastest anybody has moved this
+  run - next to DOG, what the dogs are set to. Put CLOCKED into
+  PLAYER_SPEED. It reads a little low rather than high, so if
+  anything you will end up with a dog a shade slower than your
+  people, which is the safer way to be wrong.
+
+  If the game ever seems to disagree with where people are, set
+  DEBUG_TRACK true: a pillar stands wherever the game thinks
+  each player is, marked HUNTED, CAGED or OFF.
+
+  Set your spawn point in the lobby, around x 0, z -168.
+-->
+
+<m-group id="arena"></m-group>
+<m-group id="dogs"></m-group>
+<m-group id="cages"></m-group>
+<m-group id="marks"></m-group>
+
+<script>
+  // ==========================================================
+  // GUARD - nothing that happens in an event or a timer can take
+  // the script down. An exception is counted, shown on the consoles
+  // (ERR n), and the game carries on.
+  // ==========================================================
+  const BOOT = Date.now();
+  let scriptErrors = 0;
+  let lastError = "";
+  function guard(fn) {
+    return function (a, b) {
+      try { return fn.call(this, a, b); }
+      catch (err) {
+        scriptErrors++;
+        lastError = String((err && err.message) || err).slice(0, 40);
+      }
+    };
+  }
+  function every(fn, ms) { return setInterval(guard(fn), ms); }
+  function later(fn, ms) { return setTimeout(guard(fn), ms); }
+  function on(node, type, fn) { node.addEventListener(type, guard(fn)); }
+
+  // ==========================================================
+  // TUNING
+  // ==========================================================
+
+  // --- the dogs ---------------------------------------------
+  const HUNTERS = 1;            // bulldogs the pitch starts with
+  const MAX_HUNTERS = 6;        // and the most the host can call out
+
+  // A dog runs at what an avatar runs at. Every speed in here is a
+  // share of PLAYER_SPEED, so that one number is the only one worth
+  // getting right - and it is an ESTIMATE, not a fact. Older notes
+  // in this file claimed 9.8 m/s; they were wrong, because at 9.3
+  // the dogs were still running people down in a straight line.
+  //
+  // Do not guess again. Let the dogs out, have somebody sprint the
+  // length of the pitch, and read CLOCKED off either console: that
+  // is the floor's own measurement of the fastest anybody has moved
+  // this session. Put that number here.
+  const PLAYER_SPEED = 8.4;     // m/s on foot. ESTIMATE - replace it with
+                                // what CLOCKED says on the consoles.
+  const DOG_PACE = 1.02;        // dog's share of it at boot. 1 is level;
+                                // this is a hair over, so a dog very slowly
+                                // gains on a flat sprint instead of very
+                                // slowly losing it. v17 had 0.97.
+                                // This only sets the number the game STARTS
+                                // at - the SPEED pad beside each keypad
+                                // overrides it while the game is running.
+  let HUNT_SPEED = PLAYER_SPEED * DOG_PACE;
+  const HUNT_ACCEL = 0;         // 0 = full pace from the first tick, the
+                                // way it has always been. A number here is
+                                // m/s/s and makes a dog build up to speed
+                                // instead; it is off because that is not
+                                // how this dog is meant to run.
+
+  // Roaming and drifting-home speeds are shares of whatever the dogs
+  // are currently set to run at, so typing a new speed into the SPEED
+  // pad moves the whole dog and not just its chase.
+  const PATROL_SHARE = 0.72 / DOG_PACE;   // roaming, hearing nothing.
+                                          // A dog never stands still.
+  const RETURN_SHARE = 0.61 / DOG_PACE;   // drifting back to its mark
+  let PATROL_SPEED = HUNT_SPEED * PATROL_SHARE;
+  let RETURN_SPEED = HUNT_SPEED * RETURN_SHARE;
+
+  // the ends of the SPEED pad. Nothing outside these is accepted.
+  const SPEED_MIN = 1;
+  const SPEED_MAX = 20;
+  const HUNT_MS = 80;           // movement tick
+  const HUNT_BODY_R = 1.4;      // radius of the invisible solid body
+  const HUNT_TURN = 0.4;        // steering smoothing, 0..1
+  const HUNT_SEPARATION = 14;   // dogs push apart so they spread out
+  const LEAD_MAX = 1.4;         // seconds a dog aims ahead of a runner
+  const CATCH_R = 3.6;          // how close counts as caught. Deliberately
+                                // wide - see CATCHING in the notes above.
+  const CATCH_PAUSE = 900;      // a dog stands over its catch this long
+  const RETREAT_MS = 900;       // and backs off for all of it
+  const FOOT_CATCH_R = 2.5;     // a fresh footstep this close to a dog's
+                                // centre is a catch, contact event or not
+  const FOOT_CATCH_MS = 350;    // ...if it is no older than this
+  const DOG_SIZE = 1.1;         // scale of the dog model. Cosmetic.
+  const HUNT_BODY_H = 4.2;      // height of that invisible body. Tall on
+                                // purpose - see JUMPERS. 3.5 up to v18.
+
+  // --- quarries: what a dog actually chases ------------------
+  // Not footsteps. A quarry is the game's running guess at one
+  // person - where they were last heard, and how fast and which way
+  // they were going - and it keeps moving whether the floor can
+  // hear them or not. See JUMPERS in the notes above.
+  const QUARRY_MATCH = 16;      // m. A footstep this close to where a
+                                // quarry should be by now is that quarry
+                                // touching down again, not a new person.
+                                // Wide on purpose: a long hop covers
+                                // eleven metres, and a landing that fails
+                                // to match splits one runner into two
+                                // half-tracked ghosts.
+  const QUARRY_HOLD = 5000;     // ms a quarry survives on dead reckoning
+                                // with the floor hearing nothing at all.
+                                // 0 turns quarries off and puts the v18
+                                // footstep-chasing back.
+  const QUARRY_GHOST = 2400;    // ms. A dog standing on a quarry that has
+                                // not been heard from this long drops it:
+                                // that is a ghost, not a person.
+  const QUARRY_SMOOTH = 0.5;    // how far each new fix pulls the quarry's
+                                // heading round. 1 is believe the last two
+                                // touchdowns and nothing else.
+  const QUARRY_MAX = 24;        // most quarries tracked at once
+  const QUARRY_LEAD_MAX = 34;   // m dead reckoning will run out to before
+                                // it stops adding distance
+  const QUARRY_TRUST = 0.9;     // s of silence a quarry's heading is
+                                // believed in full. Past that the
+                                // projection is walked out at
+                                // QUARRY_DOUBT of the speed, because
+                                // somebody who has been quiet a long time
+                                // may well have turned while you could not
+                                // see them, and running the old line at
+                                // full pace lands the dog wide.
+  const QUARRY_DOUBT = 0.45;
+  const SWEEP_MS = 3500;        // ms a dog searches the ground a lost
+                                // quarry was heading over before it gives
+                                // up and goes back to patrolling
+  const SWEEP_WIDE = 16;        // m the search weaves either side of that
+  const TRAIL_SPAN = 1.3;       // s - the widest gap between two footsteps
+                                // that still counts as one person's stride.
+                                // Only the speed clock uses this now.
+
+  // --- catching ---------------------------------------------
+  const PREDICT_MAX = 0.7;      // seconds of movement a dog extrapolates
+                                // from your last reported position
+  const CAGE_A = 2.8;           // interior half-width - Red Light's size,
+                                // the one that actually lands on runners
+  const CAGE_H = 6;
+  const CAGE_OUT = 1.6;         // clearance past the catch, away from the
+                                // dog, so the dog is never caged with it
+  const MAX_CAGES = 60;
+  const CAGE_MIN_GAP = 6.0;     // two cages never closer than this
+  const CAGE_FIT = 3.0;         // a cage must land within this of its owner
+  const CAGE_LAG = 0.3;         // seconds of a runner's own speed the cage
+  const CAGE_LEAD_MAX = 4.5;    // is thrown ahead of them, at most this far
+  const TAG_SNAP_R = 4.0;       // a contact snaps onto the nearest body
+  const TAG_SPOT_R = 4.0;       // nowhere tagged twice in quick succession
+  const TAG_SPOT_MS = 3000;
+  const MARK_MS = 8000;         // how long a FREED ring follows you
+
+  // --- letting people out -----------------------------------
+  const HOST_FREE = true;       // only the host can open a cage. The host is
+                                // whoever entered the code. If the runtime
+                                // will not say who clicked, anyone can.
+  const ALL_QUIET_MS = 180000;  // nobody running on the pitch outside a
+                                // cage for this long: every cage opens.
+                                // 0 turns it off.
+  const GRACE_MS = 8000;        // immunity after being let out, so a
+                                // mistaken catch can get clear
+
+  // --- the floor's ears - how the dogs find people ----------
+  const FOOT_PITCH = 8;         // pad grid, metres
+  const PAD_MS = 90;            // collision-interval on every pad
+  const FOOT_MEMORY = 2600;     // how long a footstep stays interesting
+  const HUNT_SENSE = 130;       // how far a dog can hear
+  const SPEED_SAMPLE_MS = 400;  // how often the speed clock takes a
+                                // reading off the floor. See THE SPEED
+                                // CLOCK below - this is what CLOCKED on
+                                // the consoles comes from.
+  const TRAIL_MAX = 14;         // m/s - faster than this between two
+                                // footsteps is two different people
+
+  // --- identity ---------------------------------------------
+  const USE_PROBES = false;     // steer and catch by position probes. OFF:
+                                // in this world they do not match where
+                                // people are - see the v3 note at the top.
+  const PROBE_Z = [-70, 0, 70];
+  const PROBE_RANGE = 78;
+  const PROBE_MS = 200;         // how often positions are reported. Lower is
+                                // a sharper picture of somebody running.
+  const DEBUG_TRACK = false;    // show where the game thinks everyone is
+
+  // --- look -------------------------------------------------
+  const DETAIL = true;
+  const GALLERY = true;
+  const GALLERY_ENDS = [-1, 1];
+  const LIGHT = 0.055;          // global dimmer on every light
+  const FLOOD = 22;             // each of the eight floodlights (was 34)
+  const FIRE_GLOW = 28;         // each touchline fire (was 70)
+  const STATUE_GLOW = 10;       // the statues' eyes (was 40); their
+                                // floor light is about twice this
+  const MARKER_GLOW = 12;       // the red light over the dog (was 24)
+  const FLASH_MS = 900;         // floodlights go red for this on a catch
+
+  // --- triangle budget --------------------------------------
+  // Otherside caps a world's triangles, and in MML the count is
+  // decided almost entirely by WHICH primitive you reach for, not
+  // how big it is. A cube is a dozen triangles. A cylinder is
+  // rebuilt as a many-sided tube every time, and a sphere is worse
+  // again - roughly a hundred cubes' worth each. So a 5 cm bar and
+  // a 40 m tower cost the same if both are cylinders, and the cheap
+  // win is swapping round shapes for square ones wherever the eye
+  // cannot tell, then thinning out repeated decoration.
+  //
+  // These dials do that. Turn them back up if the world fits.
+  const LOW_POLY = true;        // square stand-ins for round shapes that
+                                // are small, thin, or far away: lamp
+                                // globes, rail posts, wall studs, the
+                                // cage bars, the dog's paws
+  const WALL_PAWS = false;      // the paw-print trail along both side
+                                // walls. 5 discs a paw, ~50 paws: the
+                                // single most expensive thing in here
+  const WALL_CRESTS = [-80, 80];// where the bulldog crests hang on each
+                                // side wall (was four a side). Keep them
+                                // off the banners (-100,-50,0,50,100),
+                                // the slogan boards (-60,0,60) and the
+                                // ribs, or they will sit on top of them.
+  const CREST_STUDS = false;    // the ring of studs round each crest
+  const PAW_STEP = 18;          // spacing of the pitch paw trails, metres
+                                // (was 9 - half as many prints now)
+  const FIRE_Z = [-80, 0, 80];  // where the touchline fires stand (was
+                                // five a side). Each is three flames.
+  const STATUE_ENDS = [-1, 1];  // which ends get the colossal bulldogs
+
+  // --- the pitch --------------------------------------------
+  const HOME_D = 22;            // depth of the end zones behind each home
+                                // line - the line the corner flags stand on
+  const HOME_TOL = 0.4;         // touching the line counts as home, so this
+                                // much short of it is already safe
+  const DOG_LINE = true;        // the dogs are held between the two flagged
+                                // home lines and cannot chase, reach or tag
+                                // anybody past one. false puts it back to
+                                // v11, where nowhere was safe.
+
+  // --- control ----------------------------------------------
+  const CODE = [1, 7, 1, 8];      // let the dogs out / put them away
+  const PACK_CODE = [1, 9, 1, 7]; // another dog out, one per entry, up to
+                                  // MAX_HUNTERS
+  const CULL_CODE = [4, 5, 2, 5]; // one dog back in the kennel, one per
+                                  // entry, down to a single dog. To have
+                                  // none at all, stop the game.
+                                  // Both work whether the dogs are out or
+                                  // not, and neither disturbs the run.
+  const CAGE_CODE = [1, 3, 4, 7]; // typed into a cage's code box: opens that cage
+
+  // THE SIGHT SLOT. Why you could not click a cage from the stands:
+  // the boundary is concrete from the ground to y 4.2 and an opacity-0
+  // collider from 4.2 all the way to y 24.4. The decks are at y 4.3, so
+  // a spectator's eye sits at about 5.9 - inside that invisible piece.
+  // A click stops at the first thing the ray meets whether you can see
+  // it or not, so every shot at a cage died on the wall.
+  //
+  // The wall does not need to be there at eye level. The glass rail at
+  // x 49.0 already blocks bodies from 4.3 to 5.5. So the invisible part
+  // is now built in two, with a gap between GLASS_SILL and GLASS_HEAD:
+  //
+  //     24.4  ---------------  upper, unchanged above
+  //      6.4  ---------------  GLASS_HEAD
+  //                            <- the slot. rays through, bodies not
+  //      5.5  ---------------  GLASS_SILL, level with the rail top
+  //      4.2  ---------------  lower, filling the space behind the rail
+  //
+  // The lower piece matters as much as the slot. Without it there is a
+  // 1.2m-wide ledge on top of the concrete at y 4.2 with open air above
+  // it, and anyone who cleared the rail would land there and step off
+  // onto the pitch. With it, the only opening is 0.9m tall, and an
+  // avatar is about twice that - it cannot fit, and it cannot stand in
+  // the slot either because its head is in the upper piece.
+  const GLASS_SILL = 5.5;       // = DECK_Y + RAIL_H, the rail top
+  const GLASS_HEAD = 6.4;       // 0.9m of slot. Raise for a wider shot at
+                                // the cages, lower if anybody ever gets
+                                // through - but never above about 7.2,
+                                // which is where an avatar starts to fit.
+  const SPEED_PAD = true;         // build the SPEED pad at all. false takes
+                                  // it out of the world entirely and the
+                                  // dogs run at DOG_PACE for the session.
+  const SPEED_CODE = [2, 2, 3, 3];// must lead every speed entry: type the
+                                  // code and then the number, 2233 8.6.
+                                  // An entry that does not start with it is
+                                  // dropped in silence - no message, no
+                                  // hint that a code exists. Change it
+                                  // before you run anything public.
+  const SPEED_HOST_ONLY = true;   // and, when the runtime reports who typed,
+                                  // only the host may use the pad even with
+                                  // the code. The host is whoever entered
+                                  // the operator code to start the game.
+                                  // If the runtime will not say who typed,
+                                  // or no game is running, the code alone
+                                  // governs - see THE SPEED PAD.
+  const STOP_TWICE = true;        // stopping takes the code twice, 10 s apart at most
+  const CODE_TIMEOUT = 15;
+  const FINISH_CONSOLE = true;
+
+  // ==========================================================
+  // GEOMETRY
+  // ==========================================================
+  const FIELD_W = 96;
+  const FIELD_L = 200;
+  const ARENA_W = FIELD_W + 40;
+  const ARENA_L = FIELD_L + 80;
+  const ARENA_H = 56;
+
+  const DECK_Y = 4.3;
+  const DECK_L = GALLERY ? ARENA_L - 2 : FIELD_L;
+  const DECK_TOP = GALLERY ? DECK_Y : 7.16;
+  const DOOR_W = 10;
+  const DOOR_H = 9.5;
+  const RAIL_H = 1.2;
+  const STAIR_X = 58;
+  const STAIR_W = 7;
+  const STAIR_N = Math.max(6, Math.round(DECK_Y / 0.4));
+  const STAIR_RUN = 1.0;
+
+  const LINE_Z = FIELD_L / 2 - HOME_D;   // the two home lines sit at +-LINE_Z
+  const CTRL_Z = -126;
+  const FIN_CTRL_Z = 126;
+
+  // ==========================================================
+  // PALETTE - a night stadium
+  // ==========================================================
+  const TURF = "#16211a";       // the pitch: near-black green
+  const TURF_B = "#1b281f";
+  const LINE = "#b3ad9c";       // bone, not bright chalk
+  const COLLAR_RED = "#6a141c";
+  const STUD = "#8b939b";
+  const PAW_INK = "#3d1318";
+  const END_BLUE = "#131c36";
+  const END_GOLD = "#2e2410";
+  const HEAD = "#5c3f27", MUZZLE = "#7b5c3e", BRINDLE = "#2b1b10";
+  const CHALK = "#f1f2ea";
+  const BRICK = "#1c2230";      // the walls: gunmetal, not red brick
+  const BRICK_DK = "#11151e";
+  const CONCRETE = "#3b414d";
+  const STEEL = "#a3abb2";
+  const STEEL_DK = "#2b3034";
+  const BOARD = "#1d2b24";      // blackboard green
+  const FRAME = "#39404d";      // and its steel frame
+  const INK = "#10141a";
+  const LAMP = "#e9efff";       // cool stadium white
+  const HOME_BLUE = "#2a5bd0";
+  const HOME_BLUE_DIM = "#1b3470";
+  const HOME_YEL = "#f0b418";
+  const HOME_YEL_DIM = "#6e5717";
+  const CALL_RED = "#e3262f";
+  const CALL_DIM = "#5a1418";
+  const WIN_GOLD = "#ffd23f";
+  const DOG_FAWN = "#c4935f";
+  const DOG_LIGHT = "#ead3b0";
+  const DOG_DARK = "#5b3a22";
+  const COLLAR = "#c8202c";
+
+  function homeCol(side) { return side < 0 ? HOME_BLUE : HOME_YEL; }
+  function homeDim(side) { return side < 0 ? HOME_BLUE_DIM : HOME_YEL_DIM; }
+  function homeName(side) { return side < 0 ? "BLUE" : "YELLOW"; }
+
+  const arena = document.getElementById("arena");
+  const dogRoot = document.getElementById("dogs");
+  const cageRoot = document.getElementById("cages");
+  const markRoot = document.getElementById("marks");
+
+  function el(tag, attrs, parent) {
+    const node = document.createElement(tag);
+    node.setAttribute("collide", "false");
+    for (const key in attrs) {
+      let value = attrs[key];
+      if (tag === "m-light" && key === "intensity") {
+        value = Math.round(value * LIGHT * 10) / 10;
+      }
+      node.setAttribute(key, value);
+    }
+    (parent || arena).append(node);
+    return node;
+  }
+
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+  // ----------------------------------------------------------
+  // CHEAP STAND-INS
+  // ----------------------------------------------------------
+  // Three shapes that are drawn as cylinders or spheres in the
+  // full-fat build and as cubes when LOW_POLY is on. Each one is
+  // either small, thin, or high enough up that square reads the
+  // same as round - and each one is repeated dozens of times.
+
+  // a glowing lamp globe (there is an m-light on it either way)
+  function globe(attrs, parent) {
+    const r = attrs.radius;
+    if (!LOW_POLY) return el("m-sphere", attrs, parent);
+    const b = Object.assign({}, attrs);
+    delete b.radius;
+    b.width = +(r * 1.6).toFixed(3);
+    b.height = +(r * 1.6).toFixed(3);
+    b.depth = +(r * 1.6).toFixed(3);
+    b.ry = (attrs.ry || 0) + 45;
+    return el("m-cube", b, parent);
+  }
+
+  // a thin upright bar: rail posts, cage bars, corner posts
+  function bar(attrs, parent) {
+    const r = attrs.radius;
+    if (!LOW_POLY) return el("m-cylinder", attrs, parent);
+    const b = Object.assign({}, attrs);
+    delete b.radius;
+    b.width = +(r * 1.7).toFixed(3);
+    b.depth = +(r * 1.7).toFixed(3);
+    b.ry = (attrs.ry || 0) + 45;
+    return el("m-cube", b, parent);
+  }
+
+
+  function hasGallery(side) {
+    return GALLERY && GALLERY_ENDS.indexOf(side) >= 0;
+  }
+
+  // four labels round one point, so a word reads from any side
+  function crossLabels(parent, y, text, bg, fg, w, h, fs) {
+    const made = [];
+    [0, 90, 180, 270].forEach((ry) => {
+      const r = ry * Math.PI / 180;
+      made.push(el("m-label", {
+        x: 0.02 * Math.sin(r), z: 0.02 * Math.cos(r), y: y, ry: ry,
+        width: w, height: h, "font-size": fs, alignment: "center",
+        color: bg, "font-color": fg, content: text,
+      }, parent));
+    });
+    return made;
+  }
+
+  // ==========================================================
+  // SHELL
+  // ==========================================================
+  el("m-cube", {
+    y: -2, width: ARENA_W, height: 4, depth: ARENA_L,
+    color: "#141715", collide: "true",
+  });
+
+  [-1, 1].forEach((s) => {
+    el("m-cube", {
+      x: s * ARENA_W / 2, y: ARENA_H / 2,
+      width: 2, height: ARENA_H, depth: ARENA_L,
+      color: BRICK, collide: "true",
+    });
+    // two thin lit strips in the team colours, all the way down
+    [[18.6, HOME_BLUE], [19.6, HOME_YEL]].forEach(([y, c]) => {
+      el("m-cube", {
+        x: s * ARENA_W / 2, y: y,
+        width: 2.3, height: 0.35, depth: ARENA_L, color: c,
+      });
+    });
+    // steel ribs every 20 m, so the wall reads as structure, not a slab
+    for (let z = -130; z <= 130; z += 20) {
+      el("m-cube", {
+        x: s * (ARENA_W / 2 - 1.1), z: z, y: (DECK_Y + ARENA_H) / 2 + 1,
+        width: 0.9, height: ARENA_H - DECK_Y - 2, depth: 1.4, color: BRICK_DK,
+      });
+      el("m-cube", {
+        x: s * (ARENA_W / 2 - 1.2), z: z, y: 19.1,
+        width: 1.0, height: 1.7, depth: 1.6, color: STEEL_DK,
+      });
+    }
+    // the collar: a crimson band the full length of the wall
+    el("m-cube", {
+      x: s * ARENA_W / 2, y: 40,
+      width: 2.5, height: 1.8, depth: ARENA_L, color: COLLAR_RED,
+    });
+    [39.05, 40.95].forEach((y) => {
+      el("m-cube", { x: s * ARENA_W / 2, y: y, width: 2.6, height: 0.16, depth: ARENA_L, color: STUD });
+    });
+  });
+
+  // ==========================================================
+  // ROOF AND FLOODLIGHTS
+  // ==========================================================
+  const CEIL_Y = 54;
+  const FLOOD_Y = 40;
+
+  el("m-cube", {
+    y: CEIL_Y + 1.4, width: ARENA_W, height: 2, depth: ARENA_L,
+    color: "#111413", collide: "true",
+  });
+  for (let z = -120; z <= 120; z += 20) {
+    el("m-cube", { z: z, y: CEIL_Y - 0.6, width: ARENA_W - 4, height: 1.2, depth: 1.0, color: STEEL_DK });
+  }
+
+  const floods = [];
+  [-30, 30].forEach((x) => {
+    el("m-cube", { x: x, y: FLOOD_Y + 1.2, width: 1.0, height: 1.0, depth: FIELD_L + 10, color: STEEL_DK });
+    for (let z = -90; z <= 90; z += 60) {
+      el("m-cylinder", {
+        x: x, z: z, y: (FLOOD_Y + 1.7 + CEIL_Y) / 2,
+        radius: 0.12, height: CEIL_Y - FLOOD_Y - 1.7, color: STEEL_DK,
+      });
+    }
+    [-75, -25, 25, 75].forEach((z) => {
+      el("m-cube", { x: x, z: z, y: FLOOD_Y, width: 3.2, height: 1.0, depth: 2.2, color: STEEL_DK });
+      el("m-cube", { x: x, z: z, y: FLOOD_Y - 0.55, width: 2.8, height: 0.1, depth: 1.8, color: LAMP });
+      floods.push(el("m-light", {
+        x: x, z: z, y: FLOOD_Y - 2, type: "point", intensity: FLOOD, color: LAMP,
+      }));
+    });
+  });
+
+  // ==========================================================
+  // END WALLS - two open portals at each end, always open
+  // ==========================================================
+  const PORTAL_W = 16;
+  const PORTAL_H = 20;
+  const PORTAL_X = 42;
+
+  function endWall(z, side) {
+    const half = ARENA_W / 2;
+    const pL = PORTAL_X - PORTAL_W / 2;
+    const pR = PORTAL_X + PORTAL_W / 2;
+
+    el("m-cube", {
+      x: 0, z: z, y: ARENA_H / 2,
+      width: 2 * pL, height: ARENA_H, depth: 2,
+      color: BRICK, collide: "true",
+    });
+
+    const retW = half - pR;
+    const retC = (pR + half) / 2;
+    const jambW = (retW - DOOR_W) / 2;
+    const doorTop = DECK_Y + DOOR_H;
+
+    [-1, 1].forEach((sx) => {
+      const cx = sx * retC;
+
+      if (!hasGallery(side)) {
+        el("m-cube", {
+          x: cx, z: z, y: ARENA_H / 2,
+          width: retW, height: ARENA_H, depth: 2, color: BRICK, collide: "true",
+        });
+        return;
+      }
+
+      el("m-cube", {
+        x: cx, z: z, y: DECK_Y / 2,
+        width: retW, height: DECK_Y, depth: 2, color: BRICK, collide: "true",
+      });
+      [-1, 1].forEach((e) => {
+        el("m-cube", {
+          x: cx + e * (DOOR_W + jambW) / 2, z: z, y: DECK_Y + DOOR_H / 2,
+          width: jambW, height: DOOR_H, depth: 2, color: BRICK, collide: "true",
+        });
+      });
+      el("m-cube", {
+        x: cx, z: z, y: (doorTop + ARENA_H) / 2,
+        width: DOOR_W, height: ARENA_H - doorTop, depth: 2,
+        color: BRICK, collide: "true",
+      });
+      el("m-cube", {
+        x: cx, z: z, y: doorTop + 0.5,
+        width: DOOR_W + 2, height: 1.0, depth: 2.4, color: STEEL,
+      });
+      [[1.35, 0], [-1.35, 180]].forEach(([dz, ry]) => {
+        el("m-label", {
+          x: cx, z: z + dz, y: doorTop + 2.3, ry: ry,
+          width: 8, height: 1.4, "font-size": 58, alignment: "center",
+          color: BOARD, "font-color": CHALK, content: "GALLERY",
+        });
+      });
+    });
+
+    // this end's colour, painted across the middle of the wall
+    [8, 30].forEach((y) => {
+      el("m-cube", { z: z, y: y, width: 2 * pL, height: 1.2, depth: 2.6, color: homeCol(side) });
+    });
+
+    [-1, 1].forEach((sx) => {
+      const px = sx * PORTAL_X;
+      el("m-cube", {
+        x: px, z: z, y: (PORTAL_H + ARENA_H) / 2,
+        width: PORTAL_W, height: ARENA_H - PORTAL_H, depth: 2,
+        color: BRICK, collide: "true",
+      });
+      [-1, 1].forEach((e) => {
+        el("m-cylinder", {
+          x: px + e * (PORTAL_W / 2 + 0.6), z: z,
+          y: PORTAL_H / 2, radius: 0.7, height: PORTAL_H + 1.4, color: STEEL,
+        });
+      });
+      el("m-cube", {
+        x: px, z: z, y: PORTAL_H + 0.7,
+        width: PORTAL_W + 2.6, height: 1.4, depth: 2.6, color: STEEL,
+      });
+      [[1.35, 0], [-1.35, 180]].forEach(([dz, ry]) => {
+        el("m-label", {
+          x: px, z: z + dz, y: PORTAL_H + 3.2, ry: ry,
+          width: 12, height: 2.0, "font-size": 80, alignment: "center",
+          color: BOARD, "font-color": CHALK, content: "WAY IN",
+        });
+      });
+    });
+  }
+
+  endWall(-ARENA_L / 2, -1);
+  endWall(ARENA_L / 2, 1);
+
+  // ==========================================================
+  // LOBBY
+  // ==========================================================
+  const LOBBY_D = 56;
+  const LOBBY_Z = -(ARENA_L / 2 + LOBBY_D / 2);
+  const ROOM_H = 22;
+
+  el("m-cube", {
+    z: LOBBY_Z, y: -2, width: ARENA_W, height: 4, depth: LOBBY_D,
+    color: "#141715", collide: "true",
+  });
+  el("m-cube", { z: LOBBY_Z, y: 0.1, width: ARENA_W - 16, height: 0.2, depth: LOBBY_D - 10, color: "#22302a" });
+
+  [-1, 1].forEach((s) => {
+    el("m-cube", {
+      x: s * (ARENA_W / 2 + 1.6), z: LOBBY_Z, y: -0.5,
+      width: 3.2, height: 1, depth: LOBBY_D, color: CONCRETE, collide: "true",
+    });
+  });
+  el("m-cube", {
+    z: -(ARENA_L / 2 + LOBBY_D) - 1.6, y: -0.5,
+    width: ARENA_W + 6.4, height: 1, depth: 3.2, color: CONCRETE, collide: "true",
+  });
+
+  el("m-cube", {
+    z: LOBBY_Z, y: ROOM_H + 0.8, width: ARENA_W, height: 1.6, depth: LOBBY_D,
+    color: "#111413", collide: "true",
+  });
+  el("m-cube", {
+    z: LOBBY_Z, y: ROOM_H - 0.3, width: ARENA_W + 2, height: 0.5, depth: LOBBY_D + 2, color: HOME_BLUE,
+  });
+  [-1, 1].forEach((sx) => {
+    [-1, 1].forEach((sz) => {
+      const x = sx * (ARENA_W / 2 - 4);
+      const z = LOBBY_Z + sz * (LOBBY_D / 2 - 4);
+      el("m-cube", { x: x, z: z, y: 0.5, width: 4, height: 1, depth: 4, color: CONCRETE, collide: "true" });
+      el("m-cylinder", { x: x, z: z, y: 10.5, radius: 1.3, height: 19, color: BRICK, collide: "true" });
+      el("m-cylinder", { x: x, z: z, y: 20.2, radius: 1.7, height: 0.6, color: STEEL });
+    });
+  });
+
+  el("m-light", { z: LOBBY_Z, y: ROOM_H - 4, type: "point", intensity: 28, color: LAMP });
+
+  // the rules, chalked on a blackboard on the lobby face of the start wall
+  el("m-cube", {
+    z: -(ARENA_L / 2) - 1.2, y: 5.2, width: 35, height: 8.2, depth: 0.3, color: FRAME,
+  });
+  el("m-cube", {
+    z: -(ARENA_L / 2) - 1.3, y: 5.2, width: 34, height: 7.4, depth: 0.3, color: BOARD,
+  });
+  [
+    [7.5, 2.0, 88, WIN_GOLD, "BRITISH BULLDOG"],
+    [5.6, 1.3, 50, CHALK, "HEAR BULLDOG? RUN TO THE OTHER END."],
+    [4.2, 1.3, 50, CALL_RED, "A DOG CATCHES YOU, OR YOU'RE TOO SLOW: YOU'RE OUT."],
+    [2.8, 1.3, 50, CHALK, "STAY IN YOUR HOME UNTIL THE CALL."],
+    [1.6, 1.1, 44, WIN_GOLD, "LAST ONE STANDING WINS."],
+  ].forEach(([y, h, fs, col, text]) => {
+    el("m-label", {
+      z: -(ARENA_L / 2) - 1.5, y: y, ry: 180,
+      width: 32, height: h, "font-size": fs, alignment: "center",
+      color: BOARD, "font-color": col, content: text,
+    });
+  });
+
+  [-1, 1].forEach((s) => {
+    [-1, 1].forEach((sz) => {
+      el("m-cube", {
+        x: s * 30, z: LOBBY_Z + sz * 16,
+        y: 0.6, width: 16, height: 1.2, depth: 2.4, color: FRAME, collide: "true",
+      });
+    });
+  });
+
+  // ==========================================================
+  // TERRACE
+  // ==========================================================
+  const TER_D = 40;
+  const TER_Z = ARENA_L / 2 + TER_D / 2;
+
+  el("m-cube", {
+    z: TER_Z, y: -2, width: ARENA_W, height: 4, depth: TER_D,
+    color: "#141715", collide: "true",
+  });
+  el("m-cube", { z: TER_Z, y: 0.1, width: ARENA_W - 20, height: 0.2, depth: TER_D - 10, color: "#3a3320" });
+
+  [-1, 1].forEach((s) => {
+    el("m-cube", {
+      x: s * (ARENA_W / 2 + 1.6), z: TER_Z, y: -0.5,
+      width: 3.2, height: 1, depth: TER_D, color: CONCRETE, collide: "true",
+    });
+  });
+  el("m-cube", {
+    z: ARENA_L / 2 + TER_D + 1.6, y: -0.5,
+    width: ARENA_W + 6.4, height: 1, depth: 3.2, color: CONCRETE, collide: "true",
+  });
+
+  [-1, 1].forEach((sx) => {
+    [-1, 1].forEach((sz) => {
+      const x = sx * (ARENA_W / 2 - 4);
+      const z = TER_Z + sz * (TER_D / 2 - 4);
+      el("m-cube", { x: x, z: z, y: 0.5, width: 4, height: 1, depth: 4, color: CONCRETE, collide: "true" });
+      el("m-cylinder", { x: x, z: z, y: 8, radius: 1.3, height: 14, color: BRICK, collide: "true" });
+      globe({ x: x, z: z, y: 15.6, radius: 1.5, color: HOME_YEL });
+    });
+  });
+
+  el("m-light", { z: TER_Z, y: 20, type: "point", intensity: 22, color: LAMP });
+
+  // ==========================================================
+  // THE PITCH
+  // ==========================================================
+  // Everything painted on the pitch is flat and sits under the
+  // invisible floor pads (top 0.36), in layers:
+  //   0.20 base   0.22 bands   0.24 end zones   0.25 paw trails
+  //   0.28 lines  0.27-0.34 the centre emblem
+  function paint(tag, top, h, attrs) {
+    return el(tag, Object.assign({ y: +(top - h / 2).toFixed(3), height: h }, attrs));
+  }
+
+  // dark base, with wide bands so the length of the run reads - the
+  // middle forty metres left plain under the emblem
+  paint("m-cube", 0.2, 0.2, { width: FIELD_W, depth: FIELD_L, color: TURF });
+  for (let k = -5; k < 5; k++) {
+    if (k === -1 || k === 0 || (k + 10) % 2 === 0) continue;
+    paint("m-cube", 0.22, 0.04, { z: k * 20 + 10, width: FIELD_W, depth: 20, color: TURF_B });
+  }
+
+  // end zones - deep team colours, BULLDOG across each, a row of
+  // steel studs along the line
+  [-1, 1].forEach((side) => {
+    const zc = side * (LINE_Z + HOME_D / 2);
+    const zone = side < 0 ? END_BLUE : END_GOLD;
+    paint("m-cube", 0.24, 0.06, { z: zc, width: FIELD_W, depth: HOME_D, color: zone });
+    el("m-label", {
+      // rz, not ry, to turn it round: with ry 180 the label lies face
+      // DOWN and the word reads mirrored from above
+      z: zc, y: 0.29, rx: -90, rz: side < 0 ? 0 : 180,
+      width: 60, height: 9, "font-size": 300, alignment: "center",
+      color: zone, "font-color": side < 0 ? "#2f4c9a" : "#8a6a1e", content: "BULLDOG",
+    });
+    paint("m-cube", 0.28, 0.08, { z: side * LINE_Z, width: FIELD_W, depth: 0.9, color: LINE });
+    paint("m-cube", 0.28, 0.08, { z: side * (FIELD_L / 2 - 0.3), width: FIELD_W, depth: 0.5, color: LINE });
+    for (let x = -FIELD_W / 2 + 6; x <= FIELD_W / 2 - 6; x += 6) {
+      paint("m-cube", 0.31, 0.06, { x: x, z: side * (LINE_Z + 1.4), ry: 45, width: 0.9, depth: 0.9, color: STUD });
+    }
+    [-1, 1].forEach((sx) => {
+      const x = sx * (FIELD_W / 2 - 1);
+      el("m-cylinder", { x: x, z: side * LINE_Z, y: 1.6, radius: 0.07, height: 3.2, color: LINE });
+      el("m-cube", {
+        x: x - sx * 0.55, z: side * LINE_Z, y: 2.8,
+        width: 1.0, height: 0.7, depth: 0.04, color: homeCol(side),
+      });
+    });
+  });
+
+  // touchlines as spiked collars: crimson leather, steel studs
+  [-1, 1].forEach((s) => {
+    paint("m-cube", 0.28, 0.08, { x: s * (FIELD_W / 2 - 0.4), width: 0.5, depth: FIELD_L, color: LINE });
+    paint("m-cube", 0.26, 0.04, { x: s * (FIELD_W / 2 - 1.9), width: 1.8, depth: LINE_Z * 2, color: COLLAR_RED });
+    for (let z = -LINE_Z + 3; z <= LINE_Z - 3; z += 6) {
+      paint("m-cube", 0.3, 0.04, { x: s * (FIELD_W / 2 - 1.9), z: z, ry: 45, width: 0.8, depth: 0.8, color: STUD });
+    }
+  });
+  paint("m-cube", 0.28, 0.08, { width: FIELD_W, depth: 0.4, color: LINE });   // halfway
+
+  // paw-print trails: one set running each way down the pitch
+  function pawPrint(x, z, dir) {
+    paint("m-cylinder", 0.25, 0.02, { x: x, z: z, radius: 1.35, sx: 1.2, sz: 0.95, color: PAW_INK });
+    [[-1.55, 1.25], [-0.6, 2.0], [0.6, 2.0], [1.55, 1.25]].forEach(([tx, tz]) => {
+      if (LOW_POLY) paint("m-cube", 0.25, 0.02, { x: x + tx, z: z + tz * dir, ry: 45, width: 0.8, depth: 0.95, color: PAW_INK });
+      else paint("m-cylinder", 0.25, 0.02, { x: x + tx, z: z + tz * dir, radius: 0.5, sz: 1.2, color: PAW_INK });
+    });
+  }
+  [[-27, 1], [27, -1]].forEach(([x0, dir]) => {
+    let k = 0;
+    for (let z = -LINE_Z + 8; z <= LINE_Z - 8; z += PAW_STEP, k++) {
+      const zz = dir > 0 ? z : -z;
+      if (Math.abs(zz) < 16) continue;   // leave the emblem clear
+      pawPrint(x0 + (k % 2 ? 2.2 : -2.2), zz, dir);
+    }
+  });
+
+  // the centre spot: a spiked collar ring round a bulldog's head
+  paint("m-cylinder", 0.27, 0.06, { radius: 13, color: COLLAR_RED });
+  paint("m-cylinder", 0.29, 0.08, { radius: 11.4, color: TURF });
+  for (let k = 0; k < 18; k++) {
+    const a = k * 20 * Math.PI / 180;
+    paint(LOW_POLY ? "m-cube" : "m-cylinder", 0.31, 0.04, LOW_POLY
+      ? { x: 12.2 * Math.sin(a), z: 12.2 * Math.cos(a), ry: 45, width: 0.78, depth: 0.78, color: STUD }
+      : { x: 12.2 * Math.sin(a), z: 12.2 * Math.cos(a), radius: 0.45, color: STUD });
+  }
+  [-1, 1].forEach((s) => {
+    paint("m-cylinder", 0.3, 0.02, { x: s * 7.6, z: 6.0, ry: s * 35, radius: 2.9, sx: 1.0, sz: 0.6, color: BRINDLE });
+  });
+  paint("m-cylinder", 0.31, 0.04, { radius: 8, sx: 1.15, sz: 0.95, color: HEAD });
+  paint("m-cylinder", 0.32, 0.02, { z: 3.3, radius: 4.4, sx: 1.4, sz: 0.42, color: BRINDLE });
+  [-1, 1].forEach((s) => {
+    paint("m-cylinder", 0.33, 0.02, { x: s * 3.1, z: 1.6, radius: 1.0, color: "#0c0a09" });
+    paint("m-cylinder", 0.34, 0.02, { x: s * 2.8, z: 1.9, radius: 0.35, color: CALL_RED });
+  });
+  paint("m-cylinder", 0.32, 0.02, { z: -3.2, radius: 4.2, sx: 1.35, sz: 0.8, color: MUZZLE });
+  [-1, 1].forEach((s) => {
+    paint("m-cylinder", 0.33, 0.02, { x: s * 2.3, z: -4.4, radius: 2.3, color: MUZZLE });
+    paint("m-cylinder", 0.34, 0.02, { x: s * 1.6, z: -6.5, radius: 0.45, color: LINE });
+  });
+  paint("m-cube", 0.34, 0.02, { z: -5.3, width: 3.6, depth: 0.25, color: BRINDLE });
+  paint("m-cylinder", 0.34, 0.02, { z: -1.6, radius: 1.5, sx: 1.4, sz: 0.8, color: "#0c0a09" });
+
+  // Where each dog waits between runs, painted like a kennel mark.
+  // The marks are spread across however many dogs are actually out,
+  // so calling another one re-spaces the whole line rather than
+  // stacking it on top of one already standing there.
+  function guardX(i, n) {
+    const span = FIELD_W * 0.72;
+    return n <= 1 ? 0 : -span / 2 + span * i / (n - 1);
+  }
+
+  // ==========================================================
+  // BOUNDARY - wall plus an invisible extension to y 24.4
+  // ==========================================================
+  const BOUND_L = GALLERY ? DECK_L : ARENA_L - 4;
+
+  [-1, 1].forEach((s) => {
+    el("m-cube", {
+      x: s * 48.3, y: 2.1, width: 1.2, height: 4.2, depth: BOUND_L,
+      color: CONCRETE, collide: "true",
+    });
+    el("m-cube", {
+      x: s * 48.3, y: 4.34, width: 1.7, height: 0.28, depth: BOUND_L, color: CHALK,
+    });
+    // below the slot: fills the space behind the rail so the concrete
+    // top at 4.2 is never a ledge you can stand on
+    el("m-cube", {
+      x: s * 48.3, y: (4.2 + GLASS_SILL) / 2,
+      width: 1.2, height: GLASS_SILL - 4.2, depth: BOUND_L,
+      color: "#000000", opacity: 0, collide: "true",
+    });
+    // above the slot: the rest of the old wall, unchanged
+    el("m-cube", {
+      x: s * 48.3, y: (GLASS_HEAD + 24.4) / 2,
+      width: 1.2, height: 24.4 - GLASS_HEAD, depth: BOUND_L,
+      color: "#000000", opacity: 0, collide: "true",
+    });
+  });
+
+  // ==========================================================
+  // STANDS + GALLERY
+  // ==========================================================
+  [-1, 1].forEach((s) => {
+    el("m-cube", {
+      x: s * 58.45, y: (DECK_TOP - 0.16) / 2,
+      width: 19.1, height: DECK_TOP - 0.16, depth: DECK_L,
+      color: CONCRETE, collide: "true",
+    });
+    el("m-cube", {
+      x: s * 58.45, y: DECK_TOP - 0.08,
+      width: 19.5, height: 0.16, depth: DECK_L, color: "#6c7176",
+    });
+  });
+
+  const STAIR_RISE = DECK_Y / STAIR_N;
+  const ZEDGE = ARENA_L / 2 + 1;
+  const DOOR_X = (PORTAL_X + PORTAL_W / 2 + ARENA_W / 2) / 2;
+
+  function galleryStair(sx, sz) {
+    const x = sx * STAIR_X;
+
+    el("m-cube", {
+      x: sx * DOOR_X, z: sz * (ARENA_L / 2 + 0.5), y: DECK_Y / 2,
+      width: DOOR_W - 0.4, height: DECK_Y, depth: 3,
+      color: CONCRETE, collide: "true",
+    });
+
+    for (let i = 0; i < STAIR_N; i++) {
+      const h = (i + 1) * STAIR_RISE;
+      const zc = sz * (ZEDGE + (STAIR_N - 1 - i) * STAIR_RUN + STAIR_RUN / 2);
+
+      el("m-cube", {
+        x: x, z: zc, y: h / 2,
+        width: STAIR_W, height: h, depth: STAIR_RUN + 0.06,
+        color: CONCRETE, collide: "true",
+      });
+      el("m-cube", {
+        x: x, z: zc + sz * (STAIR_RUN / 2), y: h + 0.04,
+        width: STAIR_W + 0.2, height: 0.08, depth: 0.18,
+        color: HOME_YEL,
+      });
+      [-1, 1].forEach((e) => {
+        el("m-cube", {
+          x: x + e * (STAIR_W / 2 + 0.3), z: zc, y: (h + 1.0) / 2,
+          width: 0.6, height: h + 1.0, depth: STAIR_RUN + 0.06,
+          color: STEEL_DK, collide: "true",
+        });
+      });
+    }
+
+    const zFoot = sz * (ZEDGE + STAIR_N * STAIR_RUN + 0.4);
+    [-1, 1].forEach((e) => {
+      const nx = x + e * (STAIR_W / 2 + 0.3);
+      el("m-cylinder", { x: nx, z: zFoot, y: 1.6, radius: 0.45, height: 3.2, color: STEEL_DK, collide: "true" });
+      globe({ x: nx, z: zFoot, y: 3.6, radius: 0.6, color: LAMP });
+      el("m-light", { x: nx, z: zFoot, y: 3.6, type: "point", intensity: 5, color: LAMP });
+    });
+
+    const zSign = sz * (ZEDGE + STAIR_N * STAIR_RUN + 2.2);
+    const ry = sz < 0 ? 180 : 0;
+    el("m-cube", {
+      x: x, z: zSign, y: 2.6, ry: ry,
+      width: 9, height: 2.0, depth: 0.3, color: FRAME,
+    });
+    el("m-label", {
+      x: x, z: zSign + sz * 0.25, y: 2.6, ry: ry,
+      width: 8.4, height: 1.4, "font-size": 52, alignment: "center",
+      color: BOARD, "font-color": CHALK, content: "SPECTATOR GALLERY",
+    });
+  }
+
+  if (GALLERY) {
+    [-1, 1].forEach((sx) => {
+      el("m-cube", {
+        x: sx * 49.0, y: DECK_Y + RAIL_H / 2,
+        width: 0.18, height: RAIL_H, depth: DECK_L,
+        color: "#cfe8f0", opacity: 0.12, collide: "true",
+      });
+      el("m-cube", {
+        x: sx * 49.0, y: DECK_Y + RAIL_H,
+        width: 0.5, height: 0.18, depth: DECK_L, color: STEEL,
+      });
+      for (let z = -132; z <= 132; z += 12) {
+        bar({
+          x: sx * 49.0, z: z, y: DECK_Y + RAIL_H / 2,
+          radius: 0.1, height: RAIL_H, color: STEEL,
+        });
+      }
+      el("m-cube", {
+        x: sx * 66.9, y: DECK_Y + 0.45,
+        width: 0.5, height: 0.9, depth: DECK_L, color: STEEL_DK, collide: "true",
+      });
+    });
+
+    GALLERY_ENDS.forEach((sz) => {
+      [-1, 1].forEach((sx) => galleryStair(sx, sz));
+    });
+
+    [-1, 1].forEach((sx) => {
+      [-1, 1].forEach((sz) => {
+        el("m-cube", {
+          x: sx * 49.55, z: sz * 140, y: DECK_Y / 2,
+          width: 1.3, height: DECK_Y, depth: 2.6,
+          color: CONCRETE, collide: "true",
+        });
+
+        const zEnd = sz * (DECK_L / 2 - 0.1);
+        const runs = hasGallery(sz)
+          ? [[48.9, DOOR_X - DOOR_W / 2], [DOOR_X + DOOR_W / 2, 68]]
+          : [[48.9, 68]];
+
+        runs.forEach(([x0, x1]) => {
+          el("m-cube", {
+            x: sx * (x0 + x1) / 2, z: zEnd, y: DECK_Y + RAIL_H / 2,
+            width: x1 - x0, height: RAIL_H, depth: 0.18,
+            color: "#cfe8f0", opacity: 0.12, collide: "true",
+          });
+          el("m-cube", {
+            x: sx * (x0 + x1) / 2, z: zEnd, y: DECK_Y + RAIL_H,
+            width: x1 - x0, height: 0.18, depth: 0.5, color: STEEL,
+          });
+        });
+      });
+    });
+  }
+
+  if (DETAIL) {
+    const SLOGANS = ["THE DOGS ARE FASTER THAN YOU.", "NOWHERE ON THIS PITCH IS SAFE.", "THE DOGS ARE FASTER THAN YOU."];
+    [-1, 1].forEach((s) => {
+      [-60, 0, 60].forEach((z, k) => {
+        el("m-cube", {
+          x: s * 66.2, z: z, y: 13, ry: s * -90,
+          width: 31, height: 4.6, depth: 0.3, color: FRAME,
+        });
+        el("m-label", {
+          x: s * 66.0, z: z, y: 13, ry: s * -90,
+          width: 30, height: 3.8, "font-size": 64, alignment: "center",
+          color: BOARD, "font-color": CHALK, content: SLOGANS[k],
+        });
+      });
+      // banners: crimson, gold-edged, a gold paw on each
+      for (let z = -100; z <= 100; z += 50) {
+        const bx = s * (ARENA_W / 2 - 2.2);
+        el("m-cube", { x: bx, z: z, y: 31, width: 0.4, height: 20, depth: 8, color: COLLAR_RED });
+        [-1, 1].forEach((e) => {
+          el("m-cube", { x: bx, z: z + e * 3.85, y: 31, width: 0.46, height: 20, depth: 0.3, color: WIN_GOLD });
+        });
+        el("m-cube", { x: bx, z: z, y: 21.1, width: 0.46, height: 0.3, depth: 8, color: WIN_GOLD });
+        el("m-cube", {
+          x: s * (ARENA_W / 2 - 2.2), z: z, y: 41.4,
+          width: 0.6, height: 0.5, depth: 8.6, color: STEEL,
+        });
+        wallPaw(s, bx + -s * 0.25, z, 30, 1.25, 0, WIN_GOLD);
+      }
+    });
+
+    // studs along the wall collar
+    [-1, 1].forEach((s) => {
+      for (let z = -136; z <= 136; z += 8) {
+        el(LOW_POLY ? "m-cube" : "m-cylinder", LOW_POLY ? {
+          x: s * (ARENA_W / 2 - 1.3), z: z, y: 40, rx: 45,
+          width: 0.25, height: 0.66, depth: 0.66, color: STUD,
+        } : {
+          x: s * (ARENA_W / 2 - 1.3), z: z, y: 40, rz: 90,
+          radius: 0.42, height: 0.25, color: STUD,
+        });
+      }
+    });
+
+    // bulldog crests, between the banners and clear of the ribs
+    [-1, 1].forEach((s) => {
+      WALL_CRESTS.forEach((z) => {
+        const team = z < 0 ? HOME_BLUE : HOME_YEL;
+        wallCrest(s, z, 28, team);
+      });
+    });
+
+    // paw prints walking the length of both walls, above the gallery
+    if (WALL_PAWS) [-1, 1].forEach((s) => {
+      let k = 0;
+      for (let z = -128; z <= 128; z += 6.5, k++) {
+        if (Math.abs(((z + 130) % 20) - 0) < 1.6 || Math.abs(((z + 130) % 20) - 20) < 1.6) continue;  // a rib
+        let slogan = false;
+        [-60, 0, 60].forEach((c) => { if (Math.abs(z - c) < 16.5) slogan = true; });
+        if (slogan) continue;
+        wallPaw(s, s * (ARENA_W / 2 - 1.05), z, 8.6 + (k % 2 ? 0.9 : -0.9), 1.0, s, "#5a1a20");
+      }
+    });
+  }
+
+  // --- helpers for the wall decoration ----------------------
+  // A flat disc on a side wall, facing the pitch. u runs along the
+  // wall (image-right as seen from the pitch), v is up. su and sv
+  // stretch it along and up. Layer steps it off the wall so
+  // overlapping shapes stack cleanly.
+  function wallDisc(s, x, zc, yc, u, v, r, su, sv, layer, color, tilt) {
+    return el("m-cylinder", {
+      x: (x - s * (0.03 + layer * 0.05)).toFixed(3),
+      z: (zc + s * u).toFixed(3), y: (yc + v).toFixed(3),
+      rz: 90, rx: tilt || 0, radius: r, sx: sv, sz: su, height: 0.04, color: color,
+    });
+  }
+
+  // a paw print on a wall. dir: which way it walks along the wall
+  // (+1/-1 as seen from the pitch), or 0 to stand upright
+  function wallPaw(s, x, zc, yc, k, dir, color) {
+    wallDisc(s, x, zc, yc, 0, 0, 1.35 * k, 1.2, 0.95, 0, color);
+    [[-1.55, 1.25], [-0.6, 2.0], [0.6, 2.0], [1.55, 1.25]].forEach(([a, b]) => {
+      const u = dir ? b * k * dir : a * k;
+      const v = dir ? a * k : b * k;
+      // the big pad stays a disc; the four toes are small enough
+      // that a tilted plate reads the same from the pitch
+      if (LOW_POLY) wallToe(s, x, zc, yc, u, v, 0.5 * k, color);
+      else wallDisc(s, x, zc, yc, u, v, 0.5 * k, 1.0, 1.0, 0, color);
+    });
+  }
+  function wallToe(s, x, zc, yc, u, v, r, color) {
+    return el("m-cube", {
+      x: (x - s * 0.03).toFixed(3),
+      z: (zc + s * u).toFixed(3), y: (yc + v).toFixed(3),
+      rx: 45, width: 0.05, height: r * 1.6, depth: r * 1.6, color: color,
+    });
+  }
+
+  // a shield with a bulldog's face in a studded collar
+  function wallCrest(s, zc, yc, team) {
+    const face = s * (ARENA_W / 2 - 1);   // the wall's inner face
+    const plate = (dx, attrs) => el("m-cube", Object.assign({ x: face - s * dx }, attrs));
+    // edge in the team colour, then the dark shield on top of it
+    plate(0.08, { z: zc, y: yc + 1.5, width: 0.1, height: 11.2, depth: 12.8, color: team });
+    plate(0.08, { z: zc, y: yc - 4.2, rx: 45, width: 0.1, height: 9.0, depth: 9.0, color: team });
+    plate(0.16, { z: zc, y: yc + 1.5, width: 0.1, height: 10.4, depth: 12.0, color: "#141923" });
+    plate(0.16, { z: zc, y: yc - 4.2, rx: 45, width: 0.1, height: 8.4, depth: 8.4, color: "#141923" });
+    const x = face - s * 0.2;
+    const K = 0.42;                           // the floor emblem, scaled down
+    const d = (u, v, r, su, sv, layer, color, tilt) =>
+      wallDisc(s, x, zc, yc + 1.2, u * K, v * K, r * K, su, sv, layer, color, tilt);
+    d(0, 0, 13, 1, 1, 0, COLLAR_RED);
+    d(0, 0, 11.4, 1, 1, 1, "#141923");
+    if (CREST_STUDS) {
+      for (let i = 0; i < 12; i++) {
+        const a = i * 30 * Math.PI / 180;
+        d(12.2 * Math.sin(a), 12.2 * Math.cos(a), 0.55, 1, 1, 2, STUD);
+      }
+    }
+    [-1, 1].forEach((e) => d(e * 7.6, 6.0, 2.9, 1.0, 0.6, 2, BRINDLE, e * 35));
+    d(0, 0, 8, 1.15, 0.95, 3, HEAD);
+    d(0, 3.3, 4.4, 1.4, 0.42, 4, BRINDLE);
+    [-1, 1].forEach((e) => {
+      d(e * 3.1, 1.6, 1.0, 1, 1, 5, "#0c0a09");
+      d(e * 2.8, 1.9, 0.35, 1, 1, 6, CALL_RED);
+    });
+    d(0, -3.2, 4.2, 1.35, 0.8, 4, MUZZLE);
+    [-1, 1].forEach((e) => {
+      d(e * 2.3, -4.4, 2.3, 1, 1, 5, MUZZLE);
+      d(e * 1.6, -6.5, 0.45, 1, 1, 6, LINE);
+    });
+    d(0, -1.6, 1.5, 1.4, 0.8, 6, "#0c0a09");
+    // a plaque under it
+    el("m-label", {
+      x: face - s * 0.2, z: zc, y: yc - 5.6, ry: -s * 90,
+      width: 7.5, height: 1.2, "font-size": 70, alignment: "center",
+      color: "#141923", "font-color": team, content: "BULLDOG",
+    });
+  }
+
+  // ==========================================================
+  // THE SHOW - what makes it feel like a final, not a field
+  // ==========================================================
+  if (DETAIL) {
+    // BULLDOG, ten metres high, across the inside of both end walls
+    [-1, 1].forEach((side) => {
+      const z = side * (ARENA_L / 2 - 1.3);
+      el("m-cube", { z: z + side * 0.2, y: 36, width: 70, height: 13, depth: 0.3, color: BRICK_DK });
+      el("m-label", {
+        z: z, y: 36, ry: side < 0 ? 0 : 180,
+        width: 68, height: 12, "font-size": 300, alignment: "center",
+        color: BRICK_DK, "font-color": homeCol(side), content: "BULLDOG",
+      });
+      [29.2, 42.8].forEach((y) => {
+        el("m-cube", { z: z + side * 0.05, y: y, width: 70, height: 0.4, depth: 0.4, color: homeCol(side) });
+      });
+    });
+
+    // LED ribbon boards along the inside of both touchline walls
+    [-1, 1].forEach((s) => {
+      el("m-cube", {
+        x: s * 47.62, y: 2.9, width: 0.12, height: 1.7, depth: FIELD_L, color: "#0a0d14",
+      });
+      for (let k = 0; k < 10; k++) {
+        const z = -FIELD_L / 2 + 10 + k * 20;
+        el("m-label", {
+          x: s * 47.54, z: z, y: 2.9, ry: -s * 90,
+          width: 16, height: 1.5, "font-size": 96, alignment: "center",
+          color: "#0a0d14", "font-color": k % 2 ? HOME_YEL : HOME_BLUE,
+          content: k % 2 ? "RUN" : "BULLDOG",
+        });
+      }
+    });
+
+    // team fire along the top of both touchline walls: blue at the
+    // blue end, gold at the gold end, red on halfway
+    [-1, 1].forEach((s) => {
+      FIRE_Z.forEach((z, k) => {
+        const fire = z < 0 ? "#3c7dff" : z > 0 ? "#ffb21a" : CALL_RED;
+        // The braziers stand on taller posts than they used to. They sat
+        // with their bowls at y 5.3 and their flames at 5.8, which is
+        // squarely in the sight slot - three of them a side, one of them
+        // on halfway where the host naturally stands, each throwing a
+        // 15-degree blind cone across the pitch. Up on a post the whole
+        // fire clears GLASS_HEAD and the slot is open the length of the
+        // deck. They also look better on posts.
+        const g = el("m-group", { x: s * 48.3, z: z, y: 4.48 });
+        const SIL = GLASS_SILL - 4.48, HED = GLASS_HEAD - 4.48;
+        // full-thickness below the slot, a thin stem THROUGH it, bowl and
+        // flame above it. The brazier has to cross the slot to stand on
+        // the wall, so the only question is how much of it does: at full
+        // thickness it threw a 9-degree blind cone across the pitch from
+        // wherever you stood behind it, and one of the three is on
+        // halfway, where the host stands. At 0.12 it is a wire.
+        el("m-cylinder", { y: SIL / 2, radius: 0.35, height: SIL, color: STEEL_DK }, g);
+        el("m-cylinder", { y: (SIL + HED) / 2, radius: 0.12, height: HED - SIL, color: STEEL_DK }, g);
+        el("m-cylinder", { y: HED + 0.18, radius: 0.85, height: 0.35, color: STEEL_DK }, g);
+        [[HED + 0.7, 0.62, 430], [HED + 1.3, 0.42, 370], [HED + 1.8, 0.24, 310]].forEach(([y, r, ms], fi) => {
+          // the body of the flame stays round; the two tongues above
+          // it are boxes - they are small, they are moving, and they
+          // are lit from inside
+          const f = (LOW_POLY && fi > 0)
+            ? el("m-cube", { y: y, ry: 45, width: r * 1.5, height: r * 2.1, depth: r * 1.5, color: fire }, g)
+            : el("m-sphere", { y: y, radius: r, color: fire }, g);
+          const a = document.createElement("m-attr-anim");
+          a.setAttribute("attr", "sy");
+          a.setAttribute("start", "0.8");
+          a.setAttribute("end", "1.25");
+          a.setAttribute("duration", String(ms + k * 23));
+          a.setAttribute("loop", "true");
+          f.append(a);
+        });
+        const lamp = el("m-light", { y: GLASS_HEAD - 4.48 + 1.6, type: "point", intensity: FIRE_GLOW, distance: 14, color: fire }, g);
+        const la = document.createElement("m-attr-anim");
+        la.setAttribute("attr", "intensity");
+        la.setAttribute("start", String(Math.round(FIRE_GLOW * 0.8 * LIGHT * 100) / 100));
+        la.setAttribute("end", String(Math.round(FIRE_GLOW * 1.15 * LIGHT * 100) / 100));
+        la.setAttribute("duration", String(520 + k * 37));
+        la.setAttribute("loop", "true");
+        lamp.append(la);
+      });
+    });
+
+    // two colossal bulldogs at each end, eyes burning, watching the run
+    const STATUE_S = 4.2;
+    STATUE_ENDS.forEach((side) => {
+      [-1, 1].forEach((sx) => {
+        const x = sx * 22, z = side * 124;
+        el("m-cube", { x: x, z: z, y: 0.6, width: 9.5, height: 1.2, depth: 19.5, color: STEEL_DK, collide: "true" });
+        el("m-cube", { x: x, z: z, y: 1.25, width: 9.9, height: 0.15, depth: 19.9, color: homeCol(side) });
+        const g = el("m-group", { x: x, z: z, y: 1.3, ry: side < 0 ? 0 : 180 });
+        const m = el("m-group", { z: (-0.3 * STATUE_S).toFixed(2) }, g);
+        dogModel(m, STATUE_S, CALL_RED);
+        [-1, 1].forEach((e) => {
+          el("m-light", {
+            x: e * 0.32 * STATUE_S, z: 2.3 * STATUE_S - 0.3 * STATUE_S, y: 1.95 * STATUE_S,
+            type: "point", intensity: STATUE_GLOW, distance: 10, color: CALL_RED,
+          }, g);
+        });
+        el("m-light", { y: 1.5, z: 9, type: "point", intensity: STATUE_GLOW * 1.8, distance: 16, color: LAMP }, g);
+      });
+    });
+  }
+
+  // ==========================================================
+  // GAME STATE
+  // ==========================================================
+  // Declared before anything that runs at load - const and let are
+  // not hoisted, which is the trap that once made a console look
+  // dead in red light.
+  let phase = "STANDBY";      // STANDBY | HUNT
+  let totalCaught = 0;
+  let hostId = null;          // whoever entered the code, if we can tell
+  let flashUntil = 0;
+  let idSeen = false;
+
+  const bodies = new Map();   // connectionId -> { x, z, t, vx, vz }
+  const caged = new Map();    // connectionId -> the cage holding them
+  const grace = new Map();    // connectionId -> when they can be caught again
+  const foot = [];            // [x, z, t] footsteps - what the dogs hunt
+  const safeZones = [];       // [x, z, until] - a cage the host just opened
+  const recentTags = [];      // [x, z, t]
+  const cages = [];
+  const marks = [];
+
+  const PARK = -900;
+
+
+  // THE RUN is the ground between the two home lines - the lines the
+  // corner flags stand on. That is the dogs' ground and all of it is
+  // live: no side you are sent to, no corner they will not come to.
+  // Behind either line, in the end zone, is home. A dog will not set
+  // foot past a flag and cannot reach, chase or tag anybody who is
+  // standing there, so the run between the ends is the whole game.
+  const FIELD_EDGE = 1.5;
+  function onField(x, z) {
+    return Math.abs(x) <= FIELD_W / 2 + FIELD_EDGE &&
+      Math.abs(z) <= FIELD_L / 2 + FIELD_EDGE;
+  }
+  // between the flags, with the line itself counting as home
+  function inRun(z) {
+    return !DOG_LINE || Math.abs(z) <= LINE_Z - HOME_TOL;
+  }
+
+  // Where somebody IS, not where the last report put them. Reports
+  // arrive every PROBE_MS and a sprinting avatar covers several
+  // metres between two of them, so a dog working from the raw
+  // number is permanently swiping at the grass behind its target.
+  function where(b, now) {
+    const age = Math.min(Math.max((now - b.t) / 1000, 0), PREDICT_MAX);
+    return [b.x + b.vx * age, b.z + b.vz * age];
+  }
+
+  // Catchable: not already in a cage, and not inside the immunity
+  // somebody gets for a few seconds after being let out of one.
+  function isTarget(id, now) {
+    if (caged.has(id)) return false;
+    const g = grace.get(id);
+    return !(g !== undefined && now < g);
+  }
+  function judging() { return USE_PROBES && idSeen; }
+
+  function inSafeZone(x, z) {
+    const now = Date.now();
+    for (let i = safeZones.length - 1; i >= 0; i--) {
+      if (now > safeZones[i][2]) { safeZones.splice(i, 1); continue; }
+      if (Math.hypot(x - safeZones[i][0], z - safeZones[i][1]) <= SAFE_R) return true;
+    }
+    return false;
+  }
+  // INSIDE the bars, which means a prisoner. Not "near a cage".
+  //
+  // This is the v21 bug. The test was CAGE_A + 1.2 = 4.0m from a cage's
+  // centre, and the only solid part of a cage is its six wall panels at
+  // CAGE_A = 2.8 - the base plinth does not collide, so a runner can
+  // walk right up and lean on the wall, which puts their centre at
+  // about 2.8 + their own radius = 3.15m out. That is well inside 4.0,
+  // so the game read them as already caged: their footsteps stopped
+  // feeding the dogs, any quarry on them was deleted, pickTarget
+  // skipped them and tagAt refused to tag them even on contact. Hugging
+  // a cage was a hiding place.
+  //
+  // A prisoner cannot get further out than 2.8 - 0.35 = 2.45m, and a
+  // runner outside cannot get closer in than about 3.15m, so 2.8m sits
+  // in a clean 0.7m dead band between the two. Anything past the wall
+  // is ordinary pitch and whoever is standing on it is fair game.
+  const CAGE_IN_R = CAGE_A;
+  function insideCage(x, z) {
+    for (let i = 0; i < cages.length; i++) {
+      if (Math.hypot(x - cages[i].x, z - cages[i].z) < CAGE_IN_R) return true;
+    }
+    return false;
+  }
+  // somebody a dog may go after or catch at this spot
+  function huntableAt(x, z) {
+    return onField(x, z) && inRun(z) && !insideCage(x, z) && !inSafeZone(x, z);
+  }
+
+  // ==========================================================
+  // IDENTITY - who is where
+  // ==========================================================
+  // Three position probes down the middle of the arena. Every body
+  // they report is kept with a smoothed velocity, which is what lets
+  // a dog run at where you are GOING rather than where you were.
+  const sample = (event) => {
+    const d = event && event.detail;
+    if (!d || d.connectionId === undefined) return;
+    const dr = d.documentRelative;
+    if (!dr || !dr.position) return;
+    idSeen = true;
+    const now = Date.now();
+    const x = dr.position.x, z = dr.position.z;
+    const b = bodies.get(d.connectionId);
+    if (!b) {
+      bodies.set(d.connectionId, { x: x, z: z, t: now, vx: 0, vz: 0 });
+      return;
+    }
+    const dt = (now - b.t) / 1000;
+    if (dt > 0.05 && dt < 2) {
+      b.vx = b.vx * 0.5 + ((x - b.x) / dt) * 0.5;
+      b.vz = b.vz * 0.5 + ((z - b.z) / dt) * 0.5;
+    }
+    b.x = x; b.z = z; b.t = now;
+  };
+  const drop = (event) => {
+    const d = event && event.detail;
+    if (d && d.connectionId !== undefined) bodies.delete(d.connectionId);
+  };
+
+  if (USE_PROBES || DEBUG_TRACK) PROBE_Z.forEach((pz) => {
+    const probe = document.createElement("m-position-probe");
+    probe.setAttribute("z", pz);
+    probe.setAttribute("y", 1);
+    probe.setAttribute("range", String(PROBE_RANGE));
+    probe.setAttribute("interval", String(PROBE_MS));
+    arena.append(probe);
+    on(probe, "positionenter", sample);
+    on(probe, "positionmove", sample);
+    on(probe, "positionleave", drop);
+  });
+
+  // Somebody standing perfectly still can go a long time without a
+  // single probe event, and standing still in a home is exactly
+  // what players are told to do. So a body's LAST KNOWN position is
+  // trusted until the probes say it left (positionleave). Only a
+  // body silent for minutes is dropped, in case a leave was lost.
+  // A quiet body is stationary, so its velocity is zeroed.
+  const BODY_KEEP_MS = 180000;
+  every(() => {
+    const now = Date.now();
+    bodies.forEach((b, id) => {
+      if (now - b.t > BODY_KEEP_MS) bodies.delete(id);
+      else if (now - b.t > PROBE_MS * 3) { b.vx = 0; b.vz = 0; }
+    });
+  }, 500);
+
+  function bodyOf(id) {
+    return bodies.get(id) || null;
+  }
+
+  // nearest catchable person to a point, within r, taken at where
+  // they are going rather than where they were
+  function nearestTarget(x, z, r, now) {
+    let best = null, bestD = r;
+    bodies.forEach((b, id) => {
+      if (!isTarget(id, now)) return;
+      const p = where(b, now);
+      if (!onField(p[0], p[1])) return;
+      const d = Math.hypot(p[0] - x, p[1] - z);
+      if (d <= bestD) { bestD = d; best = { id: id, x: p[0], z: p[1] }; }
+    });
+    return best;
+  }
+
+  function countOnField() {
+    if (!judging()) return -1;
+    const now = Date.now();
+    let n = 0;
+    bodies.forEach((b, id) => {
+      if (caged.has(id)) return;
+      const p = where(b, now);
+      if (onField(p[0], p[1])) n++;
+    });
+    return n;
+  }
+
+  // DEBUG_TRACK: a pillar wherever the game thinks each body is
+  const trackMarks = new Map();   // id -> { g, label, shown }
+  function paintTracking() {
+    if (!DEBUG_TRACK) return;
+    const now = Date.now();
+    bodies.forEach((b, id) => {
+      let t = trackMarks.get(id);
+      if (!t) {
+        const g = document.createElement("m-group");
+        markRoot.append(g);
+        el("m-cylinder", { y: 1.5, radius: 0.15, height: 3, color: "#3fa7ff", opacity: 0.8 }, g);
+        const label = el("m-label", {
+          y: 3.4, width: 1.6, height: 0.5, "font-size": 32, alignment: "center",
+          color: BOARD, "font-color": CHALK, content: "-",
+        }, g);
+        t = { g: g, label: label, shown: "" };
+        trackMarks.set(id, t);
+      }
+      const p = where(b, now);
+      t.g.setAttribute("x", p[0].toFixed(2));
+      t.g.setAttribute("z", p[1].toFixed(2));
+      const text = caged.has(id) ? "CAGED"
+        : !onField(p[0], p[1]) ? "OFF"
+        : isTarget(id, now) ? "HUNTED" : "FREED";
+      if (text !== t.shown) { t.shown = text; t.label.setAttribute("content", text); }
+    });
+    trackMarks.forEach((t, id) => {
+      if (bodies.has(id)) return;
+      if (t.g.parentNode) t.g.parentNode.removeChild(t.g);
+      trackMarks.delete(id);
+    });
+  }
+
+  // ==========================================================
+  // FOOTSTEPS - how a dog finds people with no identity
+  // ==========================================================
+  // Invisible pads over the whole pitch, exactly as Beacon has them.
+  // A collisionmove fires when a contact point moves, so running
+  // feet are loud and somebody standing still is silent. This is
+  // what the dogs hunt by.
+  let lastRunnerStep = Date.now();   // last footstep by somebody NOT caged
+  function noteFoot(x, z) {
+    if (phase === "HUNT" && huntableAt(x, z)) lastRunnerStep = Date.now();
+    if (phase !== "HUNT") return;
+    const now = Date.now();
+    foot.push([x, z, now]);
+    if (foot.length > 400) foot.splice(0, foot.length - 400);
+    // the footstep's real job: telling a quarry where it is
+    if (huntableAt(x, z)) feedQuarry(x, z, now);
+  }
+  // ==========================================================
+  // QUARRIES - the dogs stop chasing footprints and chase people
+  // ==========================================================
+  // A footstep is a moment. A person is a moment plus a direction
+  // that carries on when the moment stops. Up to v20 the dogs
+  // chased footsteps, and a hopping runner beat that outright: they
+  // touch down for a fraction of a second every second or so, so
+  // the floor gets a scatter of stamps in one spot, a long silence,
+  // then a scatter eight metres away. Reading a heading off that
+  // failed - the stamps in one cluster are too close together in
+  // time, and the gap to the next cluster too long - so the dog
+  // came up with no direction, ran to the last stamp it had,
+  // deleted it, and went back to patrolling under a runner who was
+  // still in the air.
+  //
+  // So a footstep is no longer a target. It is a FIX on a quarry.
+  // A quarry holds a position, a heading and the time it was last
+  // heard from, and it moves on that heading every tick whether or
+  // not the floor can hear it. A touchdown near where a quarry
+  // should be by now is that quarry, and it corrects the heading
+  // rather than starting a new one - so hop, hop, hop reads as one
+  // person crossing the pitch at a steady eight metres a second,
+  // which is what it is.
+  //
+  // A quarry dies when nothing has fed it for QUARRY_HOLD, when a
+  // dog is standing on it and it has been silent for QUARRY_GHOST,
+  // when it is caged, or when its line takes it off the pitch.
+  const quarry = [];          // { x, z, vx, vz, t, fixes, id }
+  let quarrySeq = 0;
+
+  // Where a quarry should be now, running its last known heading on
+  // from its last known fix.
+  function quarryAt(q, now) {
+    const silent = (now - q.t) / 1000;
+    // full confidence for the length of a jump, then less
+    const age = silent <= QUARRY_TRUST
+      ? silent
+      : QUARRY_TRUST + (silent - QUARRY_TRUST) * QUARRY_DOUBT;
+    let dx = q.vx * age, dz = q.vz * age;
+    const run = Math.hypot(dx, dz);
+    if (run > QUARRY_LEAD_MAX) { dx *= QUARRY_LEAD_MAX / run; dz *= QUARRY_LEAD_MAX / run; }
+    return [q.x + dx, q.z + dz];
+  }
+
+  function quarryById(id) {
+    for (let i = 0; i < quarry.length; i++) if (quarry[i].id === id) return quarry[i];
+    return null;
+  }
+
+  function dropQuarry(q) {
+    const i = quarry.indexOf(q);
+    if (i >= 0) quarry.splice(i, 1);
+  }
+
+  // A footstep landed. Whose?
+  function feedQuarry(x, z, now) {
+    if (!QUARRY_HOLD) return;
+    let best = null, bestD = QUARRY_MATCH;
+    for (let i = 0; i < quarry.length; i++) {
+      const p = quarryAt(quarry[i], now);
+      const d = Math.hypot(p[0] - x, p[1] - z);
+      if (d < bestD) { bestD = d; best = quarry[i]; }
+    }
+    if (!best) {
+      if (quarry.length >= QUARRY_MAX) quarry.shift();
+      quarry.push({ x: x, z: z, vx: 0, vz: 0, t: now, fixes: 0, id: ++quarrySeq });
+      return;
+    }
+    // Two touchdowns and the time between them IS the velocity. No
+    // stride-matching, no lookback window: a hop measured from take
+    // off to landing gives exactly the runner's ground speed.
+    const dt = (now - best.t) / 1000;
+    if (dt >= 0.12) {
+      let nvx = (x - best.x) / dt, nvz = (z - best.z) / dt;
+      const m = Math.hypot(nvx, nvz);
+      if (m > TRAIL_MAX) { nvx *= TRAIL_MAX / m; nvz *= TRAIL_MAX / m; }
+      const k = best.fixes ? QUARRY_SMOOTH : 1;
+      best.vx = best.vx * (1 - k) + nvx * k;
+      best.vz = best.vz * (1 - k) + nvz * k;
+      best.fixes++;
+    }
+    best.x = x; best.z = z; best.t = now;
+  }
+
+  function forgetOldQuarries(now) {
+    for (let i = quarry.length - 1; i >= 0; i--) {
+      const q = quarry[i];
+      if (now - q.t > QUARRY_HOLD) { quarry.splice(i, 1); continue; }
+      // last actually heard standing somewhere a dog may not go
+      if (!huntableAt(q.x, q.z)) quarry.splice(i, 1);
+    }
+  }
+
+  // Somebody just went in a cage: whatever quarry was them stops.
+  // 8m was too wide a broom - it swept up every other runner within
+  // eight metres of the catch as well, and a group breaking in the same
+  // direction lost the dogs all at once. One cage across is enough to
+  // be sure of the person who was actually caught.
+  const CAGE_QUARRY_R = CAGE_A + 1.7;
+  function cageQuarry(x, z, now) {
+    for (let i = quarry.length - 1; i >= 0; i--) {
+      const p = quarryAt(quarry[i], now);
+      if (Math.hypot(p[0] - x, p[1] - z) < CAGE_QUARRY_R ||
+          Math.hypot(quarry[i].x - x, quarry[i].z - z) < CAGE_QUARRY_R) quarry.splice(i, 1);
+    }
+  }
+
+  function forgetOldFeet() {
+    const cut = Date.now() - FOOT_MEMORY;
+    let i = 0;
+    while (i < foot.length && foot[i][2] < cut) i++;
+    if (i) foot.splice(0, i);
+  }
+
+  const PAD_COLS = Math.max(1, Math.round(FIELD_W / FOOT_PITCH));
+  const PAD_ROWS = Math.max(1, Math.round(FIELD_L / FOOT_PITCH));
+  const PAD_W = FIELD_W / PAD_COLS;
+  const PAD_D = FIELD_L / PAD_ROWS;
+
+  for (let r = 0; r < PAD_ROWS; r++) {
+    for (let c = 0; c < PAD_COLS; c++) {
+      const px = -FIELD_W / 2 + PAD_W / 2 + c * PAD_W;
+      const pz = -FIELD_L / 2 + PAD_D / 2 + r * PAD_D;
+      const pad = el("m-cube", {
+        x: px, z: pz, y: 0.18,
+        width: PAD_W + 0.4, height: 0.36, depth: PAD_D + 0.4,
+        color: "#000000", opacity: 0,
+        collide: "true", "collision-interval": PAD_MS,
+      });
+      const heard = (e) => {
+        const p = e && e.detail && e.detail.position;
+        if (p && typeof p.x === "number") noteFoot(px + p.x, pz + p.z);
+        else noteFoot(px, pz);
+      };
+      on(pad, "collisionstart", heard);
+      on(pad, "collisionmove", heard);
+    }
+  }
+
+  // ==========================================================
+  // CAGES - where a caught player spends the rest of the game
+  // ==========================================================
+  const SAFE_R = CAGE_A + 5;   // how big a just-opened cage's safe spot is
+  const SIDE = 2 * CAGE_A * Math.tan(Math.PI / 6) + 0.4;
+  const CORNER = CAGE_A / Math.cos(Math.PI / 6);
+  const EDGE_X = FIELD_W / 2 - CAGE_A + 0.3;   // a cage can stand against the touchline wall
+  const EDGE_Z = DOG_LINE ? LINE_Z - CAGE_A - 0.3 : FIELD_L / 2 - 2.5;
+
+  // Last-resort spacing, used only when the normal CAGE_MIN_GAP leaves
+  // nowhere at all to put a cage. At this distance two hexes clip each
+  // other by about half a metre, which looks a bit crowded and leaves a
+  // prisoner 2.2m of interior - and is much better than the alternative,
+  // which is that a corner already full of cages becomes a place you
+  // cannot be caught.
+  const CAGE_TIGHT_GAP = CAGE_A * 1.65;
+  function spotClear(x, z, gap) {
+    const g = gap === undefined ? CAGE_MIN_GAP : gap;
+    if (Math.abs(x) > EDGE_X || Math.abs(z) > EDGE_Z) return false;
+    for (let i = 0; i < cages.length; i++) {
+      if (Math.hypot(x - cages[i].x, z - cages[i].z) < g) return false;
+    }
+    return true;
+  }
+
+  // Walk outwards in rings from the spot asked for and take the
+  // clear point nearest the person it is for.
+  function freeSpot(x, z, bx, bz, gap) {
+    const cx = clamp(x, -EDGE_X, EDGE_X);
+    const cz = clamp(z, -EDGE_Z, EDGE_Z);
+    if (spotClear(cx, cz, gap)) return [cx, cz];
+    for (let ring = 1; ring <= 26; ring++) {
+      const r = ring * 0.5;
+      let best = null, bestD = Infinity;
+      for (let k = 0; k < 16; k++) {
+        const a = (k / 16) * Math.PI * 2 + ring * 0.31;
+        const tx = cx + Math.cos(a) * r;
+        const tz = cz + Math.sin(a) * r;
+        if (!spotClear(tx, tz, gap)) continue;
+        const d = Math.hypot(tx - bx, tz - bz);
+        if (d < bestD) { bestD = d; best = [tx, tz]; }
+      }
+      if (best) return best;
+    }
+    return [cx, cz];
+  }
+
+  function buildCage(x, z, rec) {
+    const g = document.createElement("m-group");
+    g.setAttribute("x", x);
+    g.setAttribute("z", z);
+    cageRoot.append(g);
+
+    // The walls and lid sit inside an m-prompt: click any of them -
+    // from inside the cage too - and a code box pops up. The code is
+    // the only key, so it works for a caged host and never for
+    // anybody who does not know it.
+    const lock = document.createElement("m-prompt");
+    lock.setAttribute("message", "Host code");
+    lock.setAttribute("placeholder", "code");
+    g.append(lock);
+
+    el("m-cylinder", { y: 0.2, radius: CAGE_A + 0.55, height: 0.4, color: STEEL_DK }, g);
+    for (let i = 0; i < 6; i++) {
+      const a = i * 60;
+      const r = a * Math.PI / 180;
+      el("m-cube", {
+        x: CAGE_A * Math.sin(r), z: CAGE_A * Math.cos(r),
+        y: CAGE_H / 2, ry: a,
+        width: SIDE, height: CAGE_H, depth: 0.12,
+        color: CALL_RED, opacity: 0.14, collide: "true",
+      }, lock);
+      // bars, so it reads as a pen and not a glass box
+      for (let b = -1; b <= 1; b++) {
+        bar({
+          x: CAGE_A * Math.sin(r) + b * (SIDE / 4) * Math.cos(r),
+          z: CAGE_A * Math.cos(r) - b * (SIDE / 4) * Math.sin(r),
+          y: CAGE_H / 2, ry: a, radius: 0.05, height: CAGE_H, color: STEEL,
+        }, g);
+      }
+    }
+    for (let i = 0; i < 6; i++) {
+      const r = (i * 60 + 30) * Math.PI / 180;
+      bar({
+        x: CORNER * Math.sin(r), z: CORNER * Math.cos(r),
+        y: CAGE_H / 2, radius: 0.13, height: CAGE_H + 0.4, color: STEEL,
+      }, g);
+    }
+    el("m-cylinder", {
+      y: CAGE_H + 0.15, radius: CAGE_A + 0.55, height: 0.3,
+      color: STEEL_DK, collide: "true",
+    }, lock);
+    crossLabels(g, CAGE_H + 1.1, "CAUGHT", CALL_RED, CHALK, 3.2, 0.9, 56);
+    // and a small plate on the inside wall, so a caged host knows
+    [0, 180].forEach((ry) => {
+      const r = ry * Math.PI / 180;
+      el("m-label", {
+        x: (CAGE_A - 0.2) * Math.sin(r), z: (CAGE_A - 0.2) * Math.cos(r), y: 2.2, ry: ry + 180,
+        width: 2.4, height: 0.5, "font-size": 26, alignment: "center",
+        color: BOARD, "font-color": CHALK, content: "HOST: CLICK THE WALL",
+      }, g);
+    });
+
+    on(lock, "prompt", (e) => {
+      const typed = String((e && e.detail && e.detail.value) || "").replace(/[^0-9]/g, "");
+      if (typed === CAGE_CODE.join("")) freeCage(rec, Date.now());
+    });
+
+    return g;
+  }
+
+  // x, z is where the cage is wanted; bx, bz is the person it is for.
+  // If it cannot land on them, it is not built at all.
+  function dropCage(x, z, bx, bz) {
+    if (cages.length >= MAX_CAGES) return null;
+    // Normal spacing first. If the ground round this person is already
+    // full of cages there may be no spot that far off every one of them
+    // AND still close enough to land round them - which quietly aborted
+    // the catch and handed them immunity for standing in a cluster. So
+    // fall back to the tightest spacing whose walls still do not
+    // intersect, and only give up if even that has nowhere to go.
+    let spot = freeSpot(x, z, bx, bz);
+    if (Math.hypot(spot[0] - bx, spot[1] - bz) <= CAGE_FIT) {
+      const rec0 = { x: spot[0], z: spot[1], id: null };
+      rec0.group = buildCage(spot[0], spot[1], rec0);
+      cages.push(rec0);
+      return rec0;
+    }
+    // Nothing at normal spacing. Try the tightest spacing whose walls
+    // still do not intersect, and allow the cage to land a little
+    // further off than usual. A cage a metre wide of somebody beats
+    // aborting the catch, which is what v21 did - and which made a
+    // corner already full of cages a place you could not be caught.
+    spot = freeSpot(x, z, bx, bz, CAGE_TIGHT_GAP);
+    if (Math.hypot(spot[0] - bx, spot[1] - bz) > CAGE_FIT + 1.4) return null;
+    const rec = { x: spot[0], z: spot[1], id: null };
+    rec.group = buildCage(spot[0], spot[1], rec);
+    cages.push(rec);
+    return rec;
+  }
+
+  // ==========================================================
+  // LETTING PEOPLE OUT
+  // ==========================================================
+  // The host is whoever entered the code. If the runtime does not
+  // report who clicked - or nobody has entered a code yet - there is
+  // nobody to check against, so the cage opens for whoever clicked
+  // it. Pretending otherwise would just mean cages that never open.
+
+  function freeCage(rec, now) {
+    const i = cages.indexOf(rec);
+    if (i < 0) return false;
+    cages.splice(i, 1);
+    if (rec.group && rec.group.parentNode) rec.group.parentNode.removeChild(rec.group);
+    if (rec.id !== null && rec.id !== undefined) {
+      caged.delete(rec.id);
+      // a few seconds of immunity, or a dog standing over the cage
+      // simply re-cages them before they have taken a step
+      grace.set(rec.id, now + GRACE_MS);
+      const b = bodyOf(rec.id);
+      if (b) mark(rec.id, b.x, b.z, "FREED", "#25a35a", GRACE_MS);
+    }
+    // the spot stays safe for a while so the person let out can
+    // actually walk away rather than be re-caged on the spot
+    safeZones.push([rec.x, rec.z, now + GRACE_MS]);
+    // whoever was in there is not "recently tagged here" any more
+    for (let k = recentTags.length - 1; k >= 0; k--) {
+      if (Math.hypot(recentTags[k][0] - rec.x, recentTags[k][1] - rec.z) < TAG_SPOT_R) {
+        recentTags.splice(k, 1);
+      }
+    }
+    paintBoards();
+    return true;
+  }
+
+  function freeAll() {
+    const now = Date.now();
+    let n = 0;
+    for (let i = cages.length - 1; i >= 0; i--) {
+      if (freeCage(cages[i], now)) n++;
+    }
+    return n;
+  }
+
+  function clearCages() {
+    cages.forEach((c) => { if (c.group.parentNode) c.group.parentNode.removeChild(c.group); });
+    cages.length = 0;
+    recentTags.length = 0;
+  }
+
+  // ==========================================================
+  // MARKS - the OUT ring and the winner's beam
+  // ==========================================================
+  function mark(id, x, z, text, color, ms) {
+    const g = document.createElement("m-group");
+    g.setAttribute("x", x.toFixed(2));
+    g.setAttribute("z", z.toFixed(2));
+    markRoot.append(g);
+    el("m-cylinder", { y: 3.0, radius: 0.9, height: 0.12, color: color, opacity: 0.85 }, g);
+    crossLabels(g, 3.8, text, color, CHALK, 1.8, 0.8, 60);
+    marks.push({ g: g, id: id, until: Date.now() + (ms || MARK_MS), x: x, z: z });
+  }
+
+  function updateMarks(now) {
+    for (let i = marks.length - 1; i >= 0; i--) {
+      const m = marks[i];
+      if (now > m.until) {
+        if (m.g.parentNode) m.g.parentNode.removeChild(m.g);
+        marks.splice(i, 1);
+        continue;
+      }
+      const b = bodyOf(m.id);
+      if (b && Math.hypot(b.x - m.x, b.z - m.z) > 0.15) {
+        m.x = b.x; m.z = b.z;
+        m.g.setAttribute("x", b.x.toFixed(2));
+        m.g.setAttribute("z", b.z.toFixed(2));
+      }
+    }
+  }
+
+  function clearMarks() {
+    marks.forEach((m) => { if (m.g.parentNode) m.g.parentNode.removeChild(m.g); });
+    marks.length = 0;
+  }
+
+
+  // ==========================================================
+  // THE BULLDOGS
+  // ==========================================================
+  const dogs = [];
+
+  // The model faces +z inside a group that turns with the dog. The
+  // solid body is NOT inside that group - it stays an upright
+  // cylinder on the dog's centre, so a contact reported against it
+  // is always relative to where the dog is, whichever way it faces.
+  // The bulldog itself, built facing +z inside group m at scale S.
+  // Used for the three hunters and for the two statues at the ends.
+  function dogModel(m, S, eyes) {
+    const SCALED = ["x", "y", "z", "width", "height", "depth", "radius"];
+    const part = (tag, a, parent) => {
+      const b = {};
+      for (const k in a) b[k] = SCALED.indexOf(k) >= 0 ? +(a[k] * S).toFixed(3) : a[k];
+      return el(tag, b, parent || m);
+    };
+
+    // legs, a little bowed at the front, and paws
+    [[-0.52, 0.55, -6], [0.52, 0.55, 6], [-0.5, -0.75, 0], [0.5, -0.75, 0]].forEach(([x, z, rz]) => {
+      part("m-cylinder", { x: x, z: z, y: 0.45, rz: rz, radius: 0.2, height: 0.9, color: DOG_FAWN });
+      // paws: down at the grass and half hidden by the legs, so a
+      // rounded box does the job of a ball
+      if (LOW_POLY) {
+        part("m-cube", { x: x * 1.1, z: z + 0.08, y: 0.14, width: 0.42, height: 0.28, depth: 0.5, color: DOG_LIGHT });
+      } else {
+        part("m-sphere", { x: x * 1.1, z: z + 0.08, y: 0.12, radius: 0.24, color: DOG_LIGHT });
+      }
+    });
+    // barrel, white chest, rump, a brindle saddle, a stub of a tail
+    part("m-cube", { z: -0.1, y: 1.25, width: 1.5, height: 1.0, depth: 1.9, color: DOG_FAWN });
+    part("m-sphere", { z: 0.55, y: 1.2, radius: 0.82, color: DOG_LIGHT });
+    part("m-sphere", { z: -0.85, y: 1.3, radius: 0.72, color: DOG_FAWN });
+    part("m-cube", { z: -0.25, y: 1.78, width: 1.54, height: 0.14, depth: 1.3, color: DOG_DARK });
+    if (LOW_POLY) part("m-cube", { z: -1.55, y: 1.55, width: 0.3, height: 0.3, depth: 0.3, color: DOG_FAWN });
+    else part("m-sphere", { z: -1.55, y: 1.55, radius: 0.16, color: DOG_FAWN });
+
+    // spiked collar, tipped up round the neck
+    const collar = document.createElement("m-group");
+    collar.setAttribute("y", (1.62 * S).toFixed(2));
+    collar.setAttribute("z", (0.95 * S).toFixed(2));
+    collar.setAttribute("rx", 65);
+    m.append(collar);
+    part("m-cylinder", { radius: 0.66, height: 0.2, color: COLLAR }, collar);
+    for (let k = 0; k < 10; k++) {
+      const a = k * 36 * Math.PI / 180;
+      part("m-cube", {
+        x: 0.72 * Math.sin(a), z: 0.72 * Math.cos(a), ry: k * 36,
+        width: 0.12, height: 0.12, depth: 0.16, color: STEEL,
+      }, collar);
+    }
+
+    // the head: wide, flat-faced, underbite, cross
+    part("m-sphere", { z: 1.45, y: 1.75, radius: 0.72, sx: 1.2, sy: 0.95, color: DOG_FAWN });
+    part("m-cube", { z: 2.05, y: 1.5, width: 1.0, height: 0.5, depth: 0.35, color: DOG_LIGHT });
+    [-0.3, 0.3].forEach((x) => {
+      part("m-sphere", { x: x, z: 2.08, y: 1.38, radius: 0.3, color: DOG_LIGHT });
+    });
+    part("m-cube", { z: 2.26, y: 1.7, width: 0.36, height: 0.2, depth: 0.12, color: "#1a1210" });
+    [-0.25, 0.25].forEach((x) => {
+      part("m-cube", { x: x, z: 2.38, y: 1.52, width: 0.09, height: 0.14, depth: 0.08, color: CHALK });
+    });
+    [-1, 1].forEach((s) => {
+      if (LOW_POLY) part("m-cube", { x: s * 0.32, z: 2.05, y: 1.92, ry: 45, width: 0.17, height: 0.17, depth: 0.17, color: eyes });
+      else part("m-sphere", { x: s * 0.32, z: 2.05, y: 1.92, radius: 0.1, color: eyes });
+      if (!LOW_POLY) part("m-sphere", { x: s * 0.3, z: 2.14, y: 1.96, radius: 0.035, color: "#ffffff" });
+      part("m-cube", { x: s * 0.22, z: 2.08, y: 2.08, rz: s * 14, width: 0.4, height: 0.07, depth: 0.1, color: DOG_DARK });
+      part("m-cube", { x: s * 0.62, z: 1.35, y: 2.32, rz: s * -35, width: 0.32, height: 0.26, depth: 0.08, color: DOG_DARK });
+    });
+
+  }
+
+  function buildDog(i) {
+    const g = document.createElement("m-group");
+    g.setAttribute("y", PARK);
+    dogRoot.append(g);
+
+    el("m-cylinder", { y: 0.3, radius: 2.6, height: 0.04, color: CALL_RED, opacity: 0.28 }, g);
+
+    const turn = document.createElement("m-group");
+    g.append(turn);
+    const m = document.createElement("m-group");
+    m.setAttribute("z", (-0.3 * DOG_SIZE).toFixed(2));
+    turn.append(m);
+
+    const S = DOG_SIZE;
+    dogModel(m, S, "#140c08");
+
+    // a red marker over its head, so you can find all three across
+    // a crowd from the far end of the pitch
+    const top = 2.43 * S + 1.4;
+    const marker = el("m-sphere", { y: top, radius: 0.42, color: CALL_RED }, g);
+    const markerLight = el("m-light", { y: top, type: "point", intensity: MARKER_GLOW, color: CALL_RED }, g);
+
+    // THE BODY. Invisible and solid: somebody running into a dog is
+    // stopped dead on their own screen, and the contact that stops
+    // them is the contact that reports them.
+    const body = el("m-cylinder", {
+      y: HUNT_BODY_H / 2, radius: HUNT_BODY_R, height: HUNT_BODY_H,
+      color: "#000000", opacity: 0,
+      collide: "true", "collision-interval": PAD_MS,
+    }, g);
+
+    const h = {
+      g: g, turn: turn, body: body, i: i, active: false,
+      x: 0, z: 0, vx: 0, vz: 1, ry: 0,
+      lastTag: 0, retreatUntil: 0, pauseUntil: 0, rx: 0, rz: 0,
+      guardX: 0, speed: 0, caught: 0, hungry: true,
+      quarry: null, sweep: null, searching: false,
+      marker: marker, markerLight: markerLight,
+    };
+
+    const grabbed = (e) => {
+      const p = e && e.detail && e.detail.position;
+      let x = h.x, z = h.z;
+      if (p && typeof p.x === "number" && typeof p.z === "number") {
+        x = h.x + p.x;
+        z = h.z + p.z;
+      }
+      tagAt(h, x, z);
+    };
+    on(body, "collisionstart", grabbed);
+    on(body, "collisionmove", grabbed);
+
+    return h;
+  }
+
+  // ----------------------------------------------------------
+  // THE PACK
+  // Dogs are built the first time they are needed and never thrown
+  // away: one taken off the pitch goes to the bench, parked out of
+  // the world, and comes back the next time the host calls for it.
+  // ----------------------------------------------------------
+  const bench = [];
+
+  function spreadGuards() {
+    for (let i = 0; i < dogs.length; i++) dogs[i].guardX = guardX(i, dogs.length);
+  }
+
+  function setPack(n) {
+    n = clamp(Math.round(n), 1, MAX_HUNTERS);
+    while (dogs.length < n) dogs.push(bench.pop() || buildDog(dogs.length));
+    while (dogs.length > n) {
+      const h = dogs.pop();
+      sleep(h);
+      h.speed = 0;
+      bench.push(h);
+    }
+    spreadGuards();
+    for (let i = 0; i < dogs.length; i++) {
+      const h = dogs[i];
+      if (phase === "HUNT") { if (!h.active) wake(h); }
+      else sleep(h);
+    }
+    return dogs.length;
+  }
+
+  setPack(HUNTERS);
+
+  // How far up the pitch a dog may come. With DOG_LINE on it is the
+  // home line, less the dog's own body, so its nose stops at the
+  // flags and the end zone behind them is never stood in.
+  const DOG_Z_MAX = DOG_LINE
+    ? LINE_Z - HUNT_BODY_R - 0.2
+    : FIELD_L / 2 - HUNT_BODY_R - 1;
+
+  function placeDog(h, x, z) {
+    h.x = clamp(x, -FIELD_W / 2 + 2, FIELD_W / 2 - 2);
+    h.z = clamp(z, -DOG_Z_MAX, DOG_Z_MAX);
+    h.g.setAttribute("x", h.x.toFixed(2));
+    h.g.setAttribute("z", h.z.toFixed(2));
+  }
+
+  function face(h, deg) {
+    let d = deg - h.ry;
+    while (d > 180) d -= 360;
+    while (d < -180) d += 360;
+    if (Math.abs(d) < 4) return;
+    h.ry = deg;
+    h.turn.setAttribute("ry", deg.toFixed(0));
+  }
+
+  // A dog standing over a fresh catch goes dark for a moment.
+  function setHungry(h, on) {
+    if (h.hungry === on) return;
+    h.hungry = on;
+    h.marker.setAttribute("color", on ? CALL_RED : STEEL_DK);
+    h.markerLight.setAttribute("intensity", on ? Math.round(MARKER_GLOW * LIGHT * 100) / 100 : 0);
+  }
+
+  function wake(h) {
+    h.active = true;
+    h.speed = 0;
+    placeDog(h, h.guardX, 0);
+    h.retreatUntil = 0;
+    h.pauseUntil = 0;
+    h.quarry = null;
+    h.sweep = null;
+    setHungry(h, true);
+    face(h, 180);
+    h.g.setAttribute("y", 0);
+  }
+
+  function sleep(h) {
+    h.active = false;
+    h.g.setAttribute("y", PARK);
+  }
+
+  function taggedRecently(x, z) {
+    const now = Date.now();
+    for (let i = recentTags.length - 1; i >= 0; i--) {
+      if (now - recentTags[i][2] > TAG_SPOT_MS) { recentTags.splice(i, 1); continue; }
+      const dx = recentTags[i][0] - x, dz = recentTags[i][1] - z;
+      if (dx * dx + dz * dz <= TAG_SPOT_R * TAG_SPOT_R) return true;
+    }
+    return false;
+  }
+
+  // Something touched a dog. With identity that is a PERSON: the
+  // contact snaps onto the nearest catchable body, so a dog never
+  // cages bare grass and never cages somebody twice.
+  // ageMs: how old the report of that touch already is. A contact
+  // event is fresh; a footstep can be a few hundred ms old.
+  function tagAt(h, rawX, rawZ, ageMs) {
+    if (phase !== "HUNT" || !h.active) return;
+    const now = Date.now();
+    if (now < h.pauseUntil) return;
+
+    if (judging()) {
+      const hit = nearestTarget(rawX, rawZ, TAG_SNAP_R, now);
+      if (!hit) return;
+      catchPlayer(hit.id, hit.x, hit.z, h, now);
+      return;
+    }
+
+    // A tag is a place - the spot where a body touched the dog. The
+    // cage is the whole record of it. Nobody already caged, nobody in
+    // a freshly opened cage's safe spot, nobody off the pitch.
+    if (!huntableAt(rawX, rawZ)) return;
+    if (taggedRecently(rawX, rawZ)) return;
+
+    // Throw the cage along the runner's own path: by the time it
+    // lands they have kept going - dodging round the dog as often as
+    // away from it. Their path comes from the footprint trail right
+    // there, and the lead covers both how old the report already is
+    // and the round trip for the cage to reach their screen. The one
+    // place they cannot be is inside the dog, so a lead that ends up
+    // there is pushed back out to its side.
+    const dir = away(h, rawX, rawZ);
+    const v = trailNear(rawX, rawZ, now);
+    const t = CAGE_LAG + (ageMs || 0) / 1000;
+    let lx = v[0] * t, lz = v[1] * t;
+    const lm = Math.hypot(lx, lz);
+    if (lm > CAGE_LEAD_MAX) { lx *= CAGE_LEAD_MAX / lm; lz *= CAGE_LEAD_MAX / lm; }
+    let ex = rawX + lx, ez = rawZ + lz;
+    const ox = ex - h.x, oz = ez - h.z, od = Math.hypot(ox, oz);
+    const clear = HUNT_BODY_R + 0.5;
+    if (od < clear) {
+      if (od > 0.01) { ex = h.x + ox / od * clear; ez = h.z + oz / od * clear; }
+      else { ex = h.x + dir[0] * clear; ez = h.z + dir[1] * clear; }
+    }
+    h.rx = rawX; h.rz = rawZ;
+    const rec = dropCage(ex + dir[0] * 0.4, ez + dir[1] * 0.4, ex, ez);
+    if (rec) {
+      recentTags.push([ex, ez, now]);
+      // The footprints that led here belong to the person now in the
+      // cage. Wipe them, or a dog comes back round for the last few
+      // and builds a second cage on the grass beside the first.
+      for (let k = foot.length - 1; k >= 0; k--) {
+        const f = foot[k];
+        if (Math.hypot(f[0] - rec.x, f[1] - rec.z) < 8 || Math.hypot(f[0] - rawX, f[1] - rawZ) < 5) foot.splice(k, 1);
+      }
+      // and the quarry that was them, or a dog turns straight round
+      // and starts hunting the person it has just put in a cage
+      cageQuarry(rec.x, rec.z, now);
+      cageQuarry(rawX, rawZ, now);
+      h.lastTag = now;
+      h.pauseUntil = now + CATCH_PAUSE;
+      h.retreatUntil = now + RETREAT_MS;
+      setHungry(h, false);
+      h.caught++;
+      totalCaught++;
+      flashLights();
+      paintBoards();
+    }
+  }
+
+  function away(h, x, z) {
+    let dx = x - h.x, dz = z - h.z;
+    const m = Math.hypot(dx, dz);
+    if (m < 0.01) return [0, 1];
+    return [dx / m, dz / m];
+  }
+
+  function catchPlayer(id, x, z, h, now) {
+    if (caged.has(id)) return;
+    const dir = away(h, x, z);
+    const cage = dropCage(x + dir[0] * CAGE_OUT, z + dir[1] * CAGE_OUT, x, z);
+    if (!cage) return;            // nowhere to put one - stay on them
+    cage.id = id;
+    caged.set(id, cage);
+    grace.delete(id);
+    h.lastTag = now;
+    h.pauseUntil = now + CATCH_PAUSE;
+    h.retreatUntil = now + RETREAT_MS;
+    h.rx = x; h.rz = z;
+    h.quarry = null;
+    h.sweep = null;
+    setHungry(h, false);
+    h.caught++;
+    totalCaught++;
+    recentTags.push([x, z, now]);
+    flashLights();
+    paintBoards();
+  }
+
+  // Who should this dog go for? The nearest catchable person, minus
+  // anybody another dog is plainly closer to - so three dogs spread
+  // over three runners instead of piling onto one - and it aims at
+  // where that person is heading, not where they stand.
+  function pickTarget(h, now) {
+    if (judging()) {
+      let best = null, bestP = null, bestS = Infinity;
+      bodies.forEach((b, id) => {
+        if (!isTarget(id, now)) return;
+        const p = where(b, now);
+        if (!onField(p[0], p[1]) || !inRun(p[1])) return;
+        const d = Math.hypot(p[0] - h.x, p[1] - h.z);
+        let s = d;
+        for (let j = 0; j < dogs.length; j++) {
+          const o = dogs[j];
+          if (o === h || !o.active) continue;
+          if (Math.hypot(p[0] - o.x, p[1] - o.z) < d - 3) { s += 25; break; }
+        }
+        if (s < bestS) { bestS = s; best = b; bestP = p; }
+      });
+      if (!best) return null;
+      const d = Math.hypot(bestP[0] - h.x, bestP[1] - h.z);
+      const lead = Math.min(LEAD_MAX, d / HUNT_SPEED);
+      return [bestP[0] + best.vx * lead, bestP[1] + best.vz * lead];
+    }
+
+    // The nearest quarry, leaving anybody another dog is plainly
+    // closer to. A quarry that has not been heard from for a second
+    // is still a person - it is dead reckoned, not forgotten - so
+    // freshness is scored gently and over QUARRY_HOLD, not over the
+    // life of a footstep.
+    let best = null, bestScore = -1e9, bestP = null;
+    for (let i = 0; i < quarry.length; i++) {
+      const q = quarry[i];
+      const p = quarryAt(q, now);
+      if (!huntableAt(p[0], p[1])) continue;
+      const d = Math.hypot(p[0] - h.x, p[1] - h.z);
+      if (d > HUNT_SENSE) continue;
+      let score = (1 - (now - q.t) / QUARRY_HOLD) * 110 - d * 0.85;
+      for (let j = 0; j < dogs.length; j++) {
+        const o = dogs[j];
+        if (o === h || !o.active) continue;
+        if (Math.hypot(p[0] - o.x, p[1] - o.z) < d - 3) { score -= 55; break; }
+      }
+      if (score > bestScore) { bestScore = score; best = q; bestP = p; }
+    }
+    if (!best || bestScore <= -60) return sweepTarget(h, now);
+
+    h.quarry = best.id;
+    const d = Math.hypot(bestP[0] - h.x, bestP[1] - h.z);
+    const lead = Math.min(LEAD_MAX, d / HUNT_SPEED);
+    // where to search if this one goes silent for good
+    h.sweep = { x: bestP[0], z: bestP[1], vx: best.vx, vz: best.vz, t: now };
+    return [bestP[0] + best.vx * lead, bestP[1] + best.vz * lead];
+  }
+
+  // ----------------------------------------------------------
+  // JUMPERS - and what a dog does when it really has lost you
+  // ----------------------------------------------------------
+  // The floor is the dogs' only sense and a player in the air is
+  // not touching it. The floor cannot be taught to hear a jump -
+  // the pads are solid geometry, so a taller pad is a wall and not
+  // a wider ear - so the dogs stopped needing to hear it. Quarries
+  // do that: a jump is a gap in the fixes, and a quarry crosses a
+  // gap without noticing it. A dog is not chasing your last
+  // footprint any more, it is chasing you, and you being briefly
+  // silent does not stop you existing.
+  //
+  // This is the other half: what happens when a quarry actually
+  // dies. Up to v20 the dog dropped straight back to patrol, which
+  // looks exactly like giving up, and is. Now it searches - it runs
+  // the ground the quarry was heading over, weaving SWEEP_WIDE
+  // either side of that line so it covers the width of a mistake
+  // rather than a rail, for SWEEP_MS. Nine times in ten it walks
+  // back into the person it lost. Then it patrols.
+  function sweepTarget(h, now) {
+    const S = h.sweep;
+    if (!SWEEP_MS || !S) return null;
+    const age = (now - S.t) / 1000;
+    if (age * 1000 > SWEEP_MS) { h.sweep = null; return null; }
+
+    let dx = S.vx * age, dz = S.vz * age;
+    const run = Math.hypot(dx, dz);
+    if (run > QUARRY_LEAD_MAX) { dx *= QUARRY_LEAD_MAX / run; dz *= QUARRY_LEAD_MAX / run; }
+    let ax = S.x + dx, az = S.z + dz;
+
+    const m = Math.hypot(S.vx, S.vz);
+    const wide = Math.min(SWEEP_WIDE, 4 + age * 6);
+    if (m > 0.6) {
+      // weave across the line it was running
+      const px = -S.vz / m, pz = S.vx / m;
+      const w = wide * Math.sin(age * 3.1);
+      ax += px * w; az += pz * w;
+    } else {
+      // it was standing still when we lost it: circle the spot
+      ax += Math.cos(age * 3.4) * wide;
+      az += Math.sin(age * 3.4) * wide;
+    }
+
+    if (!huntableAt(ax, az)) { h.sweep = null; return null; }
+    h.searching = true;
+    return [ax, az];
+  }
+
+  // Which way is the runner behind footstep f going? The floor's own
+  // record says: find a slightly older footstep near it - the same
+  // stride a moment earlier - and take the difference. Footsteps are
+  // stored in time order, so this walks back from the newest.
+  function trailVelocity(f) {
+    let best = null, bestErr = Infinity;
+    for (let i = foot.length - 1; i >= 0; i--) {
+      const g = foot[i];
+      const dt = (f[2] - g[2]) / 1000;
+      if (dt < 0.15) continue;
+      if (dt > TRAIL_SPAN) break;
+      const d = Math.hypot(f[0] - g[0], f[1] - g[1]);
+      if (d < 0.3 || d > TRAIL_MAX * dt) continue;
+      const err = Math.abs(dt - 0.45) + d * 0.01;
+      if (err < bestErr) { bestErr = err; best = g; }
+    }
+    if (!best) return [0, 0];
+    const dt = (f[2] - best[2]) / 1000;
+    return [(f[0] - best[0]) / dt, (f[1] - best[1]) / dt];
+  }
+
+  // ----------------------------------------------------------
+  // THE SPEED CLOCK
+  // The dog's speed only means anything next to the avatars', and
+  // the only honest source for that is the floor itself. Every so
+  // often this takes the newest footstep, asks the trail how fast
+  // the person leaving it was travelling, and keeps the best it has
+  // seen this session. The consoles show it as CLOCKED.
+  //
+  // It samples rather than measuring everybody - one footstep every
+  // SPEED_SAMPLE_MS - because trailVelocity walks the whole
+  // footstep list and doing that per step would cost more than it
+  // is worth. Over a minute of running it finds the quick ones.
+  // It reads a little low, never high: the trail is measured across
+  // a stride, so a runner who turned inside it comes out slower
+  // than they were. Take CLOCKED as a floor, not a ceiling.
+  // ----------------------------------------------------------
+  let clocked = 0;
+  every(() => {
+    if (phase !== "HUNT" || !foot.length) return;
+    const f = foot[foot.length - 1];
+    if (Date.now() - f[2] > 500) return;
+    const v = trailVelocity(f);
+    const sp = Math.hypot(v[0], v[1]);
+    if (sp > clocked && sp < TRAIL_MAX) clocked = sp;
+  }, SPEED_SAMPLE_MS);
+
+  // Which way is whoever is at (x, z) going? Ask the quarry standing
+  // there first - it holds a heading measured touchdown to touchdown
+  // and survives a hop, which is exactly what a cage lead needs from
+  // somebody who was in the air a moment ago. Only fall back to the
+  // raw footprint trail if no quarry claims the spot.
+  function trailNear(x, z, now) {
+    let best = null, bestD = 6;
+    for (let i = 0; i < quarry.length; i++) {
+      const q = quarry[i];
+      const p = quarryAt(q, now);
+      const d = Math.min(Math.hypot(p[0] - x, p[1] - z), Math.hypot(q.x - x, q.z - z));
+      if (q.fixes && d < bestD) { bestD = d; best = q; }
+    }
+    if (best) return [best.vx, best.vz];
+    for (let i = foot.length - 1; i >= 0; i--) {
+      const f = foot[i];
+      if (now - f[2] > 600) break;
+      if (Math.hypot(f[0] - x, f[1] - z) <= 3.5) return trailVelocity(f);
+    }
+    return [0, 0];
+  }
+
+  // Nothing to hear: roam. A dog never stands still - pick a spot on
+  // the pitch well away from the other dogs, go there, pick another.
+  function patrolTarget(h, now) {
+    if (h.patrol && now < h.patrolUntil &&
+        Math.hypot(h.patrol[0] - h.x, h.patrol[1] - h.z) > 4) return h.patrol;
+    let pick = null, bestS = -1e9;
+    for (let k = 0; k < 8; k++) {
+      const p = [
+        (Math.random() - 0.5) * (FIELD_W - 16),
+        (Math.random() - 0.5) * (2 * DOG_Z_MAX - 14),
+      ];
+      if (Math.hypot(p[0] - h.x, p[1] - h.z) < 20) continue;   // somewhere worth going
+      let others = 1e9;
+      dogs.forEach((o) => {
+        if (o === h || !o.active) return;
+        others = Math.min(others, Math.hypot(p[0] - o.x, p[1] - o.z));
+      });
+      const s = Math.min(others, 60) - Math.hypot(p[0] - h.x, p[1] - h.z) * 0.2;
+      if (s > bestS) { bestS = s; pick = p; }
+    }
+    if (!pick) pick = [-h.x * 0.5, -h.z * 0.5];
+    h.patrol = pick;
+    h.patrolUntil = now + 7000;
+    return pick;
+  }
+
+  function steer(h, dirX, dirZ) {
+    let m = Math.hypot(dirX, dirZ);
+    if (m < 0.01) { dirX = h.vx; dirZ = h.vz; m = Math.hypot(dirX, dirZ) || 1; }
+    dirX /= m; dirZ /= m;
+
+    for (let j = 0; j < dogs.length; j++) {
+      const o = dogs[j];
+      if (o === h || !o.active) continue;
+      const dx = h.x - o.x, dz = h.z - o.z;
+      const d = Math.hypot(dx, dz);
+      if (d < HUNT_SEPARATION && d > 0.01) {
+        const w = (HUNT_SEPARATION - d) / HUNT_SEPARATION;
+        dirX += (dx / d) * w * 1.4;
+        dirZ += (dz / d) * w * 1.4;
+      }
+    }
+    for (let s = 0; s < safeZones.length; s++) {
+      const dx = h.x - safeZones[s][0], dz = h.z - safeZones[s][1];
+      const d = Math.hypot(dx, dz);
+      if (d < SAFE_R + 4 && d > 0.01) {
+        const w = (SAFE_R + 4 - d) / (SAFE_R + 4);
+        dirX += (dx / d) * w * 3.0;
+        dirZ += (dz / d) * w * 3.0;
+      }
+    }
+    // A cage is something to walk round, not somewhere to keep away
+    // from. v21 held the dogs off by CAGE_A + HUNT_BODY_R + 1.4 = 5.6m,
+    // but the dog's body only touches the wall at CAGE_A + HUNT_BODY_R
+    // = 4.2m, so there was 1.4m of pure standoff - and a runner leaning
+    // on the cage sits at about 3.15m, inside it. Even once the dog was
+    // allowed to want them, it was shoved away before it could reach.
+    //
+    // So: clear the structure and nothing more, and fade the push right
+    // down when the thing the dog is going for is AT that cage. It
+    // still cannot walk through the wall - those panels collide - it
+    // just comes round the outside and takes them.
+    // Two clearances, not one. Walking PAST a cage the dog gives it the
+    // same wide berth as always, so it rounds the outside cleanly
+    // instead of scraping along the wall. Going FOR somebody who is
+    // standing at that cage, it clears only its own body and comes
+    // right in. The wall panels collide, so it still cannot walk
+    // through - it just gets to the far side of the bars and takes them.
+    const CAGE_ROUND = CAGE_A + HUNT_BODY_R + 1.4;   // going past one
+    const CAGE_CLOSE = CAGE_A + HUNT_BODY_R + 0.1;   // going for somebody at one
+    for (let c = 0; c < cages.length; c++) {
+      const dx = h.x - cages[c].x, dz = h.z - cages[c].z;
+      const d = Math.hypot(dx, dz);
+      if (d <= 0.01) continue;
+      let keep = CAGE_ROUND, push = 2.6;
+      if (h.aimX !== undefined && h.aimX !== null &&
+          Math.hypot(h.aimX - cages[c].x, h.aimZ - cages[c].z) < CAGE_ROUND + 1) {
+        keep = CAGE_CLOSE; push = 1.5;
+      }
+      if (d >= keep) continue;
+      const w = (keep - d) / keep;
+      dirX += (dx / d) * w * push;
+      dirZ += (dz / d) * w * push;
+    }
+
+    m = Math.hypot(dirX, dirZ) || 1;
+    dirX /= m; dirZ /= m;
+    h.vx = h.vx * (1 - HUNT_TURN) + dirX * HUNT_TURN;
+    h.vz = h.vz * (1 - HUNT_TURN) + dirZ * HUNT_TURN;
+    const vm = Math.hypot(h.vx, h.vz) || 1;
+    h.vx /= vm; h.vz /= vm;
+  }
+
+  function chase(h, now, dt) {
+    h.searching = false;
+    h.quarry = null;
+    let tgt = pickTarget(h, now);
+    let speed = HUNT_SPEED;
+    if (!tgt) {
+      h.sweep = null;
+      tgt = patrolTarget(h, now);
+      speed = PATROL_SPEED;
+    } else {
+      h.patrol = null;
+      // Standing on a quarry the floor has not heard from in a long
+      // while: that is a ghost, not somebody mid-jump. Drop it, or
+      // the dog circles an empty patch of grass all game. A jump is
+      // well under QUARRY_GHOST, so a real jumper is never dropped
+      // here - only somebody who left the pitch or stopped dead.
+      const q = h.quarry === null ? null : quarryById(h.quarry);
+      if (q && now - q.t > QUARRY_GHOST) {
+        const p = quarryAt(q, now);
+        if (Math.hypot(p[0] - h.x, p[1] - h.z) < 3.5) dropQuarry(q);
+      }
+    }
+    // steer() needs to know what this dog is going for, so it can tell
+    // "a cage is in my way" from "the person I want is standing at it"
+    h.aimX = tgt[0]; h.aimZ = tgt[1];
+    steer(h, tgt[0] - h.x, tgt[1] - h.z);
+    // Get up to it rather than start at it. A dog that snaps to full
+    // pace the instant it hears you is level on paper and miles
+    // faster in the hand: it never loses the metre you gain leaving
+    // a standstill, and it never loses one turning round either.
+    if (!HUNT_ACCEL) h.speed = speed;
+    else if (h.speed < speed) h.speed = Math.min(speed, h.speed + HUNT_ACCEL * dt);
+    else h.speed = Math.max(speed, h.speed - HUNT_ACCEL * 1.6 * dt);
+    placeDog(h, h.x + h.vx * h.speed * dt, h.z + h.vz * h.speed * dt);
+    face(h, Math.atan2(h.vx, h.vz) * 180 / Math.PI);
+
+    if (now < h.pauseUntil) return;
+    if (judging()) {
+      const hit = nearestTarget(h.x, h.z, CATCH_R, now);
+      if (hit) catchPlayer(hit.id, hit.x, hit.z, h, now);
+      return;
+    }
+    // The floor backstop. The body collider catches most people, but
+    // a runner a dog comes up behind may never report touching it. A
+    // footstep that fresh, that close, IS somebody in the dog's jaws.
+    for (let i = foot.length - 1; i >= 0; i--) {
+      const f = foot[i];
+      if (now - f[2] > FOOT_CATCH_MS) break;
+      if (Math.hypot(f[0] - h.x, f[1] - h.z) <= FOOT_CATCH_R) { tagAt(h, f[0], f[1], now - f[2]); break; }
+    }
+  }
+
+  // With nobody to chase, a dog drifts back towards its mark.
+  function heel(h, dt) {
+    const dx = h.guardX - h.x, dz = -h.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 0.5) return;
+    const step = Math.min(d, RETURN_SPEED * dt);
+    h.vx = dx / d; h.vz = dz / d;
+    placeDog(h, h.x + h.vx * step, h.z + h.vz * step);
+    face(h, Math.atan2(h.vx, h.vz) * 180 / Math.PI);
+  }
+
+  function dogTick() {
+    if (phase !== "HUNT") return;
+    const now = Date.now();
+    const dt = HUNT_MS / 1000;
+    forgetOldFeet();
+    forgetOldQuarries(now);
+    for (let i = 0; i < dogs.length; i++) {
+      const h = dogs[i];
+      if (!h.active) continue;
+      if (now >= h.pauseUntil) {
+        if (!h.hungry) setHungry(h, true);
+        chase(h, now, dt);
+      } else if (now < h.retreatUntil) {
+        steer(h, h.x - h.rx, h.z - h.rz);
+        placeDog(h, h.x + h.vx * PATROL_SPEED * dt, h.z + h.vz * PATROL_SPEED * dt);
+      } else {
+        h.speed = 0;      // stood over a catch: it starts again from nothing
+      }
+    }
+  }
+
+  every(dogTick, HUNT_MS);
+
+  // ==========================================================
+  // THE FIELD'S SIGNALS
+  // ==========================================================
+  function flashLights() {
+    flashUntil = Date.now() + FLASH_MS;
+    floods.forEach((l) => l.setAttribute("color", CALL_RED));
+  }
+  function unflash() {
+    flashUntil = 0;
+    floods.forEach((l) => l.setAttribute("color", LAMP));
+  }
+
+  // ==========================================================
+  // BOARDS
+  // ==========================================================
+  const statusLabels = [];
+  const countLabels = [];
+  const keyDisplays = [];
+  const diagLabels = [];
+  const speedLabels = [];   // the face of each SPEED pad
+
+  function ago(ms) {
+    const t = Math.floor(ms / 1000), m = Math.floor(t / 60), r = t % 60;
+    return m + ":" + (r < 10 ? "0" : "") + r;
+  }
+  // UP is how long this copy of the document has been running. If
+  // the game resets and UP is back near 0:00, the world reloaded the
+  // document - nothing in here did it.
+  function paintDiag() {
+    const now = Date.now();
+    let text = "V21   UP " + ago(now - BOOT);
+    text += "   DOG " + HUNT_SPEED.toFixed(1);
+    // Q is how many people the floor currently believes are running.
+    // If somebody is hopping about the pitch and Q sits at 0, the
+    // pads are not hearing them at all and no amount of dead
+    // reckoning will help - that is a floor problem, not a dog one.
+    if (phase === "HUNT") text += "   Q " + quarry.length;
+    if (clocked) text += "   CLOCKED " + clocked.toFixed(1);
+    if (lastStop) text += "   STOPPED BY " + lastStop.why + " " + ago(now - lastStop.at) + " AGO";
+    if (scriptErrors) text += "   ERR " + scriptErrors + " " + lastError;
+    diagLabels.forEach((l) => l.setAttribute("content", text));
+  }
+
+  function setBanner(text, color) {
+    statusLabels.forEach((l) => {
+      l.setAttribute("content", text);
+      l.setAttribute("font-color", color);
+    });
+  }
+  function setCount(text) {
+    countLabels.forEach((l) => l.setAttribute("content", text));
+  }
+
+  function clock(s) {
+    const t = Math.max(0, Math.ceil(s));
+    const m = Math.floor(t / 60);
+    const r = t % 60;
+    return m + ":" + (r < 10 ? "0" : "") + r;
+  }
+
+  function paintBoards() {
+    paintDiag();
+    if (Date.now() < noticeUntil) {
+      setBanner("BULLDOG", phase === "HUNT" ? CALL_RED : CHALK);
+      setCount(noticeText);
+      return;
+    }
+    if (phase === "HUNT") {
+      const n = countOnField();
+      setBanner("BULLDOG", CALL_RED);
+      setCount((n >= 0 ? n + " ON THE PITCH   " : "") +
+        "CAGED " + cages.length +
+        (totalCaught !== cages.length ? "   CAUGHT " + totalCaught : ""));
+    } else {
+      setBanner("BULLDOG", CHALK);
+      setCount("ENTER THE CODE TO LET THE DOGS OUT");
+    }
+  }
+
+  // blackboards, one behind each home, readable from both sides
+  [-112, 112].forEach((bz) => {
+    [-1, 1].forEach((s) => {
+      el("m-cylinder", { x: s * 7, z: bz, y: 3.4, radius: 0.4, height: 6.8, color: FRAME });
+    });
+    el("m-cube", { z: bz, y: 7.2, width: 16.6, height: 4.2, depth: 0.4, color: FRAME });
+    el("m-cube", { z: bz, y: 7.2, width: 16, height: 3.6, depth: 0.5, color: BOARD });
+    [180, 0].forEach((ry) => {
+      statusLabels.push(el("m-label", {
+        z: bz + (ry ? -0.3 : 0.3), y: 7.9, ry: ry,
+        width: 13, height: 1.8, "font-size": 105, alignment: "center",
+        color: BOARD, "font-color": CHALK, content: "BULLDOG",
+      }));
+      countLabels.push(el("m-label", {
+        z: bz + (ry ? -0.3 : 0.3), y: 6.4, ry: ry,
+        width: 15, height: 1.1, "font-size": 44, alignment: "center",
+        color: BOARD, "font-color": CHALK, content: "",
+      }));
+    });
+  });
+
+  // and three hung over the middle of the pitch, so a runner looking
+  // ahead sees the clock without turning round
+  [-86, 0, 86].forEach((bz) => {
+    el("m-cylinder", { z: bz, y: 34, radius: 0.14, height: 22, color: STEEL_DK });
+    el("m-cube", { z: bz, y: 18.2, width: 15.6, height: 4.0, depth: 0.4, color: FRAME });
+    el("m-cube", { z: bz, y: 18.2, width: 15, height: 3.4, depth: 0.5, color: BOARD });
+    [180, 0].forEach((ry) => {
+      statusLabels.push(el("m-label", {
+        z: bz + (ry ? -0.3 : 0.3), y: 18.8, ry: ry,
+        width: 12, height: 1.7, "font-size": 100, alignment: "center",
+        color: BOARD, "font-color": CHALK, content: "BULLDOG",
+      }));
+      countLabels.push(el("m-label", {
+        z: bz + (ry ? -0.3 : 0.3), y: 17.4, ry: ry,
+        width: 14, height: 1.0, "font-size": 40, alignment: "center",
+        color: BOARD, "font-color": CHALK, content: "",
+      }));
+    });
+  });
+
+  // ==========================================================
+  // GAME FLOW
+  // ==========================================================
+  // There are two states and the code is the only thing that moves
+  // between them. No calls, no runs, no rounds: the dogs are either
+  // out or they are not.
+  function startGame(who) {
+    stopGame();
+    clocked = 0;                // the speed clock measures this run
+    lastRunnerStep = Date.now();
+    phase = "HUNT";
+    hostId = who === undefined ? null : who;
+    for (let i = 0; i < dogs.length; i++) wake(dogs[i]);
+    paintBoards();
+  }
+
+  function stopGame() {
+    phase = "STANDBY";
+    clearCages();
+    clearMarks();
+    unflash();
+    caged.clear();
+    grace.clear();
+    totalCaught = 0;
+    hostId = null;
+    foot.length = 0;
+    safeZones.length = 0;
+    quarry.length = 0;
+    dogs.forEach((h) => { sleep(h); h.caught = 0; h.pauseUntil = 0; h.patrol = null; h.quarry = null; h.sweep = null; setHungry(h, true); });
+    paintBoards();
+  }
+
+  let stopArmedUntil = 0;
+  let lastStop = null;        // { at, why } - shown on the consoles
+
+  // Everybody caged, nobody at a console: after ALL_QUIET_MS of
+  // nobody running on the pitch outside a cage, every cage opens.
+  every(() => {
+    if (phase !== "HUNT" || !ALL_QUIET_MS || !cages.length) return;
+    if (Date.now() - lastRunnerStep < ALL_QUIET_MS) return;
+    const n = freeAll();
+    lastRunnerStep = Date.now();
+    notice("NOBODY LEFT RUNNING - " + n + " CAGES OPENED", 8000);
+  }, 2000);
+  function toggleGame(who) {
+    if (phase === "STANDBY") { stopArmedUntil = 0; noticeUntil = 0; startGame(who); return; }
+    const now = Date.now();
+    if (STOP_TWICE && now > stopArmedUntil) {
+      stopArmedUntil = now + 10000;
+      notice("ENTER THE CODE AGAIN TO STOP", 10000);
+      return;
+    }
+    stopArmedUntil = 0;
+    noticeUntil = 0;
+    lastStop = { at: now, why: "CODE" };
+    stopGame();
+  }
+
+  // a message that takes over the small line on every board for a bit
+  let noticeText = "", noticeUntil = 0;
+  function notice(text, ms) {
+    noticeText = text;
+    noticeUntil = Date.now() + ms;
+    paintBoards();
+  }
+
+  // --- the quick loop ---------------------------------------
+  every(() => {
+    const now = Date.now();
+    if (flashUntil && now > flashUntil) unflash();
+    grace.forEach((t, id) => { if (now > t) grace.delete(id); });
+    updateMarks(now);
+    paintTracking();
+  }, 200);
+
+  // --- the second hand --------------------------------------
+  every(paintBoards, 1000);
+
+  // ==========================================================
+  // THE SPEED PAD
+  // ----------------------------------------------------------
+  // A second pad beside each keypad, separate from the code lock
+  // and taking no code. Type a number of metres per second into it
+  // and the dogs run at that, from the next movement tick, whether
+  // they are out or still in the kennel. Patrol and walk-home pace
+  // follow it by their usual shares, so the dog stays one animal.
+  //
+  // It is deliberately not wired to any code: nothing you type in
+  // here starts, stops or changes the size of the pack.
+  // ==========================================================
+  function paintSpeed() {
+    const text = "DOG SPEED " + HUNT_SPEED.toFixed(1);
+    speedLabels.forEach((l) => l.setAttribute("content", text));
+  }
+
+  // Who may work the pad. The code is the real lock, because it works
+  // whatever the runtime will tell us. This is the second one, and it
+  // only bites when there is something to check against: a game
+  // running, a host known, and the runtime reporting who typed. When
+  // any of those is missing it stands aside rather than locking the
+  // pad against everybody, which is the same call the cages make.
+  function speedAllowed(who) {
+    if (!SPEED_HOST_ONLY) return true;
+    if (hostId === null || hostId === undefined) return true;
+    if (who === null || who === undefined) return true;
+    return who === hostId;
+  }
+
+  function setDogSpeed(value) {
+    const v = Number(value);
+    if (!isFinite(v) || v <= 0) {
+      notice("SPEED PAD: TYPE A NUMBER, " + SPEED_MIN + " TO " + SPEED_MAX, 6000);
+      return;
+    }
+    const clamped = Math.min(SPEED_MAX, Math.max(SPEED_MIN, v));
+    HUNT_SPEED = clamped;
+    PATROL_SPEED = HUNT_SPEED * PATROL_SHARE;
+    RETURN_SPEED = HUNT_SPEED * RETURN_SHARE;
+    paintSpeed();
+    if (clamped !== v) {
+      notice("SPEED HELD AT " + clamped.toFixed(1) + " - THE PAD STOPS AT " +
+        SPEED_MIN + " AND " + SPEED_MAX, 8000);
+    } else {
+      notice("DOG SPEED " + clamped.toFixed(1) + " M/S", 6000);
+    }
+    paintDiag();
+  }
+
+  // ==========================================================
+  // OPERATOR CONSOLES
+  // ==========================================================
+  let entry = [];
+  let entryExpires = 0;
+
+  const CODE_LEN = Math.max(CODE.length, PACK_CODE.length, CULL_CODE.length);
+  function setKeyDisplay() {
+    const dots = [];
+    for (let i = 0; i < CODE_LEN; i++) dots.push(i < entry.length ? "*" : "-");
+    const text = dots.join(" ");
+    keyDisplays.forEach((l) => l.setAttribute("content", text));
+  }
+
+  const CODES = [CODE, PACK_CODE, CULL_CODE];
+  function isPrefix(seq) {
+    return CODES.some((c) => seq.every((d, i) => c[i] === d));
+  }
+  function same(a, b) { return a.length === b.length && a.every((d, i) => d === b[i]); }
+
+  function enter(digit, who) {
+    const now = Date.now();
+    if (now > entryExpires) entry = [];
+    entryExpires = now + CODE_TIMEOUT * 1000;
+    entry.push(digit);
+    while (entry.length && !isPrefix(entry)) entry.shift();
+    setKeyDisplay();
+    if (same(entry, CODE)) {
+      entry = [];
+      setKeyDisplay();
+      toggleGame(who);
+      return;
+    }
+    if (same(entry, PACK_CODE)) {
+      entry = [];
+      setKeyDisplay();
+      changePack(1);
+      return;
+    }
+    if (same(entry, CULL_CODE)) {
+      entry = [];
+      setKeyDisplay();
+      changePack(-1);
+    }
+  }
+
+  // One dog out, or one back in. setPack holds the ends, so the
+  // codes are safe to lean on: entering PACK_CODE at MAX_HUNTERS
+  // or CULL_CODE with one dog left changes nothing and says so.
+  function changePack(step) {
+    const was = dogs.length;
+    const n = setPack(was + step);
+    if (n === was) {
+      notice(step > 0
+        ? "THE PACK IS FULL - " + n + " DOGS"
+        : "ONE DOG IS THE LAST ONE - USE THE CODE TO STOP", 6000);
+    } else if (n === 1) {
+      notice("DOWN TO ONE DOG", 6000);
+    } else if (n === 2 && step > 0) {
+      notice("A SECOND DOG IS OUT", 6000);
+    } else {
+      notice(n + (step > 0 ? " DOGS ON THE PITCH" : " DOGS LEFT"), 6000);
+    }
+    paintBoards();
+  }
+
+  function press(digit, clear, cap, who) {
+    const lit = clear ? CALL_RED : WIN_GOLD;
+    const dark = clear ? CALL_DIM : "#2a3530";
+    cap.setAttribute("color", lit);
+    later(() => cap.setAttribute("color", dark), 150);
+    if (clear) {
+      entry = [];
+      setKeyDisplay();
+    } else {
+      enter(digit, who);
+    }
+  }
+
+  const KEYS = [
+    ["1", "2", "3"],
+    ["4", "5", "6"],
+    ["7", "8", "9"],
+    ["C", "0", ""],
+  ];
+
+  function buildConsole(zPod, face) {
+    const ry = face < 0 ? 180 : 0;
+
+    el("m-cube", { z: zPod, y: 0.5, width: 18, height: 1, depth: 10, color: CONCRETE, collide: "true" });
+    el("m-cube", { z: zPod + face * 5.6, y: 0.25, width: 18, height: 0.5, depth: 1.6, color: STEEL_DK, collide: "true" });
+    el("m-cube", { z: zPod, y: 1.04, width: 18.4, height: 0.12, depth: 10.4, color: homeCol(face) });
+    [-1, 1].forEach((s) => {
+      el("m-cylinder", { x: s * 7.5, z: zPod - face * 3.5, y: 3, radius: 0.35, height: 6, color: STEEL_DK });
+      globe({ x: s * 7.5, z: zPod - face * 3.5, y: 6.3, radius: 0.55, color: LAMP });
+      el("m-light", { x: s * 7.5, z: zPod - face * 3.5, y: 6.3, type: "point", intensity: 5, color: LAMP });
+    });
+
+    const cg = document.createElement("m-group");
+    cg.setAttribute("z", zPod + face);
+    cg.setAttribute("y", 1);
+    cg.setAttribute("ry", ry);
+    arena.append(cg);
+
+    el("m-cube", { y: 0.3, width: 2.6, height: 0.6, depth: 0.7, color: CONCRETE, collide: "true" }, cg);
+    el("m-cube", { y: 2.2, width: 3.4, height: 3.3, depth: 0.2, color: BOARD, collide: "true" }, cg);
+    [-1, 1].forEach((s) => {
+      el("m-cube", { x: s * 1.76, y: 2.2, width: 0.16, height: 3.3, depth: 0.28, color: FRAME }, cg);
+    });
+    [0.55, 3.85].forEach((y) => {
+      el("m-cube", { y: y, width: 3.68, height: 0.16, depth: 0.28, color: FRAME }, cg);
+    });
+
+    statusLabels.push(el("m-label", {
+      y: 3.58, z: 0.12, width: 3.0, height: 0.5,
+      "font-size": 40, alignment: "center",
+      color: BOARD, "font-color": CHALK, content: "BULLDOG",
+    }, cg));
+
+    keyDisplays.push(el("m-label", {
+      y: 3.06, z: 0.12, width: 3.0, height: 0.46,
+      "font-size": 36, alignment: "center",
+      color: "#101a15", "font-color": HOME_YEL, content: "- - - -",
+    }, cg));
+
+    countLabels.push(el("m-label", {
+      y: 0.34, z: 0.4, width: 3.3, height: 0.4,
+      "font-size": 17, alignment: "center",
+      color: BOARD, "font-color": CHALK, content: "",
+    }, cg));
+    diagLabels.push(el("m-label", {
+      y: 0.08, z: 0.4, width: 3.3, height: 0.28,
+      "font-size": 13, alignment: "center",
+      color: BOARD, "font-color": STEEL, content: "",
+    }, cg));
+
+    KEYS.forEach((row, r) => {
+      row.forEach((key, c) => {
+        if (key === "") return;
+        const clear = key === "C";
+        const x = (c - 1) * 0.92;
+        const y = 2.42 - r * 0.62;
+
+        const cap = el("m-cube", {
+          x: x, y: y, z: 0.2,
+          width: 0.78, height: 0.5, depth: 0.24,
+          color: clear ? CALL_DIM : "#2a3530",
+          collide: "true",
+        }, cg);
+
+        const capFace = el("m-label", {
+          z: 0.13, width: 0.74, height: 0.42,
+          "font-size": 30, alignment: "center",
+          color: clear ? CALL_DIM : "#2a3530",
+          "font-color": clear ? CALL_RED : CHALK,
+          content: key, collide: "true",
+        }, cap);
+
+        let last = 0;
+        const hit = (e) => {
+          const now = Date.now();
+          if (now - last < 180) return;
+          last = now;
+          press(Number(key), clear, cap, e && e.detail ? e.detail.connectionId : undefined);
+        };
+        on(cap, "click", hit);
+        on(capFace, "click", hit);
+      });
+    });
+
+    // and the button that opens every cage, beside the keypad
+
+    // typed entry, as a backstop for a fiddly cursor
+    const promptWrap = document.createElement("m-prompt");
+    promptWrap.setAttribute("message", "Operator code");
+    promptWrap.setAttribute("placeholder", "4 digits");
+    arena.append(promptWrap);
+
+    const promptPad = el("m-cube", {
+      z: zPod + face * 3.6, y: 1.08,
+      width: 3.6, height: 0.16, depth: 1.6,
+      color: BOARD, collide: "true",
+    }, promptWrap);
+
+    el("m-cube", {
+      z: zPod + face * 3.6, y: 1.1,
+      width: 3.9, height: 0.1, depth: 1.9, color: FRAME,
+    });
+
+    el("m-label", {
+      y: 0.1, rx: -90, rz: ry,
+      width: 3.4, height: 1.4,
+      "font-size": 30, alignment: "center",
+      color: BOARD, "font-color": CHALK,
+      content: "TYPE CODE", collide: "true",
+    }, promptPad);
+
+    on(promptWrap, "prompt", (event) => {
+      const d = event.detail || {};
+      const typed = String(d.value || "").replace(/[^0-9]/g, "");
+      entry = [];
+      for (let i = 0; i < typed.length; i++) enter(Number(typed[i]), d.connectionId);
+    });
+
+    // --- and the speed pad, alongside it ---------------------
+    // face*SPEED_PAD_X puts it on the same hand at both consoles,
+    // because the two are approached from opposite directions.
+    if (!SPEED_PAD) return;
+    const SPEED_PAD_X = 4.4;
+    const spx = face * SPEED_PAD_X;
+
+    const speedWrap = document.createElement("m-prompt");
+    speedWrap.setAttribute("message", "Host code, then dog speed in m/s");
+    speedWrap.setAttribute("placeholder", "code + " + SPEED_MIN + "-" + SPEED_MAX);
+    arena.append(speedWrap);
+
+    const speedPad = el("m-cube", {
+      x: spx, z: zPod + face * 3.6, y: 1.08,
+      width: 3.6, height: 0.16, depth: 1.6,
+      color: BOARD, collide: "true",
+    }, speedWrap);
+
+    el("m-cube", {
+      x: spx, z: zPod + face * 3.6, y: 1.1,
+      width: 3.9, height: 0.1, depth: 1.9, color: HOME_YEL_DIM,
+    });
+
+    speedLabels.push(el("m-label", {
+      y: 0.1, rx: -90, rz: ry,
+      width: 3.4, height: 1.4,
+      "font-size": 22, alignment: "center",
+      color: BOARD, "font-color": HOME_YEL,
+      content: "DOG SPEED", collide: "true",
+    }, speedPad));
+
+    on(speedWrap, "prompt", (event) => {
+      const d = event.detail || {};
+      // Anything that is not a digit or a point is a separator, so
+      // "2233 8.6", "2233-8.6" and "22338.6" are the same entry.
+      const typed = String(d.value || "").replace(/[^0-9.]/g, "");
+      const code = SPEED_CODE.join("");
+      // No code, wrong code: nothing happens and nothing is said.
+      // Somebody guessing at the pad gets silence, and the boards
+      // never announce that there is a code to guess at.
+      if (typed.slice(0, code.length) !== code) return;
+      if (!speedAllowed(d.connectionId)) {
+        notice("SPEED PAD: HOST ONLY", 6000);
+        return;
+      }
+      const rest = typed.slice(code.length);
+      if (!rest) {
+        notice("SPEED PAD: CODE, THEN THE SPEED", 6000);
+        return;
+      }
+      setDogSpeed(rest);
+    });
+  }
+
+  buildConsole(CTRL_Z, -1);
+  if (FINISH_CONSOLE) buildConsole(FIN_CTRL_Z, 1);
+
+  // ==========================================================
+  // GO
+  // ==========================================================
+  setKeyDisplay();
+  paintSpeed();
+  stopGame();
+</script>
+
+<m-group id="luster-decoration" collide="false">
+<m-model id="luster-0" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/ring.glb" x="-65" y="27" z="-120" ry="-90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-1" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/ring.glb" x="-65" y="27" z="-25" ry="-90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-2" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/ring.glb" x="-65" y="27" z="25" ry="-90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-3" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/ring.glb" x="-65" y="27" z="120" ry="-90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-4" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/tree-a.glb" x="-64" y="8" z="-119" ry="-90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-cube x="-64" y="6.1" z="-119" width="5" height="3.6" depth="12" color="#29232a" collide="false"></m-cube>
+<m-cube x="-64" y="7.95" z="-119" width="5.2" height="0.16" depth="12.2" color="#a78035" collide="false"></m-cube>
+<m-model id="luster-5" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/tree-b.glb" x="-64" y="8" z="-35" ry="-90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-cube x="-64" y="6.1" z="-35" width="5" height="3.6" depth="12" color="#29232a" collide="false"></m-cube>
+<m-cube x="-64" y="7.95" z="-35" width="5.2" height="0.16" depth="12.2" color="#a78035" collide="false"></m-cube>
+<m-model id="luster-6" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/tree-a.glb" x="-64" y="8" z="35" ry="-90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-cube x="-64" y="6.1" z="35" width="5" height="3.6" depth="12" color="#29232a" collide="false"></m-cube>
+<m-cube x="-64" y="7.95" z="35" width="5.2" height="0.16" depth="12.2" color="#a78035" collide="false"></m-cube>
+<m-model id="luster-7" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/tree-b.glb" x="-64" y="8" z="119" ry="-90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-cube x="-64" y="6.1" z="119" width="5" height="3.6" depth="12" color="#29232a" collide="false"></m-cube>
+<m-cube x="-64" y="7.95" z="119" width="5.2" height="0.16" depth="12.2" color="#a78035" collide="false"></m-cube>
+<m-cube x="-66.65" y="23" z="0" width="0.22" height="0.16" depth="269" color="#b99850" collide="false"></m-cube>
+<m-cube x="-66.65" y="48" z="0" width="0.22" height="0.16" depth="269" color="#b99850" collide="false"></m-cube>
+<m-cube x="-66.6" y="35.5" z="-126" width="0.25" height="24" depth="0.16" color="#8b6c35" collide="false"></m-cube>
+<m-cube x="-66.6" y="35.5" z="-42" width="0.25" height="24" depth="0.16" color="#8b6c35" collide="false"></m-cube>
+<m-cube x="-66.6" y="35.5" z="42" width="0.25" height="24" depth="0.16" color="#8b6c35" collide="false"></m-cube>
+<m-cube x="-66.6" y="35.5" z="126" width="0.25" height="24" depth="0.16" color="#8b6c35" collide="false"></m-cube>
+<m-model id="luster-8" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/ring.glb" x="65" y="27" z="-120" ry="90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-9" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/ring.glb" x="65" y="27" z="-25" ry="90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-10" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/ring.glb" x="65" y="27" z="25" ry="90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-11" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/ring.glb" x="65" y="27" z="120" ry="90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-12" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/tree-a.glb" x="64" y="8" z="-119" ry="90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-cube x="64" y="6.1" z="-119" width="5" height="3.6" depth="12" color="#29232a" collide="false"></m-cube>
+<m-cube x="64" y="7.95" z="-119" width="5.2" height="0.16" depth="12.2" color="#a78035" collide="false"></m-cube>
+<m-model id="luster-13" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/tree-b.glb" x="64" y="8" z="-35" ry="90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-cube x="64" y="6.1" z="-35" width="5" height="3.6" depth="12" color="#29232a" collide="false"></m-cube>
+<m-cube x="64" y="7.95" z="-35" width="5.2" height="0.16" depth="12.2" color="#a78035" collide="false"></m-cube>
+<m-model id="luster-14" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/tree-a.glb" x="64" y="8" z="35" ry="90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-cube x="64" y="6.1" z="35" width="5" height="3.6" depth="12" color="#29232a" collide="false"></m-cube>
+<m-cube x="64" y="7.95" z="35" width="5.2" height="0.16" depth="12.2" color="#a78035" collide="false"></m-cube>
+<m-model id="luster-15" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/tree-b.glb" x="64" y="8" z="119" ry="90" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-cube x="64" y="6.1" z="119" width="5" height="3.6" depth="12" color="#29232a" collide="false"></m-cube>
+<m-cube x="64" y="7.95" z="119" width="5.2" height="0.16" depth="12.2" color="#a78035" collide="false"></m-cube>
+<m-cube x="66.65" y="23" z="0" width="0.22" height="0.16" depth="269" color="#b99850" collide="false"></m-cube>
+<m-cube x="66.65" y="48" z="0" width="0.22" height="0.16" depth="269" color="#b99850" collide="false"></m-cube>
+<m-cube x="66.6" y="35.5" z="-126" width="0.25" height="24" depth="0.16" color="#8b6c35" collide="false"></m-cube>
+<m-cube x="66.6" y="35.5" z="-42" width="0.25" height="24" depth="0.16" color="#8b6c35" collide="false"></m-cube>
+<m-cube x="66.6" y="35.5" z="42" width="0.25" height="24" depth="0.16" color="#8b6c35" collide="false"></m-cube>
+<m-cube x="66.6" y="35.5" z="126" width="0.25" height="24" depth="0.16" color="#8b6c35" collide="false"></m-cube>
+<m-model id="luster-16" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/crown.glb" x="-22" y="14" z="-136" ry="0" sx="0.8" sy="0.8" sz="0.8" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-17" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/crown.glb" x="22" y="14" z="-136" ry="0" sx="0.8" sy="0.8" sz="0.8" collide="false" cast-shadows="false"></m-model>
+<m-cube x="0" y="46.8" z="-138.5" width="68" height="0.16" depth="0.2" color="#d0ae63" collide="false"></m-cube>
+<m-model id="luster-18" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/crown.glb" x="-22" y="14" z="136" ry="180" sx="0.8" sy="0.8" sz="0.8" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-19" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/crown.glb" x="22" y="14" z="136" ry="180" sx="0.8" sy="0.8" sz="0.8" collide="false" cast-shadows="false"></m-model>
+<m-cube x="0" y="46.8" z="138.5" width="68" height="0.16" depth="0.2" color="#d0ae63" collide="false"></m-cube>
+<m-model id="luster-20" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/tower.glb" x="-54" y="0.25" z="-171" ry="-20" sx="1.25" sy="1.25" sz="1.25" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-21" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/tree-c.glb" x="-52" y="0.25" z="-187" ry="-32" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-22" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/molten.glb" x="-55" y="0.24" z="-158" ry="-13" sx="1.4" sy="1.4" sz="1.4" collide="false" cast-shadows="false"></m-model>
+<m-cube x="-54" y="0.28" z="-171" width="12" height="0.15" depth="13" color="#927442" collide="false"></m-cube>
+<m-model id="luster-23" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/tower.glb" x="54" y="0.25" z="-171" ry="20" sx="1.25" sy="1.25" sz="1.25" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-24" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/tree-c.glb" x="52" y="0.25" z="-187" ry="32" sx="0.85" sy="0.85" sz="0.85" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-25" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/molten.glb" x="55" y="0.24" z="-158" ry="13" sx="1.4" sy="1.4" sz="1.4" collide="false" cast-shadows="false"></m-model>
+<m-cube x="54" y="0.28" z="-171" width="12" height="0.15" depth="13" color="#927442" collide="false"></m-cube>
+<m-model id="luster-26" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/hero.glb" x="0" y="10" z="-147" ry="180" sx="0.62" sy="0.62" sz="0.62" collide="false" cast-shadows="false"></m-model>
+<m-cube x="0" y="9.8" z="-146.5" width="8" height="0.35" depth="10" color="#786345" collide="false"></m-cube>
+<m-model id="luster-27" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/tower.glb" x="-55" y="0.25" z="162" ry="25" sx="1" sy="1" sz="1" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-28" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/molten.glb" x="-51" y="0.25" z="171" ry="-20" sx="1.6" sy="1.6" sz="1.6" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-29" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/tower.glb" x="55" y="0.25" z="162" ry="-25" sx="1" sy="1" sz="1" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-30" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/molten.glb" x="51" y="0.25" z="171" ry="20" sx="1.6" sy="1.6" sz="1.6" collide="false" cast-shadows="false"></m-model>
+<m-cube x="-13" y="0.211" z="-169" width="0.09" height="0.012" depth="45" color="#b3924e" collide="false"></m-cube>
+<m-cube x="13" y="0.211" z="-169" width="0.09" height="0.012" depth="45" color="#b3924e" collide="false"></m-cube>
+<m-cube x="0" y="0.211" z="-190" width="26" height="0.012" depth="0.09" color="#b3924e" collide="false"></m-cube>
+<m-cube x="0" y="0.211" z="-149" width="26" height="0.012" depth="0.09" color="#b3924e" collide="false"></m-cube>
+<m-model id="luster-31" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/v3-pack-ceiling.glb" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-32" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/v3-pack-edge-left.glb" collide="false" cast-shadows="false"></m-model>
+<m-model id="luster-33" src="https://honeyb-mml-vault.vercel.app/assets/bulldog-luster/v3-pack-edge-right.glb" collide="false" cast-shadows="false"></m-model>
+<m-label id="honey-signature-south" x="0" y="27" z="-138.4" ry="0" width="24" height="2.2" font-size="128" alignment="center" color="#100e09" font-color="#e1b858" content="honey b was here" collide="false"></m-label>
+<m-label id="honey-signature-north" x="0" y="27" z="138.4" ry="180" width="24" height="2.2" font-size="128" alignment="center" color="#100e09" font-color="#e1b858" content="honey b was here" collide="false"></m-label>
+</m-group>
+
+<script id="luster-presentation">
+(function () {
+  // Cosmetic finish pass only. Source meshes and all gameplay remain intact.
+  const finishes = {
+    "#1c2230":"#ad8436", "#11151e":"#77541f",
+    "#3b414d":"#bd963f", "#a3abb2":"#e1b858",
+    "#8b939b":"#d4ab4f", "#2b3034":"#8b6628",
+    "#39404d":"#c29b48", "#111413":"#a47c32",
+    "#6a141c":"#c69b3c", "#3d1318":"#574725",
+    "#16211a":"#05060a", "#1b281f":"#080a10",
+    "#141715":"#06070b", "#22302a":"#080a0e",
+    "#3a3320":"#080a0e", "#6c7176":"#0b0d12",
+    "#131c36":"#070a12", "#2e2410":"#100e09"
+  };
+  document.querySelectorAll('#arena [color]').forEach(function(n) {
+    // Keep sign backgrounds, team signals and every text attribute readable.
+    if(n.tagName.toLowerCase()==='m-label')return;
+    const c=n.getAttribute('color');if(finishes[c])n.setAttribute('color',finishes[c]);
+  });
+  document.querySelectorAll('#arena m-cube').forEach(function(n) {
+    const x=Math.abs(Number(n.getAttribute('x'))),y=Number(n.getAttribute('y'));
+    if(Math.abs(x-46.1)<.01 && Number(n.getAttribute('width'))===1.8 && Number(n.getAttribute('height'))===.04)n.setAttribute('color','#d2a443');
+    if(Math.abs(y-53.4)<.01 && Number(n.getAttribute('width'))===132)n.setAttribute('color','#dfb655');
+  });
+  document.querySelectorAll('#luster-decoration m-cube').forEach(function(n) {
+    const c=n.getAttribute('color');
+    if(c==='#29232a')n.setAttribute('color','#a77b2b');
+    if(c==='#786345')n.setAttribute('color','#c29b48');
+  });
+  document.querySelectorAll('m-light').forEach(function(n) {
+    const i=Number(n.getAttribute('intensity'));if(i>1)n.setAttribute('intensity',1);
+  });
+})();
+</script>

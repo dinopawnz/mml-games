@@ -1,0 +1,1397 @@
+<!--
+  SKY DRAGON  v30  -  a rideable dragon for an Otherside world
+  ============================================================
+  v30: CONTROL BOARD ONLY. Standing out on a wing no longer turns the
+  dragon - the only way to fly or walk it is the control board (and the
+  CALL keypad on the pad). The wing decks are still there as solid floor
+  to walk on, and still count as riders aboard. Set DECK_STEER = true
+  to bring wing steering back.
+
+  v29: FLYING AFTER WALKING. Pressing GO, UP or HOME while it was still
+  walking or sprinting (or still slowing down from a STOP) took off
+  with the legs frozen mid-stride: the walk never got the chance to
+  finish, so the flying pose - legs tucked, body bobbing - was never
+  put back. Leaving the ground now always ends the walk first.
+  Everything else, buttons included, is v28's.
+
+  v28: BACK TO THE v16/v24 BUTTONS. v25-v27 are thrown away. This is
+  the file whose buttons worked, with only these changes:
+  * The floor you stand on no longer tips back when it climbs or sideways
+    in turns - only the dragon you see leans. (Riders slid off the back.)
+    The board is not touched by this.
+  * The back wall is the thin v24 wall again. BACK_D sets how deep it is:
+    0.2 is v24. v25 made it 4 and the buttons went wrong after that, so
+    only raise it if you want to test whether that was the cause.
+  * Words only: LEFT and RIGHT without < >, no pictures on SLOWER and
+    FASTER, and the text is sized so no word is cut off. The buttons
+    themselves - size, place, how they are clicked - are v24's exactly.
+
+  v24: NO HEIGHT LIMIT. MAX_ALT is 0 (off), so UP keeps climbing
+  until you press DOWN or turn (a turn holds your height).
+  HOME from very high takes a while - it comes down at the normal
+  climb rate. Set MAX_ALT back to 180 to restore the old ceiling.
+
+  One dragon on a landing pad. Walk up the ramp onto its back and
+  fly it from the control board at the front of the saddle:
+
+    GO                 fly straight ahead, and keep going
+    STOP               stop and hover in place, wings flapping
+    UP / DOWN          climb or descend - straight up/down when stopped,
+                       diagonally when going. It keeps going until you
+                       press the other one, turn, or reach the limit.
+                       Stopped over the ground, DOWN lands it.
+    < LEFT / RIGHT >   turn 30 degrees (presses add up), holding height
+    FASTER / SLOWER    the arrow keys on the right: speed 1-6
+                       (6, 12, 20, 30, 42, 60 m/s)
+    FIRE               breathe fire onto the ground for FIRE_MS
+    HOME               fly back to the pad and land on it
+    WALK / SPRINT      on the ground, walk or run on four legs (from the
+                       air it comes down first). Steer with LEFT/RIGHT
+                       (v30: the wing decks no longer steer); STOP stands still; GO or UP
+                       takes off.
+
+  THE CALL KEYPAD stands on the pad beside the foot of the ramp.
+  Type 1 7 1 8 (or press TYPE and enter it). Nobody on the dragon:
+  it is back on the pad at once. Riders on it: it flies them home.
+
+  v11: A better-looking dragon - sculpted body, armour plates, real
+  bat wings with fingers and scalloped glowing edges, clawed legs, a
+  finned tail blade. The wing decks still steer exactly as before
+  (stand out over a wing to turn that way) but are no longer drawn.
+
+  v2: v1 did not take off because its buttons could not be clicked -
+  their labels sat in front of them and were not solid. Every button
+  is now a cap with a clickable label on it, built the way the Titan
+  Roamer's desk is. Movement now uses the Titan Roamer's proven
+  method too, twenty updates a second, each one glided to.
+
+  SMOOTH MOVEMENT
+  ------------------------------------------------------------
+  The script works out where the dragon is twenty times a second and
+  every screen glides it between those points (m-attr-lerp), so it
+  moves continuously at whatever frame rate the screen runs. This
+  standalone file does very little else, so the updates arrive on
+  time - the Kingdom Clash dragon jumps because that world's script is
+  busy with 16,000 other things.
+  USE_GLIDE = true tries v1's method instead (one instruction per
+  change, run by each screen from document time); keep it off unless
+  you want to test it.
+
+  THINGS THAT CAN ONLY BE PROVEN IN YOUR WORLD
+  ------------------------------------------------------------
+  1. Riders being CARRIED. The saddle is a solid floor with walls and
+     a roof you cannot see. Whether the Otherside client carries an
+     avatar standing on a moving floor is up to the client, not this
+     file. It has the best chance it can: the floor moves smoothly
+     instead of jumping.
+  2. LEFT and RIGHT are worked out for a rider facing forward. If
+     they come out mirrored, set TURN_FLIP = -1.
+  3. The world is assumed flat at y = 0 with the pad at the origin.
+     Move everything with the root group, or change PAD_X / PAD_Z.
+-->
+<m-group id="root"></m-group>
+
+<script>
+(function () {
+  "use strict";
+
+  // ==========================================================
+  // SETTINGS
+  // ==========================================================
+  const PAD_X = 0, PAD_Z = 0;         // where the landing pad is
+  // v7: THE EDGE. v6 turned the dragon round 450 m from the pad - at
+  // full speed (60 m/s) that is under eight seconds of flying, which is
+  // why it seemed to turn round by itself. It is now 4 km, and the
+  // board says so when it happens. Set BOUND_R = 0 to switch it off.
+  const BOUND_R = 0;                  // v8: no edge at all - it flies until you turn it
+  // v24: NO CEILING. It climbs as long as you hold UP. Put a number
+  // back here (e.g. 180) to bring a ceiling back; 0 means none.
+  const MAX_ALT = 0;                  // highest it will climb (saddle height), 0 = no limit
+  // v14: THE LOOK - the frost dragon, in nine parts so its wings flap,
+  // its neck and head move and its legs fold: the dragon_..._hq.glb files.
+  // Otherside only loads models from a web address, so upload the three
+  // files to one folder online and put that folder's address here,
+  // ending in "/". Left "" it shows the old block-built dragon, with a
+  // sign on the pad saying so.
+  const MODEL_BASE = "https://cdn.jsdelivr.net/gh/dinopawnz/skydragon@main/";
+  const MODEL_SCALE = 14;             // size: 14 is about 32 m nose to tail, 24 m wingtip to wingtip
+  const USE_MODEL = MODEL_BASE !== "";
+  // where things are on the model, in its own units (it is ~2 units long)
+  const MODEL_Y = -0.075 * MODEL_SCALE, MODEL_Z = -0.27 * MODEL_SCALE;   // its back (the gold harness) sits under the saddle floor
+  const MODEL_JAW_Y = 0.22 * MODEL_SCALE + MODEL_Y, MODEL_JAW_Z = 0.93 * MODEL_SCALE + MODEL_Z;
+  // v15: WALK and SPRINT - on the ground, on four legs
+  const WALK_SPEED = 5, SPRINT_SPEED = 16;      // m/s
+  const WALK_SWING = 28, SPRINT_SWING = 42;     // degrees each leg swings forward and back - bigger = longer strides
+  const WALK_LIFT = 1.1, SPRINT_LIFT = 2.0;     // metres a foot lifts as it steps forward
+  const STOP_DECEL = 7;                         // m/s per second slowing down after STOP
+  const GROUND_TURN_RATE = 45;                  // degrees per second turning on the ground
+  const NECK_SWAY = 5, NECK_NOD = 3;  // degrees the neck sways side to side and nods
+  const HEAD_NOD = 5, HEAD_TURN = 4;   // degrees the head nods and looks around
+  const LEG_FOLD_FRONT = 55, LEG_FOLD_BACK = 30;   // front legs curl up under the chest in flight
+  const FRONT_TUCK_LIFT = 0.6;       // metres the front legs draw up as they curl   // degrees the legs tuck back in flight
+  const WING_DOWN = 30, WING_UP = 8;
+  // v19: the model's spine runs a little right of its own centre line.
+  // The left wing (a mirror of the right) is placed as a mirror about the
+  // spine, and the whole dragon is shifted so its spine sits on the
+  // saddle's centre line.
+  const SPINE_X = 0.032;   // how far the wings sweep down and up (degrees)
+  const PERCH_Y = USE_MODEL ? 0.3 + 0.73 * MODEL_SCALE : 4.2;   // saddle floor height when it sits on the pad (the model stands on its legs)
+  const MIN_FLY_Y = PERCH_Y + 2;      // lowest it flies when not landing
+  const GEARS = [0, 6, 12, 20, 30, 42, 60];   // m/s - gear 0 is only used when stopped
+  const ACCEL = 24;                   // m/s per second, speeding up or slowing down (v4: was 14)
+  const TURN_STEP = 30;               // degrees per LEFT/RIGHT press
+  const TURN_RATE = 80;               // degrees per second while turning (v4: was 55)
+  const TURN_FLIP = 1;                // -1 if left and right come out mirrored
+  const ALT_STEP = 12;                // metres per UP/DOWN press
+  const CLIMB_RATE = 9;               // metres per second up or down
+  const VY_ACCEL = 30;                // how quickly a climb or descent starts and stops (v4: was 14)
+  const FIRE_MS = 7000;               // how long one breath lasts
+  const FIRE_COOL_MS = 2500;          // rest after a breath
+  const FIRE_R = 9;                   // radius of the fire on the ground
+  // v21: FIRELIGHT. Where the fire hits, it lights up the ground around
+  // it - a flash as it first lands, then a flickering orange glow while
+  // it burns, fading out after. Brightness is in Otherside's units
+  // (the Titan Roamer's big flash is 8).
+  const FIRE_LIGHT = 7;               // the flickering glow on the ground
+  const FIRE_FLASH = 16;              // the flash as it first hits
+  const FIRE_LIGHT_REACH = 55;        // metres the firelight reaches
+  // v22: where the fire sits on the ground. FIRE_GROUND_Y is the height
+  // of the world's ground (0 = level with the landing pad's base);
+  // FIRE_SINK tucks the fire's base just into the ground so it never
+  // floats above it.
+  const FIRE_GROUND_Y = 0;
+  const FIRE_SINK = 1.0;
+  const CODE = [1, 7, 1, 8];          // v3: the CALL keypad on the pad
+  const CODE_TIMEOUT = 15;            // seconds before a half-typed code is forgotten
+
+  const BOARD_TILT = 25;              // degrees the control boards tip up towards you (0 = flat)
+
+  const TICK_MS = 40;                 // how often the script thinks (and sends where it is) - v4: 25 a second
+  const USE_GLIDE = false;            // v1's document-time glides; off - see send()
+  const SEG_S = 10;                   // each glide instruction runs this long...
+  const REFRESH_MS = 6000;            // ...and is renewed this often while flying straight
+  const TURN_SEND_MS = 150;           // and this often while turning or climbing
+
+  // colours: obsidian and cyan light, with real fire
+  const OBSIDIAN = "#0a1116", OBSIDIAN_2 = "#111c23", BELLY = "#1a2a33";
+  const NEON = "#35f2ff", NEON_DIM = "#1a8fa3", MEMBRANE = "#0d2a33";
+  const HORN = "#c9d6dc", INK = "#03080b", CHALK = "#d6fdff";
+  const FIRE_RED = "#ff2210", FIRE_ORANGE = "#ff5a14", FIRE_HOT = "#ffd23a", FIRE_WHITE = "#fff4c8", FIRE_DEEP = "#c41200";
+  const OK_GRN = "#5fe08a", CALL_RED = "#ff4a3a", GOLD = "#ffc94a";
+
+  // ==========================================================
+  // HELPERS
+  // ==========================================================
+  const rootEl = document.getElementById("root");
+  // v6: NOTHING IS SOLID UNLESS IT SAYS SO. MML makes every shape solid
+  // by default, so every scale, spike, neck plate, rail and flame was
+  // something to bump into. Now only what is marked collide: "true" is
+  // solid - the saddle floor, the board and its buttons, the invisible
+  // walls and roof of the saddle, the pad, the ramp and the keypad.
+  const SOLID_BY_DEFAULT = false;
+  function el(tag, attrs, parent) {
+    const n = document.createElement(tag);
+    if (!SOLID_BY_DEFAULT && (tag === "m-cube" || tag === "m-cylinder" || tag === "m-sphere" || tag === "m-label")
+        && !(attrs && attrs.collide !== undefined)) n.setAttribute("collide", "false");
+    for (const k in attrs) {
+      if (attrs[k] === undefined || attrs[k] === null) continue;
+      let v = attrs[k];
+      if (typeof v === "number") v = Math.round(v * 1000) / 1000;
+      n.setAttribute(k, String(v));
+    }
+    (parent || rootEl).appendChild(n);
+    return n;
+  }
+  function group(o, parent) { return el("m-group", o || {}, parent); }
+  function box(p, x, y, z, w, h, d, color, o) {
+    return el("m-cube", Object.assign({ x: x, y: y, z: z, width: w, height: h, depth: d, color: color }, o || {}), p);
+  }
+  // v5: EVERY LABEL'S TEXT IS SIZED TO FIT IT. MML does not shrink
+  // text for you - text too big for its label is cut off, and on a
+  // short wide button that means the word simply is not there. v4 gave
+  // every button the same size, so "< LEFT", "RIGHT >", "SLOWER",
+  // "FASTER" and the readout came out blank. The size is now worked out
+  // from the label's width, height and how many letters it holds (the
+  // Titan Roamer's fitFS, proven in your world), and worked out again
+  // whenever the text changes. A "font-size" given is the most it may be.
+  const FS_SAFE = 0.85;              // v28: was 0.9
+  function fitFS(w, h, chars, cap) {
+    const byHeight = h * 80;
+    const byWidth = ((w * 100) / (Math.max(1, chars) * 0.72)) * FS_SAFE;   // v28: 0.55 cut off DOWN, LEFT, RIGHT
+    return Math.max(6, Math.floor(Math.min(cap === undefined ? Infinity : cap, byHeight, byWidth)));
+  }
+  const FIT = new Map();              // label -> {w, h, cap}
+  function label(p, o) {
+    const w = +o.width || 1, h = +o.height || 0.5, cap = o["font-size"];
+    const txt = String(o.content == null ? "" : o.content);
+    const n = el("m-label", Object.assign({}, o, { alignment: "center",
+      "font-size": fitFS(w, h, Math.max(4, txt.length), cap) }), p);
+    FIT.set(n, { w: w, h: h, cap: cap });
+    return n;
+  }
+  function anim(p, attr, a, b, ms, o) {
+    o = o || {};
+    return el("m-attr-anim", {
+      attr: attr, start: a, end: b, duration: Math.round(ms),
+      loop: o.loop === false ? "false" : "true",
+      "ping-pong": o.pingpong === false ? undefined : "true",
+      easing: o.easing,
+    }, p);
+  }
+  function lerpOn(p, attrs, ms, easing) {
+    return el("m-attr-lerp", { attr: attrs, duration: Math.round(ms), easing: easing || "linear" }, p);
+  }
+  function set(n, k, v) {
+    if (!n) return;
+    const sv = typeof v === "number" ? String(Math.round(v * 1000) / 1000) : String(v);
+    if (n.getAttribute(k) === sv) return;
+    n.setAttribute(k, sv);
+    // a label's text changed, or its size did: fit the text again
+    if (k === "content" || k === "width" || k === "height") {
+      const f = FIT.get(n);
+      if (f) {
+        if (k === "width") f.w = +sv;
+        if (k === "height") f.h = +sv;
+        const txt = n.getAttribute("content") || "";
+        const fs = String(fitFS(f.w, f.h, Math.max(4, txt.length), f.cap));
+        if (n.getAttribute("font-size") !== fs) n.setAttribute("font-size", fs);
+      }
+    }
+  }
+  function guard(fn) {
+    return function () { try { return fn.apply(this, arguments); } catch (e) { console.log("skydragon:", e && e.message); } };
+  }
+  function on(n, type, fn) { n.addEventListener(type, guard(fn)); }
+  function later(fn, ms) { return setTimeout(guard(fn), ms); }
+  const R = (d) => (d * Math.PI) / 180;
+  function docTime() {
+    try {
+      if (document.timeline && typeof document.timeline.currentTime === "number") return document.timeline.currentTime;
+    } catch (e) { /* not available */ }
+    return null;
+  }
+  const MOTION_FALLBACK = docTime() === null;
+
+  // ==========================================================
+  // THE PAD
+  // ==========================================================
+  const pad = group({ x: PAD_X, z: PAD_Z });
+  el("m-cylinder", { y: 0.1, radius: 22, height: 0.2, color: "#050b10", collide: "true" }, pad);
+  el("m-cylinder", { y: 0.22, radius: 21, height: 0.05, color: NEON_DIM }, pad);
+  el("m-cylinder", { y: 0.24, radius: 20.3, height: 0.05, color: "#050b10" }, pad);
+  [0, 45, 90, 135].forEach((a) => box(pad, 0, 0.26, 0, 0.25, 0.04, 40, NEON_DIM, { ry: a }));
+  el("m-cylinder", { y: 0.28, radius: 3, height: 0.05, color: NEON }, pad);
+  // the ramp up to the back of the saddle (the dragon lands facing +z)
+  const SADDLE_D = 8, RAMP_L = USE_MODEL ? Math.round(PERCH_Y / 0.44) : 12;   // v12: a longer ramp up the taller dragon
+  {
+    const rise = PERCH_Y, run = RAMP_L;
+    const len = Math.hypot(rise, run), ang = (Math.atan2(rise, run) * 180) / Math.PI;
+    const rg = group({ y: rise / 2, z: -SADDLE_D / 2 - run / 2 - 0.2, rx: -ang }, pad);
+    box(rg, 0, -0.15, 0, 3.4, 0.3, len, "#0b161c", { collide: "true" });
+    [-1, 1].forEach((a) => box(rg, a * 1.8, 0.45, 0, 0.12, 0.12, len, NEON));
+    [-1, 1].forEach((a) => box(pad, a * 1.8, 0.6, -SADDLE_D / 2 - run - 0.2, 0.2, 1.2, 0.2, NEON));
+  }
+  label(pad, { y: 3.2, z: -SADDLE_D / 2 - RAMP_L - 2, ry: 180, width: 10, height: 1.4, color: INK, "font-color": NEON,
+    content: "SKY DRAGON - WALK UP TO RIDE" });
+
+  // ==========================================================
+  // THE DRAGON
+  // ==========================================================
+  // root: position and heading (the glide instructions drive these)
+  // att:  bank and pitch (it leans into turns and climbs)
+  const dragon = group({ x: PAD_X, y: PERCH_Y, z: PAD_Z, ry: 0 });
+  const motion = {};
+  const GLIDE = USE_GLIDE && !MOTION_FALLBACK;
+  if (!GLIDE) {
+    lerpOn(dragon, "x,y,z,ry", TICK_MS + 30, "linear");
+  } else {
+    ["x", "y", "z", "ry"].forEach((a) => {
+      const v = a === "y" ? PERCH_Y : a === "x" ? PAD_X : a === "z" ? PAD_Z : 0;
+      motion[a] = el("m-attr-anim", { attr: a, start: v, end: v, duration: 1, "start-time": 0, loop: "false" }, dragon);
+    });
+  }
+  const att = group({}, dragon);
+  lerpOn(att, "rx,rz", 700, "easeInOutQuad");
+  const body = group({}, att);
+  // v28: only the dragon you see leans; the floor and walls stay level
+  const tilt = group({}, body);
+  lerpOn(tilt, "rx,rz", 700, "easeInOutQuad");
+  const look = group({}, tilt);       // v12: the block-built dragon lives here
+
+  // --- saddle, torso and belly
+  const saddle = box(body, 0, -0.15, 0, 5.2, 0.3, SADDLE_D, "#0e1b22", { collide: "true", "collision-interval": 500, opacity: USE_MODEL ? 0.01 : 1 });
+  // v3: who is standing on the saddle, so the keypad knows whether to
+  // bring it home by flying (riders aboard) or at once (nobody aboard)
+  const riders = new Map();           // connectionId -> last heard
+  const inBox = new Set();            // v11: seen inside the box by the position probe
+  const whoOf = (e) => (e && e.detail ? e.detail.connectionId : undefined);
+  on(saddle, "collisionstart", (e) => { const id = whoOf(e); if (id !== undefined) riders.set(id, Date.now()); });
+  on(saddle, "collisionmove", (e) => { const id = whoOf(e); if (id !== undefined) riders.set(id, Date.now()); });
+  on(saddle, "collisionend", (e) => { const id = whoOf(e); if (id !== undefined) riders.delete(id); });
+  function ridersAboard() {
+    const now = Date.now();
+    riders.forEach((t, id) => { if (now - t > 30000) riders.delete(id); });   // lost an end event
+    // v10: people out on the wing decks are aboard too
+    const all_ = new Set(riders.keys());
+    inBox.forEach((k) => all_.add(k));
+    if (typeof DECKS !== "undefined") DECKS.forEach((D) => D.on.forEach((k) => all_.add(k)));
+    return all_.size;
+  }
+  box(body, 0, -0.02, 0, 4.6, 0.04, SADDLE_D - 0.6, NEON_DIM, { opacity: USE_MODEL ? 0.01 : 0.5 });
+  box(look, 0, -1.9, 0.4, 6, 3.4, 12, OBSIDIAN);                              // chest and back
+  box(look, 0, -1.2, 0.4, 5.2, 1.6, 12.6, OBSIDIAN_2);                        // shoulders
+  box(look, 0, -3.8, 0.4, 4.6, 1.2, 10.4, BELLY);                             // belly plates
+  [-3.2, -1.2, 0.8, 2.8, 4.8].forEach((z) => box(look, 0, -4.45, z, 4.2, 0.1, 0.25, NEON_DIM));
+  box(look, 0, -2.6, -5.8, 4.6, 2.6, 2.4, OBSIDIAN);                          // haunch
+  // the heart: a glowing core in the chest that pulses
+  const heart = box(look, 0, -2.2, 6.6, 1.8, 1.8, 0.2, NEON, { opacity: 0.9, rz: 45 });
+  anim(heart, "sx", 0.8, 1.15, 900, { easing: "easeInOutSine" });
+  anim(heart, "sy", 0.8, 1.15, 900, { easing: "easeInOutSine" });
+  // cyan light lines down each flank
+  [-1, 1].forEach((a) => {
+    box(look, a * 3.02, -1.5, 0.4, 0.08, 0.2, 12, NEON);
+    box(look, a * 2.95, -3.2, 0.4, 0.08, 0.12, 10, NEON_DIM);
+  });
+  // spikes down the spine, behind the saddle
+  for (let i = 0; i < 4; i++) {
+    const z = -SADDLE_D / 2 - 0.8 - i * 1.4, h = 1.6 - i * 0.25;
+    box(look, 0, h / 2 - 0.2, z, 0.5, h, 0.5, OBSIDIAN_2, { ry: 45, rx: -20 });
+    box(look, 0, h - 0.2, z - 0.2, 0.18, 0.3, 0.18, NEON, { ry: 45 });
+  }
+  // legs, folded up under it in flight
+  [-1, 1].forEach((a) => {
+    box(look, a * 2.2, -4.6, 3.6, 1.1, 1.6, 1.4, OBSIDIAN_2, { rx: 30 });
+    box(look, a * 2.2, -5.2, 4.3, 1.2, 0.3, 1.2, NEON_DIM);
+    box(look, a * 2.4, -4.4, -4.6, 1.4, 2.2, 1.8, OBSIDIAN_2, { rx: -35 });
+    box(look, a * 2.4, -5.3, -3.8, 1.4, 0.3, 1.4, NEON_DIM);
+  });
+
+  // --- the saddle room: v6 - no rails. Only walls and a roof you
+  // cannot see, so nobody falls or is blown off
+  // v10: THE WING DECKS. A flat walkway goes out over each wing from
+  // the edge of the saddle, level with it, and the invisible room now
+  // takes them in - walls, roof and gate run the full width. The wings
+  // themselves are not solid and never touch you; they flap below the
+  // decks. STAND ON THE RIGHT DECK TO TURN RIGHT, THE LEFT TO TURN
+  // LEFT, for as long as you stand there.
+  const ROOM_H = 5.5, SW = 5.2;       // saddle width; the room is 5.5 m tall
+  const DECK_OUT = 11.5;              // how far out over each wing the decks go
+  const RW = DECK_OUT * 2 + 0.2;      // the whole room's width
+  // v11: A SEALED, INVISIBLE BOX. Walls on all four sides, a roof and
+  // a floor, overlapping at every corner so there is no gap anywhere.
+  // Only the strip behind the saddle - where the ramp comes up - opens,
+  // and only while it sits on the pad. Behind each wing deck the wall
+  // is always shut, so you cannot walk off the back of a wing, landed
+  // or flying. Everything is solid; nothing is drawn (opacity 0.01).
+  const HID = { opacity: 0.01, collide: "true" };
+  // v11: THE BOX REACHES FORWARD past the saddle, over the chest and
+  // either side of the neck, so riders can walk up and watch the fire
+  // pour down from the jaw. FRONT_Z is where its front wall stands.
+  const FRONT_Z = USE_MODEL ? Math.max(5, Math.round(MODEL_JAW_Z) - 1) : 12;
+  const BOX_L = FRONT_Z + SADDLE_D / 2, BOX_Z = (FRONT_Z - SADDLE_D / 2) / 2;
+  const GATE_W = SW + 0.4;                                   // the ramp's opening
+  const BACK_D = 0.2;                 // v28: back wall depth. 0.2 = v24 (buttons fine); v25 used 4
+  const BACK_Z = -SADDLE_D / 2 + 0.1 - BACK_D / 2;
+  [-1, 1].forEach((a) => {
+    box(body, a * (RW / 2), ROOM_H / 2, BOX_Z, 0.2, ROOM_H + 0.4, BOX_L + 0.6, INK, HID);          // side wall
+    const bw = (RW - GATE_W) / 2 + 0.2;
+    box(body, a * (GATE_W / 2 + bw / 2 - 0.1), ROOM_H / 2, BACK_Z, bw, ROOM_H + 0.4, BACK_D, INK, HID);   // back wall behind the deck
+  });
+  box(body, 0, ROOM_H / 2, FRONT_Z, RW + 0.4, ROOM_H + 0.4, 0.2, INK, HID);                      // front wall
+  box(body, 0, ROOM_H, BOX_Z, RW + 0.4, 0.2, BOX_L + 0.6, INK, HID);                             // roof
+  box(body, 0, -0.45, BOX_Z, RW + 0.4, 0.2, BOX_L + 0.6, INK, HID);                              // safety floor
+  // the walkway in front of the saddle and the decks, level with them
+  const fwd = box(body, 0, -0.15, (SADDLE_D / 2 + FRONT_Z) / 2, RW, 0.3, FRONT_Z - SADDLE_D / 2 + 0.05, INK,
+    Object.assign({ "collision-interval": 500 }, HID));
+  on(fwd, "collisionstart", (e) => { const id = whoOf(e); if (id !== undefined) riders.set(id, Date.now()); });
+  on(fwd, "collisionmove", (e) => { const id = whoOf(e); if (id !== undefined) riders.set(id, Date.now()); });
+  // the back of the saddle is the gate: open while it sits on the pad
+  const gate = box(body, 0, ROOM_H / 2, BACK_Z, GATE_W + 0.2, ROOM_H + 0.4, BACK_D, INK, { opacity: 0.01, collide: "false" });
+  const gateRail = null;              // v6: no rails at all
+
+  // --- the neck: five pieces curving up and forward, swaying
+  const neck = group({ y: -0.6, z: 6.4 }, look);
+  anim(neck, "ry", -5, 5, 3100, { easing: "easeInOutSine" });
+  const NECK = [];
+  for (let i = 0; i < 5; i++) {
+    const w = 2.6 - i * 0.28;
+    const seg = box(neck, 0, 0.95 * i + 0.3, 1.45 * i + 0.8, w, w * 0.9, 2.0, i % 2 ? OBSIDIAN_2 : OBSIDIAN, { rx: -32 + i * 6 });
+    NECK.push(seg);
+    box(neck, 0, 0.95 * i + 0.3 + w * 0.5, 1.45 * i + 0.6, 0.3, 0.6, 0.3, NEON, { ry: 45, rx: -30 });   // neck spikes
+    box(neck, 0, 0.95 * i + 0.3 - w * 0.46, 1.45 * i + 0.8, w * 0.7, 0.08, 1.6, NEON_DIM, { rx: -32 + i * 6 });
+  }
+  // --- the head (v6): a long wedge of a skull, heavy brows over
+  // glowing eyes, a tapering snout with smoking nostrils, rows of teeth
+  // top and bottom, a hinged jaw, two great horns that curve back in
+  // three pieces, a fan of smaller horns behind the jaw, and a crest of
+  // spikes down the back of the head - lined in cyan light.
+  const head = group({ y: 5.2, z: 8.4 }, neck);
+  anim(head, "rx", -4, 5, 2300, { easing: "easeInOutSine" });
+  // skull: three layers, each narrower and further forward
+  box(head, 0, 0.1, -0.2, 2.5, 1.7, 2.6, OBSIDIAN);                              // back of the skull
+  box(head, 0, 0.15, 1.2, 2.1, 1.35, 1.6, OBSIDIAN_2, { rx: 6 });                // forehead
+  box(head, 0, -0.05, 2.5, 1.6, 0.95, 1.8, OBSIDIAN, { rx: 9 });                 // upper snout
+  box(head, 0, -0.18, 3.55, 1.15, 0.7, 1.2, OBSIDIAN_2, { rx: 12 });             // snout tip
+  box(head, 0, 0.3, 3.1, 0.3, 0.14, 2.4, NEON_DIM, { rx: 9 });                    // ridge line down the snout
+  box(head, 0, 0.25, 4.05, 0.5, 0.35, 0.3, HORN, { rx: -20 });                   // nose horn
+  [-1, 1].forEach((a) => {
+    // brow ridge, angled down over the eye so it glares
+    box(head, a * 0.85, 0.72, 1.3, 0.75, 0.26, 1.4, OBSIDIAN_2, { rz: a * -14, ry: a * 8 });
+    box(head, a * 1.02, 0.84, 1.3, 0.35, 0.06, 1.3, NEON, { rz: a * -14, ry: a * 8 });
+    // the eye: a slit of light with a bright pupil, glowing brighter now and then
+    box(head, a * 1.08, 0.42, 1.35, 0.1, 0.24, 0.8, NEON, { ry: a * 6 });
+    const pupil = box(head, a * 1.13, 0.42, 1.45, 0.06, 0.26, 0.14, "#e8ffff");
+    anim(pupil, "sy", 0.2, 1, 4200, { easing: "easeInOutQuad" });
+    // nostrils glow warm and breathe out wisps
+    box(head, a * 0.36, 0.1, 4.15, 0.22, 0.14, 0.1, FIRE_HOT);
+    const wisp = box(head, a * 0.36, 0.25, 4.2, 0.18, 0.18, 0.18, "#8fa3ad", { opacity: 0.45, ry: 45 });
+    anim(wisp, "y", 0.2, 1.4, 1800 + (a > 0 ? 300 : 0), { pingpong: false });
+    anim(wisp, "sx", 0.6, 2.2, 1800 + (a > 0 ? 300 : 0), { pingpong: false });
+    // cheek plates and the neon line along the jaw
+    box(head, a * 1.18, -0.35, 0.4, 0.2, 0.8, 2.2, OBSIDIAN_2, { ry: a * 10 });
+    box(head, a * 1.29, -0.62, 1.0, 0.06, 0.08, 2.8, NEON, { ry: a * 7 });
+    // upper teeth, down each side of the mouth
+    for (let k = 0; k < 4; k++) {
+      box(head, a * (0.55 - k * 0.03), -0.62, 1.9 + k * 0.5, 0.1, 0.3, 0.1, HORN, { rz: a * 8 });
+    }
+    // THE GREAT HORNS: three pieces each, curving up, back and out
+    const h1 = group({ x: a * 0.85, y: 0.9, z: -0.6, rx: -38, ry: a * 16 }, head);
+    box(h1, 0, 0, -0.8, 0.5, 0.5, 1.8, HORN);
+    const h2 = group({ z: -1.6, rx: -18, ry: a * 6 }, h1);
+    box(h2, 0, 0, -0.75, 0.38, 0.38, 1.6, HORN);
+    const h3 = group({ z: -1.5, rx: -18, ry: a * 6 }, h2);
+    box(h3, 0, 0, -0.55, 0.24, 0.24, 1.2, HORN);
+    box(h3, 0, 0, -1.2, 0.14, 0.14, 0.3, NEON);                                   // glowing tip
+    // a fan of smaller horns behind the jaw
+    [[-0.1, 22, 1.6], [-0.5, 38, 1.3], [-0.9, 52, 1.0]].forEach(([y, deg, L]) => {
+      const f = group({ x: a * 1.15, y: y, z: -0.9, ry: a * deg, rx: -8 }, head);
+      box(f, 0, 0, -L / 2, 0.2, 0.2, L, HORN);
+      box(f, 0, 0, -L, 0.1, 0.1, 0.18, NEON);
+    });
+  });
+  // v11: embers glowing in the seam of the mouth
+  const ember = box(head, 0, -0.57, 2.3, 1.0, 0.05, 2.6, FIRE_ORANGE, { opacity: 0.7 });
+  anim(ember, "opacity", 0.35, 0.85, 1300, { easing: "easeInOutSine" });
+  // crest down the back of the head
+  [[0, 1.05, -0.2, 0.7], [0, 0.95, -0.9, 0.55], [0, 0.8, -1.5, 0.42]].forEach(([x, y, z, h]) => {
+    box(head, x, y + h / 2, z, 0.14, h, 0.5, OBSIDIAN_2, { rx: -25 });
+    box(head, x, y + h, z - 0.2, 0.08, 0.14, 0.14, NEON, { rx: -25 });
+  });
+  // the jaw hangs on a hinge and opens to breathe
+  const jaw = group({ y: -0.6, z: 0.6 }, head);
+  lerpOn(jaw, "rx", 400, "easeOutQuad");
+  box(jaw, 0, -0.2, 1.5, 1.45, 0.38, 2.6, OBSIDIAN_2, { rx: -4 });
+  box(jaw, 0, -0.18, 2.95, 0.95, 0.3, 0.8, OBSIDIAN, { rx: -4 });                // chin
+  box(jaw, 0, -0.42, 1.5, 0.9, 0.06, 2.4, NEON_DIM);                              // throat line
+  [-1, 1].forEach((a) => {
+    for (let k = 0; k < 4; k++) box(jaw, a * (0.52 - k * 0.04), 0.1, 0.9 + k * 0.55, 0.1, 0.26, 0.1, HORN);
+    box(jaw, a * 0.3, 0.14, 3.1, 0.14, 0.34, 0.14, HORN);                          // fangs at the front
+    box(jaw, a * 0.78, -0.35, -0.1, 0.2, 0.2, 0.9, HORN, { ry: a * 25 });         // chin barbs
+  });
+  const mouthGlow = box(head, 0, -0.55, 2.2, 1.2, 0.3, 1.8, FIRE_HOT, { opacity: 0 });
+  lerpOn(mouthGlow, "opacity", 400, "linear");
+  // where the fire comes out, in dragon (root) space, when level
+  let JAW_Y = -0.6 + 5.2 - 0.9, JAW_Z = 6.4 + 8.4 + 3.4;
+  let mouthLight = mouthGlow;
+
+  // --- the tail: six pieces, each swaying on the last, so it whips
+  let tailParent = group({ y: -2.4, z: -6.8 }, look);
+  anim(tailParent, "ry", -6, 6, 2600, { easing: "easeInOutSine" });
+  for (let i = 0; i < 6; i++) {
+    const w = 2.2 - i * 0.3, L = 2.6;
+    box(tailParent, 0, 0, -L / 2, w, w * 0.8, L, i % 2 ? OBSIDIAN_2 : OBSIDIAN);
+    box(tailParent, 0, w * 0.4 + 0.2, -L / 2, 0.25, 0.5, 0.25, NEON, { ry: 45 });
+    const next = group({ z: -L + 0.1, rx: 4 }, tailParent);
+    anim(next, "ry", -8, 8, 2600, { easing: "easeInOutSine" });
+    tailParent = next;
+  }
+  // the tail blade
+  box(tailParent, 0, 0, -0.9, 1.8, 0.12, 1.8, OBSIDIAN_2, { ry: 45 });
+  box(tailParent, 0, 0.08, -0.9, 1.3, 0.04, 1.3, NEON, { ry: 45 });
+
+  // --- the wings (v11): real bat-wing anatomy. An armoured shoulder,
+  // the arm to the elbow, the forearm to the wrist with a thumb claw,
+  // and four long fingers fanning back with the skin stretched between
+  // them - each span ends in a glowing scalloped edge. Same flapping as
+  // before: the outer half a little behind the inner so the tip whips.
+  const FLAP_MS = 1100;
+  const WINGS = [];
+  const SKIN = "#08171e";
+  [-1, 1].forEach((a) => {
+    const shoulder = group({ x: a * 2.9, y: -0.8, z: 3.2 }, look);
+    box(shoulder, 0, 0, 0, 1.5, 1.3, 1.8, OBSIDIAN_2, { rz: 45, sx: 0.8 });
+    box(shoulder, a * 0.2, 0.55, 0, 1.4, 0.18, 1.8, OBSIDIAN, { rz: a * -18 });
+    box(shoulder, a * 0.25, 0.66, 0, 1.2, 0.04, 1.5, NEON_DIM, { rz: a * -18 });
+    const inner = group({}, shoulder);
+    WINGS.push(anim(inner, "rz", a * -36, a * 5, FLAP_MS, { easing: "easeInOutSine" }));   // v10: below the decks
+    box(inner, a * 1.9, 0, 0, 3.9, 0.7, 0.75, OBSIDIAN_2);                         // upper arm
+    box(inner, a * 5.5, 0, 0.05, 3.7, 0.5, 0.55, OBSIDIAN_2);                      // lower arm
+    box(inner, a * 3.65, 0.28, 0.32, 7.3, 0.08, 0.1, NEON);                         // leading edge light
+    box(inner, a * 7.3, 0, 0, 0.75, 0.75, 0.75, OBSIDIAN, { ry: 45 });              // elbow
+    const spur = group({ x: a * 7.3, y: 0.2, z: 0.1, rx: -35 }, inner);
+    box(spur, 0, 0, 0.4, 0.16, 0.16, 0.8, HORN);
+    box(spur, 0, 0, 0.85, 0.1, 0.1, 0.2, NEON);
+    // skin from the arm back to the body, its trailing edge sweeping
+    // from deep at the body to shallow at the elbow
+    const TR = -a * 19.86;
+    box(inner, a * 3.6, -0.1, -2.1, 7.2, 0.06, 4.0, SKIN);
+    box(inner, a * 3.12, -0.13, -4.08, 7.65, 0.06, 2.8, SKIN, { ry: TR });
+    box(inner, a * 3.6, -0.1, -5.4, 7.65, 0.08, 0.1, NEON_DIM, { ry: TR });
+    [2.4, 4.9].forEach((x) => {
+      const zE = -6.7 + (2.6 * x) / 7.2 + 0.2, len = -zE - 0.3;
+      box(inner, a * x, -0.05, -0.3 - len / 2, 0.09, 0.08, len, NEON_DIM);
+    });
+    // forearm, wrist and thumb claw
+    const outer = group({ x: a * 7.3 }, inner);
+    WINGS.push(anim(outer, "rz", a * -20, a * 8, FLAP_MS, { easing: "easeInOutQuad" }));
+    const WX = 3.6;
+    box(outer, a * 1.8, 0, 0, 3.7, 0.42, 0.45, OBSIDIAN_2);
+    box(outer, a * 1.8, 0.24, 0.26, 3.7, 0.08, 0.1, NEON);
+    box(outer, a * WX, 0, 0, 0.6, 0.55, 0.6, OBSIDIAN, { ry: 45 });
+    const thumb = group({ x: a * WX, y: 0.15, z: 0.15, rx: -30 }, outer);
+    box(thumb, 0, 0, 0.45, 0.18, 0.18, 0.9, HORN);
+    box(thumb, 0, 0, 0.95, 0.12, 0.12, 0.25, NEON);
+    box(outer, a * 2.05, -0.125, -2.2, 4.1, 0.06, 4.4, SKIN);
+    // the fingers: [degrees back from straight out, length]
+    const F = [[6, 9.0], [28, 8.2], [52, 7.0], [80, 5.6]];
+    const dirOf = (t) => [Math.cos(R(t)), -Math.sin(R(t))];
+    F.forEach(([t, L], k) => {
+      const [dx, dz] = dirOf(t);
+      const at = (d) => [a * (WX + dx * d), dz * d];
+      let p = at(L * 0.27); box(outer, p[0], 0, p[1], L * 0.54, 0.28, 0.28, OBSIDIAN_2, { ry: a * t });
+      p = at(L * 0.77); box(outer, p[0], 0, p[1], L * 0.47, 0.17, 0.17, OBSIDIAN_2, { ry: a * t });
+      p = at(L / 2); box(outer, p[0], 0.15, p[1], L * 0.95, 0.04, 0.06, k === 0 ? NEON : NEON_DIM, { ry: a * t });
+      p = at(L + 0.2); box(outer, p[0], 0, p[1], 0.5, 0.14, 0.14, NEON, { ry: a * t });   // glowing claw
+    });
+    // the skin between each pair of fingers, tapering to the wrist
+    for (let k = 0; k < 3; k++) {
+      const [t1, L1] = F[k], [t2, L2] = F[k + 1];
+      const ph = (t1 + t2) / 2, half = R((t2 - t1) / 2), ell = Math.min(L1, L2) * 0.9;
+      const [dx, dz] = dirOf(ph);
+      const yk = -0.05 - 0.025 * k, N = 5;
+      for (let i = 0; i < N; i++) {
+        const d = ((i + 0.5) * ell) / N;
+        box(outer, a * (WX + dx * d), yk, dz * d, ell / N + 0.04, 0.06, 2 * d * Math.tan(half) * 1.02, SKIN, { ry: a * ph });
+      }
+      box(outer, a * (WX + dx * ell), yk + 0.01, dz * ell, 0.1, 0.08, 2 * ell * Math.tan(half), NEON_DIM, { ry: a * ph });
+    }
+  });
+
+  // v12: THE MODEL. Swap the block-built dragon for the model. It rides
+  // in the same group as everything else, so it moves, turns, banks and
+  // pitches exactly as before. Nothing about it is solid - the floor,
+  // walls, wing decks and board you stand on are all separate.
+  let modelRide = null;
+  const LEGS = [];                    // {joint, fold, name, rest height, lerp}
+  if (USE_MODEL) {
+    look.remove();
+    WINGS.length = 0;
+    modelRide = group({ x: -SPINE_X * MODEL_SCALE }, tilt);
+    // v14: THE DRAGON IN NINE PARTS - body, two wings, neck, head and four
+    // legs - each one turning on its own joint so it can move.
+    const S = MODEL_SCALE, sc = { sx: S, sy: S, sz: S, collide: "false" };
+    const file = (nm) => MODEL_BASE + "dragon_" + nm + "_f.glb";
+    // a joint: a group at the part's pivot (given in model units) holding the part
+    const joint = (parent, pv, from) => group({ x: (pv[0] - from[0]) * S, y: (pv[1] - from[1]) * S, z: (pv[2] - from[2]) * S }, parent);
+    const ORIGIN = [0, -MODEL_Y / S, -MODEL_Z / S];   // the body's own origin, so pivots land in the right place
+    // v16: every part sits at 0,0,0 inside its own group, positioned by
+    // the group - the body included (it used to carry its own y/z, and
+    // Otherside placed it apart from the rest)
+    const bodyJ = joint(modelRide, [0, 0, 0], ORIGIN);
+    // v17: the body comes in three pieces (right, left, tail) - one big
+    // file was being turned and moved by Otherside on its own
+    ["body_right", "body_left2", "body_tail"].forEach((nm) => el("m-model", Object.assign({ src: file(nm) }, sc), bodyJ));
+    // wings: turn on the shoulder; flapTick speeds them up and slows them down as before
+    [[1, "wing_right_3", [0.2, 0.07, 0.26]], [-1, "wing_left_3", [2 * SPINE_X - 0.2, 0.07, 0.26]]].forEach(([a, nm, pv]) => {
+      const j_ = joint(modelRide, pv, ORIGIN);
+      WINGS.push(anim(j_, "rz", a * -WING_DOWN, a * WING_UP, FLAP_MS, { easing: "easeInOutSine" }));
+      el("m-model", Object.assign({ src: file(nm) }, sc), j_);
+    });
+    // neck and head: always alive - the neck sways and nods slowly, and
+    // the head, riding on the neck, looks about on its own rhythm
+    const NECK_PV = [0.0, 0.08, 0.66], HEAD_PV = [0.0, 0.25, 0.72];
+    const neckJ = joint(modelRide, NECK_PV, ORIGIN);
+    anim(neckJ, "ry", -NECK_SWAY, NECK_SWAY, 3100, { easing: "easeInOutSine" });
+    anim(neckJ, "rx", -NECK_NOD, NECK_NOD, 4300, { easing: "easeInOutSine" });
+    el("m-model", Object.assign({ src: file("neck") }, sc), neckJ);
+    const headJ = joint(neckJ, HEAD_PV, NECK_PV);
+    anim(headJ, "rx", -HEAD_NOD, HEAD_NOD, 2300, { easing: "easeInOutSine" });
+    anim(headJ, "ry", -HEAD_TURN, HEAD_TURN, 3700, { easing: "easeInOutSine" });
+    el("m-model", Object.assign({ src: file("head") }, sc), headJ);
+    // legs: straight when it stands, folded back a little when it flies
+    [["leg_front_right", [0.113, -0.27, 0.694], LEG_FOLD_FRONT], ["leg_front_left", [-0.132, -0.27, 0.681], LEG_FOLD_FRONT],
+     ["leg_back_right", [0.103, -0.27, 0.221], LEG_FOLD_BACK], ["leg_back_left", [-0.088, -0.27, 0.284], LEG_FOLD_BACK]].forEach(([nm, pv, fold]) => {
+      const j_ = joint(modelRide, pv, ORIGIN);
+      const lp = lerpOn(j_, "rx,y", 1400, "easeInOutQuad");
+      el("m-model", Object.assign({ src: file(nm) }, sc), j_);
+      LEGS.push({ j: j_, fold: fold, nm: nm, y0: +j_.getAttribute("y"), lerp: lp, front: nm.indexOf("front") >= 0 });
+    });
+    JAW_Y = MODEL_JAW_Y; JAW_Z = MODEL_JAW_Z;
+    mouthLight = box(body, 0, JAW_Y, JAW_Z - 0.5, 1.4, 0.8, 1.6, FIRE_HOT, { opacity: 0 });
+    lerpOn(mouthLight, "opacity", 400, "linear");
+  }
+  if (!USE_MODEL) label(pad, { y: 5, z: -SADDLE_D / 2 - RAMP_L - 2, ry: 180, width: 12, height: 1.2, color: INK, "font-color": GOLD,
+    content: "FROST DRAGON NOT LOADED - SET MODEL_BASE" });
+  // --- the control board at the front of the saddle, facing the riders.
+  // v2: every button is a solid cap with its label ON it and the label
+  // clickable too (collide) - exactly how the Titan Roamer desk is
+  // built. v1's labels were not clickable and sat in front of the caps,
+  // which is why nothing happened when you pressed them.
+  // v4: THE BOARD IS CLEAR OF EVERYTHING. In v3 it was wider than the
+  // saddle room, so the side rails, a rail post and the room's
+  // invisible side walls ran through the outer buttons, and the arrows
+  // drawn on the speed keys sat on top of them - clicks landed on those
+  // instead. Now the board is narrower than the room and stands 1.2 m
+  // back from its front wall, nothing touches it, and every piece of a
+  // button - cap, word and arrow - takes the click.
+  // ---- the wing decks and who is standing on them (v10) ------
+  // The Titan Roamer's step plates, proven in your world: each deck
+  // hears footsteps itself (collision events) AND a position probe in
+  // the dragon's body checks everybody's position against it, so a
+  // rider who stands perfectly still is still counted. You are off a
+  // deck only when both say so, and only after DECK_GRACE_MS, so a
+  // step across a seam never flickers the steering.
+  const DECK_GRACE_MS = 350;
+  const DECK_STEER = false;           // v30: standing on a wing does NOT turn it - control board only
+  const DECKS = [];
+  function deck(side) {
+    const x0 = SW / 2, x1 = DECK_OUT, w = x1 - x0, cx = side * (x0 + w / 2);
+    const sense = { collide: "true", "collision-interval": 100 };
+    // v11: the deck is solid and steers exactly as before, but it is
+    // see-through (opacity 0.01). NOT visible="false": in Otherside that
+    // also takes away the floor, and you fall through it
+    const base = box(body, cx, -0.15, 0, w, 0.3, SADDLE_D, INK, Object.assign({ opacity: 0.01 }, sense));
+    const glow = null;
+    const D = { side: side, base: base, glow: glow, on: new Set(), src: new Map(), leave: new Map(),
+      x: cx, hw: w / 2 + 0.2, hd: SADDLE_D / 2 + 0.2 };
+    const paint = () => { set(glow, "color", D.on.size ? NEON : NEON_DIM); set(glow, "opacity", D.on.size ? 0.7 : 0.35); };
+    D.mark = (key, src) => {
+      let s_ = D.src.get(key);
+      if (!s_) { s_ = new Set(); D.src.set(key, s_); }
+      s_.add(src);
+      const t = D.leave.get(key);
+      if (t) { clearTimeout(t); D.leave.delete(key); }
+      if (!D.on.has(key)) { D.on.add(key); paint(); deckChanged(); }
+    };
+    D.unmark = (key, src) => {
+      const s_ = D.src.get(key);
+      if (!s_ || !s_.has(src)) return;
+      s_.delete(src);
+      if (s_.size || D.leave.has(key)) return;
+      D.leave.set(key, later(() => {
+        D.leave.delete(key);
+        const again = D.src.get(key);
+        if (again && again.size) return;
+        D.src.delete(key);
+        if (D.on.delete(key)) { paint(); deckChanged(); }
+      }, DECK_GRACE_MS));
+    };
+    D.forget = (key) => {
+      const t = D.leave.get(key);
+      if (t) clearTimeout(t);
+      D.leave.delete(key); D.src.delete(key);
+      if (D.on.delete(key)) { paint(); deckChanged(); }
+    };
+    D.contains = (x, y, z) => Math.abs(x - D.x) <= D.hw && Math.abs(z) <= D.hd && y > -1 && y < 3;
+    const keyOf = (e) => (e && e.detail && e.detail.connectionId !== undefined ? e.detail.connectionId : "anon");
+    on(base, "collisionstart", (e) => D.mark(keyOf(e), "c"));
+    on(base, "collisionmove", (e) => D.mark(keyOf(e), "c"));
+    on(base, "collisionend", (e) => D.unmark(keyOf(e), "c"));
+    DECKS.push(D);
+    return D;
+  }
+  const leftDeck = deck(1);      // the riders' left is +x when facing forward
+  const rightDeck = deck(-1);
+  // the probe: positions relative to the dragon's body, however it moves
+  {
+    const probe = el("m-position-probe", { range: 24, interval: 100 }, body);
+    probe.removeAttribute("collide");
+    const onPos = (e) => {
+      const d = e && e.detail;
+      if (!d || d.connectionId === undefined) return;
+      const rel = d.elementRelative && d.elementRelative.position;
+      if (!rel) return;
+      DECKS.forEach((D) => { if (D.contains(rel.x, rel.y, rel.z)) D.mark(d.connectionId, "p"); else D.unmark(d.connectionId, "p"); });
+      const inside = Math.abs(rel.x) <= RW / 2 + 0.3 && rel.z >= -SADDLE_D / 2 - 0.3 && rel.z <= FRONT_Z + 0.3 && rel.y > -1.5 && rel.y < ROOM_H + 0.5;
+      if (inside) inBox.add(d.connectionId); else inBox.delete(d.connectionId);
+    };
+    on(probe, "positionenter", onPos);
+    on(probe, "positionmove", onPos);
+    on(probe, "positionleave", (e) => { const d = e && e.detail; if (d) { inBox.delete(d.connectionId); DECKS.forEach((D) => D.unmark(d.connectionId, "p")); } });
+  }
+  if (typeof window !== "undefined" && window.addEventListener) {
+    window.addEventListener("disconnected", guard((e) => {
+      const id = e && e.detail ? e.detail.connectionId : undefined;
+      if (id !== undefined) DECKS.forEach((D) => D.forget(id));
+    }));
+  }
+  // stepping onto a deck: like pressing LEFT/RIGHT, it holds the height
+  function deckChanged() {
+    const steer = deckSteer();
+    if (steer && (!st.landed || st.walk)) { st.home = false; st.climbTo = 0; st.vert = 0; }
+    if (!steer && st.steering) { st.steering = false; st.tH = st.h; }   // stepped off: stop turning where it is
+  }
+  function deckSteer() {
+    if (!DECK_STEER) return 0;        // v30
+    return ((leftDeck.on.size ? 1 : 0) - (rightDeck.on.size ? 1 : 0)) * TURN_FLIP;
+  }
+
+  // v8: TWO BOARDS, ANYBODY. The same board is built twice: once on
+  // the dragon's back for the riders, and once on a stand on the
+  // landing pad, bigger, for anyone on the ground - so you can fly it
+  // (or bring it back) without being on it, and a click from outside
+  // the saddle's invisible walls is never stopped by them. Nobody is
+  // locked out: any click from anyone moves the dragon. Two people
+  // pressing the same button at the same moment both count - the only
+  // click dropped is the SAME person's click reported twice.
+  const BRD_W = 4.4;
+  const BTN = {};                     // name -> every copy of that button
+  const READOUTS = [], LAMPS = [];
+  const COLS = 4, GAP = 0.08, BW = (BRD_W - 0.2 - (COLS - 1) * GAP) / COLS, BH = 0.5;
+  const colX = (c) => -BRD_W / 2 + 0.1 + BW / 2 + c * (BW + GAP);
+  function paintBtn(nm) {
+    (BTN[nm] || []).forEach((B) => {
+      const c = B.lit ? "#1f7a8c" : B.col;
+      set(B.cap, "color", c); set(B.face, "color", c);
+    });
+  }
+  function light(nm, on2) {
+    const L = BTN[nm];
+    if (!L || L[0].lit === on2) return;
+    L.forEach((B) => { B.lit = on2; });
+    paintBtn(nm);
+  }
+  function makeBoard(parent, where, idPrefix) {
+    const board = group(where, parent);
+    box(board, 0, 0.75, -0.15, BRD_W, 3.15, 0.2, INK, { collide: "true" });
+    box(board, 0, 0.75, -0.26, BRD_W + 0.2, 3.35, 0.08, NEON_DIM);
+    // two lines - what it is doing, and speed / height / fire
+    READOUTS.push([
+      label(board, { id: "skydragon-status-1", y: 2.17, z: 0.02, width: BRD_W - 0.2, height: 0.3, color: INK, "font-color": NEON, "font-size": 40, content: "" }),
+      label(board, { id: "skydragon-status-2", y: 1.9, z: 0.02, width: BRD_W - 0.2, height: 0.26, color: INK, "font-color": CHALK, "font-size": 40, content: "" }),
+    ]);
+    function button(nm, c, y, col, text, span) {
+      span = span || 1;
+      const w = span * BW + (span - 1) * GAP, x = (colX(c) + colX(c + span - 1)) / 2;
+      const cap = box(board, x, y, 0.05, w, BH, 0.2, col, { collide: "true" });
+      const face = label(cap, { z: 0.11, width: w - 0.06, height: BH - 0.06, color: col, "font-color": CHALK,
+        "font-size": 60, content: text || nm, collide: "true" });
+      face.setAttribute("id", idPrefix + nm.replace(/[^A-Z]/g, ""));
+      const lastBy = new Map();         // who clicked it last, and when
+      const B = { cap: cap, face: face, col: col, lit: false, parts: [cap, face] };
+      B.hit = (e) => {
+        const now = Date.now();
+        const who = e && e.detail && e.detail.connectionId !== undefined ? e.detail.connectionId : "?";
+        if (now - (lastBy.get(who) || 0) < 90) return;   // that person's click, reported twice
+        lastBy.set(who, now);
+        set(cap, "color", "#ffffff"); set(face, "color", "#ffffff");
+        later(() => paintBtn(nm), 140);
+        press(nm);
+      };
+      (BTN[nm] = BTN[nm] || []).push(B);
+      B.parts.forEach((n) => on(n, "click", B.hit));
+      return B;
+    }
+    // anything drawn on a button is solid and clickable too
+    const onButton = (B, n) => { n.setAttribute("collide", "true"); B.parts.push(n); on(n, "click", B.hit); return n; };
+    // three rows. Index 0 is on the LEFT of whoever faces the board.
+    const DK = "#16323d";
+    button("< LEFT", 0, 1.5, DK, "LEFT");
+    button("UP", 1, 1.5, DK);
+    button("DOWN", 2, 1.5, DK);
+    button("RIGHT >", 3, 1.5, DK, "RIGHT");
+    button("STOP", 0, 0.92, "#5c3a10");
+    button("GO", 1, 0.92, "#145c34");
+    button("FIRE", 2, 0.92, "#6a1208");
+    button("HOME", 3, 0.92, "#123a4a");
+    // the speed keys, like keyboard arrow keys, the gauge between them
+    const slow = button("SPEED DOWN", 0, 0.34, DK, "SLOWER");
+    const fast = button("SPEED UP", 3, 0.34, DK, "FASTER");
+    // v15: the ground row, nearest you
+    button("WALK", 0, -0.24, "#3a3a14", "WALK", 2);
+    button("SPRINT", 2, -0.24, "#5c2a08", "SPRINT", 2);
+    // v28: no pictures on SLOWER and FASTER - just the words
+    const lamps = [];
+    const x0 = colX(1) - BW / 2, x1 = colX(2) + BW / 2, n = GEARS.length - 1, lw = (x1 - x0 - (n - 1) * 0.05) / n;
+    for (let i = 0; i < n; i++) lamps.push(box(board, x0 + lw / 2 + i * (lw + 0.05), 0.34, 0.05, lw, 0.3, 0.12, "#10222a"));
+    LAMPS.push(lamps);
+    return board;
+  }
+  // v9: THE BOARDS LIE FLAT ON THE FLOOR, buttons facing up, so
+  // nothing stands between you and the view - look down at your feet
+  // to press them (the Titan Roamer's desk does the same). The far
+  // rows point forward: the readout furthest away, the speed keys
+  // nearest you. It is turned round, so its own -x is on your left.
+  function flatBoard(parent, x, y, z, k, idPrefix) {
+    // v11: tipped up BOARD_TILT degrees towards you so you do not have
+    // to look straight down, and lifted so its near edge stays on the floor
+    const lift = (1.675 * Math.sin(R(BOARD_TILT)) + 0.08) * k;
+    const d = group({ x: x, y: y + lift, z: z, ry: 180, sx: k, sy: k, sz: k }, parent);
+    const tilt = group({ rx: -90 + BOARD_TILT }, d);
+    // the board is built standing up with its middle 1.05 m up; this
+    // centres it on (x, z) once it is laid down
+    return makeBoard(tilt, { y: -0.75 }, idPrefix);
+  }
+  // on the dragon: in the front half of the saddle, flush with the floor
+  flatBoard(body, 0, 0.02, SADDLE_D / 2 - 1.75, 1, "skydragon-btn-");
+
+  // ==========================================================
+  // FLIGHT (v2)
+  // ==========================================================
+  //   GO       fly straight ahead, and keep going
+  //   STOP     stop dead and hover in place, flapping
+  //   UP       climb: straight up if stopped, diagonally up if going.
+  //            Keeps climbing until DOWN, a turn or the ceiling.
+  //   DOWN     the same, downwards. Stopped over the ground, it comes
+  //            down and lands where it is. Going, it levels out just
+  //            above the ground instead of crashing.
+  //   < LEFT / RIGHT >   turn 30 degrees (presses add up) and hold the
+  //            height it is at
+  //   FASTER / SLOWER    the speed it flies at when going
+  //   HOME     fly back to the pad and land on it
+  const st = {
+    x: PAD_X, y: PERCH_Y, z: PAD_Z, h: 0,      // where it is and which way it faces
+    v: 0, vy: 0, turn: 0,                       // how fast, how fast up, how fast turning
+    go: false, vert: 0, gear: 3, tH: 0,         // what the riders asked for
+    climbTo: 0,                                 // take-off: climb to here by itself
+    home: false, landed: true, steering: false,
+    fireUntil: 0, fireAt: 0,
+    last: Date.now(), bank: 0, pitch: 0, readShown: "", gearShown: -1,
+  };
+
+  function press(nm) {
+    const now = Date.now();
+    if (nm === "WALK" || nm === "SPRINT") {
+      // on the ground: walk or sprint straight ahead. In the air: come
+      // down where it is, then set off on foot
+      st.home = false; st.go = false; st.vert = 0; st.climbTo = 0;
+      st.walk = nm === "WALK" ? 1 : 2;
+      gateFor();
+    } else if (nm === "GO") {
+      st.walk = 0;
+      st.home = false;
+      st.go = true;
+      if (st.landed) { takeOff(); st.climbTo = Math.max(st.y + 14, PERCH_Y + 14); }
+    } else if (nm === "STOP") {
+      st.walk = 0;
+      gateFor();
+      st.home = false;
+      st.go = false;
+      st.vert = 0;
+      st.climbTo = 0;
+    } else if (nm === "UP") {
+      st.walk = 0;
+      st.home = false;
+      st.climbTo = 0;
+      st.vert = st.vert < 0 ? 0 : 1;           // UP while going down levels off
+      if (st.landed) takeOff();
+    } else if (nm === "DOWN") {
+      st.home = false;
+      st.climbTo = 0;
+      if (!st.landed) st.vert = st.vert > 0 ? 0 : -1;
+    } else if (nm === "< LEFT" || nm === "RIGHT >") {
+      st.home = false;
+      st.climbTo = 0;
+      st.vert = 0;                              // hold this height
+      st.tH += (nm === "< LEFT" ? 1 : -1) * TURN_FLIP * TURN_STEP;
+      if (st.landed && !st.walk) takeOff();     // walking: turn on the ground instead
+    } else if (nm === "SPEED UP") {
+      st.gear = Math.min(GEARS.length - 1, st.gear + 1);
+    } else if (nm === "SPEED DOWN") {
+      st.gear = Math.max(1, st.gear - 1);
+    } else if (nm === "HOME") {
+      st.walk = 0;
+      st.home = true;
+      if (st.landed) takeOff();
+    } else if (nm === "FIRE") {
+      if (now < st.fireAt || st.fireUntil) return;
+      breathe();
+    }
+    flightTick();          // v4: act on it now, not on the next tick
+  }
+  // leaving the ground: shut the gate
+  function takeOff() {
+    if (!st.landed) return;
+    st.landed = false;
+    if (gaitOn) endGait();              // v29: never fly with the legs mid-stride
+    set(gate, "collide", "true");
+    set(gateRail, "visible", "true");
+  }
+  function land(onPad) {
+    st.landed = true;
+    st.home = false; st.go = false; st.vert = 0; st.climbTo = 0;
+    st.v = 0; st.vy = 0; st.turn = 0;
+    st.y = PERCH_Y;
+    if (onPad) {
+      // square up to the ramp, by the shortest way round
+      st.x = PAD_X; st.z = PAD_Z;
+      st.h = st.tH = Math.round(st.h / 360) * 360;
+    }
+    gateFor();
+    set(gateRail, "visible", "false");
+  }
+  // the back gate is open only when it is standing still on the ground
+  function gateFor() { set(gate, "collide", st.landed && !st.walk && st.v < 0.3 ? "false" : "true"); }
+  // v15: WALKING. It stays on the ground, turning with LEFT/RIGHT or
+  // the wing decks, at a walk or a sprint
+  function groundTick(dt) {
+    const steer = deckSteer();
+    if (steer) { st.steering = true; st.tH = st.h + steer * 30; }
+    else if (st.steering) { st.steering = false; st.tH = st.h; }
+    const wantV = st.walk === 2 ? SPRINT_SPEED : st.walk ? WALK_SPEED : 0;
+    st.v = approach(st.v, wantV, (wantV ? ACCEL * 0.5 : STOP_DECEL) * dt);
+    if (!st.walk && st.v === 0) { st.turn = 0; gateFor(); return; }
+    const dh = st.tH - st.h;
+    st.turn = Math.abs(dh) < 0.01 ? 0 : Math.sign(dh) * Math.min(GROUND_TURN_RATE, Math.abs(dh) / Math.max(dt, 0.001));
+    st.h += st.turn * dt;
+    st.y = PERCH_Y;
+    st.x += Math.sin(R(st.h)) * st.v * dt;
+    st.z += Math.cos(R(st.h)) * st.v * dt;
+    gateFor();
+  }
+  // v18: THE GAIT, worked out by the script every tick like the
+  // flying is. Each leg has a stance - foot planted, sweeping back as fast
+  // as the ground goes by, so it never looks like it is sliding - and a
+  // swing - foot lifted and brought forward. The stride is driven by
+  // distance travelled, so the legs slow down with the dragon and stop
+  // when it stops.
+  //   WALK: one foot at a time, back left, front left, back right,
+  //         front right - how big four-legged animals walk - with a gentle
+  //         rise and fall and a slight side-to-side roll.
+  //   SPRINT: a gallop - the back legs push off together, the front legs
+  //         reach and land together - with the body rocking and bounding.
+  const GAITS = {
+    1: { A: WALK_SWING, lift: WALK_LIFT, duty: 0.65,
+         off: { leg_back_left: 0, leg_front_left: 0.25, leg_back_right: 0.5, leg_front_right: 0.75 } },
+    2: { A: SPRINT_SWING, lift: SPRINT_LIFT, duty: 0.4,
+         off: { leg_back_left: 0, leg_back_right: 0.1, leg_front_right: 0.5, leg_front_left: 0.6 } },
+  };
+  const LEG_LEN = 0.38 * MODEL_SCALE;           // hip to foot, metres
+  let gaitPhase = 0, gaitMode = 1, gaitOn = false, rideLerp = null;
+  function legAngle(p, G) {                     // p: 0..1 through one stride
+    if (p < G.duty) { const k = p / G.duty; return { rx: -G.A + 2 * G.A * k, lift: 0 }; }       // planted, sweeping back
+    const k = (p - G.duty) / (1 - G.duty);
+    return { rx: G.A - 2 * G.A * (0.5 - 0.5 * Math.cos(Math.PI * k)), lift: G.lift * Math.sin(Math.PI * k) };   // lifted, swinging forward
+  }
+  function gaitTick(dt) {
+    if (!modelRide || !LEGS.length) return;
+    if (!st.landed) { if (gaitOn) endGait(); return; }   // v29: took off mid-stride - finish the walk; bobTick tucks the legs
+    if (!rideLerp) rideLerp = lerpOn(modelRide, "y,rx,rz", TICK_MS + 40, "linear");
+    const moving = st.landed && st.v > 0.05;
+    if (st.walk) gaitMode = st.walk;
+    const G = GAITS[gaitMode];
+    if (moving) {
+      if (!gaitOn) { gaitOn = true; LEGS.forEach((L) => set(L.lerp, "duration", TICK_MS + 40)); set(rideLerp, "duration", TICK_MS + 40); }
+      // one stride covers the ground a planted foot sweeps
+      const sweep = 2 * LEG_LEN * Math.sin(R(G.A));
+      gaitPhase = (gaitPhase + (dt * st.v * G.duty) / sweep) % 1;
+      // at a slow shuffle the steps get smaller, so it eases into and out of its stride
+      const k = Math.min(1, st.v / (gaitMode === 2 ? 6 : 2.5));
+      LEGS.forEach((L) => {
+        const a_ = legAngle((gaitPhase + G.off[L.nm]) % 1, G);
+        set(L.j, "rx", a_.rx * k); set(L.j, "y", L.y0 + a_.lift * k);
+      });
+      const t = 2 * Math.PI * gaitPhase;
+      if (gaitMode === 2) { set(modelRide, "y", k * 0.45 * (0.5 - 0.5 * Math.cos(t))); set(modelRide, "rx", k * 3 * Math.sin(t)); set(modelRide, "rz", 0); }
+      else { set(modelRide, "y", k * 0.12 * (0.5 - 0.5 * Math.cos(2 * t))); set(modelRide, "rx", 0); set(modelRide, "rz", k * 1.5 * Math.sin(t)); }
+    } else if (gaitOn) {
+      endGait();
+    }
+  }
+  // come to rest: legs straight and down (tucked if flying), body level, gently
+  function endGait() {
+    if (!modelRide) return;
+    gaitOn = false;
+    gaitPhase = 0;
+    LEGS.forEach((L) => { set(L.lerp, "duration", 600); set(L.j, "rx", st.landed ? 0 : L.fold); set(L.j, "y", L.y0 + (!st.landed && L.front ? FRONT_TUCK_LIFT : 0)); });
+    if (rideLerp) set(rideLerp, "duration", 600);
+    set(modelRide, "rx", 0); set(modelRide, "rz", 0);
+    if (st.landed) set(modelRide, "y", 0);
+  }
+  const approach = (cur, want, step) => (Math.abs(want - cur) <= step ? want : cur + Math.sign(want - cur) * step);
+  function wrap(a) { return ((a + 180) % 360 + 360) % 360 - 180; }
+
+  function flightTick() {
+    const now = Date.now();
+    const dt = Math.min(0.25, (now - st.last) / 1000);
+    st.last = now;
+    if (st.landed) {
+      if (st.walk || st.v > 0) groundTick(dt);
+      if (st.fireUntil) breathTick(now);
+      send(); gaitTick(dt); showState(); return;
+    }
+
+    // v10: somebody on a wing deck: keep turning that way
+    const steer = deckSteer();
+    if (steer) { st.steering = true; st.tH = st.h + steer * 30; }
+    else if (st.steering) { st.steering = false; st.tH = st.h; }
+    let wantV = st.go ? GEARS[st.gear] : 0;
+    let wantVy = st.vert * CLIMB_RATE;
+    if (st.walk) { wantV = Math.min(st.v, 12); wantVy = -CLIMB_RATE; }   // coming down to walk
+    if (st.climbTo) {
+      if (st.y < st.climbTo) wantVy = CLIMB_RATE; else st.climbTo = 0;
+    }
+    // HOME: head for the pad, slow down near it, come down on it
+    const dx = PAD_X - st.x, dz = PAD_Z - st.z, dist = Math.hypot(dx, dz);
+    if (st.home) {
+      st.tH = st.h + wrap((Math.atan2(dx, dz) * 180) / Math.PI - st.h);
+      const cruise = PERCH_Y + (dist > 120 ? 36 : dist > 40 ? 21 : 10);
+      wantV = dist > 120 ? GEARS[4] : dist > 40 ? GEARS[3] : dist > 3 ? GEARS[1] : 0;
+      wantVy = Math.max(-CLIMB_RATE, Math.min(CLIMB_RATE, (cruise - st.y) * 0.8));
+      if (dist <= 3) {
+        st.tH = Math.round(st.h / 360) * 360;
+        wantVy = -CLIMB_RATE * 0.6;
+        if (st.y <= PERCH_Y + 0.05 && st.v < 0.3 && Math.abs(st.tH - st.h) < 1) { land(true); send(); showState(); return; }
+      }
+    }
+    // stay inside the world: past BOUND_R it turns back towards the pad
+    st.atEdge = BOUND_R > 0 && dist > BOUND_R && !st.home;
+    if (st.atEdge) st.tH = st.h + wrap((Math.atan2(dx, dz) * 180) / Math.PI - st.h);
+
+    // everything eases towards what was asked
+    st.v = approach(st.v, wantV, ACCEL * dt);
+    st.vy = approach(st.vy, wantVy, VY_ACCEL * dt);
+    const dh = st.tH - st.h;
+    st.turn = Math.abs(dh) < 0.01 ? 0 : Math.sign(dh) * Math.min(TURN_RATE, Math.abs(dh) / Math.max(dt, 0.001));
+    st.h += st.turn * dt;
+    st.y += st.vy * dt;
+    st.x += Math.sin(R(st.h)) * st.v * dt;
+    st.z += Math.cos(R(st.h)) * st.v * dt;
+
+    // the ceiling and the ground
+    if (MAX_ALT > 0 && st.y >= MAX_ALT) { st.y = MAX_ALT; if (st.vy > 0) st.vy = 0; if (st.vert > 0) st.vert = 0; }
+    // going: it levels out just above the ground. Stopped: it comes
+    // all the way down, and once it has stopped sliding it has landed.
+    const floorY = st.go && !st.home ? MIN_FLY_Y : PERCH_Y;
+    if (st.y <= floorY) {
+      st.y = floorY;
+      if (st.vy < 0) st.vy = 0;
+      if (st.go && st.vert < 0) st.vert = 0;
+      if (st.walk) { const w = st.walk; land(false); st.walk = w; gateFor(); }
+      else if (!st.go && !st.home && st.vert < 0 && st.v < 0.3) land(dist < 6);
+    }
+
+    send();
+    // lean into turns; nose up climbing, down diving (more when going)
+    const bank = Math.max(-35, Math.min(35, -st.turn * 0.55 * (st.v > 1 ? 1 : 0.3)));
+    const pitch = Math.max(-22, Math.min(22, -st.vy * (st.v > 3 ? 2.2 : 0.8)));
+    if (Math.abs(bank - st.bank) > 1.5) { st.bank = bank; set(tilt, "rz", bank); }
+    if (Math.abs(pitch - st.pitch) > 1.5) { st.pitch = pitch; set(tilt, "rx", pitch); }
+    if (st.fireUntil) breathTick(now);
+    showState();
+  }
+
+  // Moving it. v2 uses the method proven in your world by the Titan
+  // Roamer: the position is sent every tick and each screen glides to
+  // it (m-attr-lerp) - here twenty times a second, so it is smooth.
+  // GLIDE = true switches on v1's document-time glides instead.
+  function send() {
+    if (!GLIDE) {
+      set(dragon, "x", st.x); set(dragon, "y", st.y); set(dragon, "z", st.z); set(dragon, "ry", st.h);
+      return;
+    }
+    const vx = Math.sin(R(st.h)) * st.v, vz = Math.cos(R(st.h)) * st.v;
+    const t = docTime();
+    const now = Date.now();
+    const moving = st.v > 0.01 || Math.abs(st.vy) > 0.01 || Math.abs(st.turn) > 0.01;
+    if (!moving && st.glideIdle) return;
+    if (moving && now - (st.sentAt || 0) < TURN_SEND_MS) return;
+    st.sentAt = now;
+    st.glideIdle = !moving;
+    const seg = moving ? SEG_S : 0.001;
+    glide(motion.x, st.x, st.x + vx * seg, t, seg);
+    glide(motion.y, st.y, st.y + st.vy * seg, t, seg);
+    glide(motion.z, st.z, st.z + vz * seg, t, seg);
+    glide(motion.ry, st.h, st.h + st.turn * seg, t, seg);
+  }
+  function glide(a, from, to, t, seg) {
+    a.setAttribute("start", String(Math.round(from * 1000) / 1000));
+    a.setAttribute("end", String(Math.round(to * 1000) / 1000));
+    a.setAttribute("duration", String(Math.max(1, Math.round(seg * 1000))));
+    a.setAttribute("start-time", String(Math.round(t)));
+  }
+  // flap faster when hovering or climbing, slower gliding along fast
+  let flapShown = FLAP_MS;
+  let bob = null;
+  function bobTick() {
+    if (!modelRide) return;
+    if (!st.landed && rideLerp) { rideLerp.remove(); rideLerp = null; set(modelRide, "rx", 0); set(modelRide, "rz", 0); }
+    if (!st.landed && !bob) bob = anim(modelRide, "y", -0.5, 0.5, 2400, { easing: "easeInOutSine" });
+    if (st.landed && bob) { bob.remove(); bob = null; set(modelRide, "y", 0); }
+    if (!gaitOn) LEGS.forEach((L) => { set(L.lerp, "duration", 1400); set(L.j, "rx", st.landed ? 0 : L.fold); set(L.j, "y", L.y0 + (!st.landed && L.front ? FRONT_TUCK_LIFT : 0)); });
+  }
+  function flapTick() {
+    bobTick();
+    const want = st.landed ? 2600 : st.vy > 1 ? 700 : st.v < 3 ? 750 : st.v > 35 ? 1500 : FLAP_MS;
+    if (want === flapShown) return;
+    flapShown = want;
+    WINGS.forEach((w) => set(w, "duration", want));
+  }
+
+  function showState() {
+    const doing = st.landed ? (st.walk === 2 ? "SPRINTING" : st.walk ? "WALKING" : "LANDED") : st.home ? "GOING HOME" : (st.go ? "GOING" : "HOVERING")
+      + (st.steering ? (deckSteer() > 0 ? " + TURNING LEFT" : " + TURNING RIGHT") : "")
+      + (st.vert > 0 || st.climbTo ? " + CLIMBING" : st.vert < 0 ? " + DESCENDING" : "");
+    const line1 = st.landed && !st.walk ? "LANDED - GO, UP, WALK OR SPRINT" : st.landed ? doing : st.atEdge ? "EDGE OF THE WORLD - TURNING BACK" : doing;
+    const line2 = "SPEED " + st.gear + "/" + (GEARS.length - 1) + " " + GEARS[st.gear] + "m/s  ALT " + Math.round(st.y) + "m"
+      + (st.fireUntil ? "  FIRE!" : Date.now() < st.fireAt ? "  FIRE " + Math.ceil((st.fireAt - Date.now()) / 1000) : "");
+    const txt = line1 + "|" + line2;
+    if (txt !== st.readShown) { st.readShown = txt; READOUTS.forEach((r) => { set(r[0], "content", line1); set(r[1], "content", line2); }); }
+    if (st.gear !== st.gearShown) {
+      st.gearShown = st.gear;
+      LAMPS.forEach((lamps) => lamps.forEach((l, i) => set(l, "color", i + 1 <= st.gear ? (i + 1 >= 5 ? CALL_RED : NEON) : "#10222a")));
+    }
+    light("GO", st.go && !st.home);
+    light("STOP", !st.go && !st.landed && !st.home);
+    light("UP", st.vert > 0);
+    light("DOWN", st.vert < 0);
+    light("HOME", st.home);
+    light("WALK", st.walk === 1);
+    light("SPRINT", st.walk === 2);
+  }
+
+  // ==========================================================
+  // FIRE
+  // ==========================================================
+  // Built when it breathes, removed when it stops. The stream and the
+  // fire on the ground are children of the DRAGON, so they fly with it
+  // on every screen, frame by frame, sweeping a lane of fire across
+  // the ground under its jaw. Only the height changes are sent, and
+  // they glide.
+  let fx = null;
+  function aimOf() {
+    const ahead = Math.max(8, (st.y - 0) * 0.55);          // lands further ahead the higher it is
+    return { gy: FIRE_GROUND_Y - st.y - FIRE_SINK, gz: JAW_Z + ahead };
+  }
+  function streamShape(A) {
+    const jy = JAW_Y, jz = JAW_Z;
+    const h = A.gz - jz, v = jy - A.gy;
+    const L = Math.max(3, Math.hypot(h, v));
+    const rx = (Math.atan2(-h, Math.max(0.01, v)) * 180) / Math.PI;   // leans so its TOP is at the jaw
+    return { L: L, rx: rx, my: (jy + A.gy) / 2, mz: (jz + A.gz) / 2 };
+  }
+  function breathe() {
+    const now = Date.now();
+    st.fireUntil = now + FIRE_MS;
+    set(jaw, "rx", 28);
+    set(mouthLight, "opacity", 0.9);
+    const A = aimOf(), S = streamShape(A);
+    fx = { L0: S.L, gy: A.gy };
+    // --- the stream: jaw to ground
+    fx.root = group({ y: S.my, z: S.mz }, dragon);
+    lerpOn(fx.root, "y,z", 500, "linear");
+    fx.tilt = group({ rx: S.rx }, fx.root);
+    lerpOn(fx.tilt, "rx,sy", 500, "linear");
+    const N = 8, L = S.L;
+    for (let i = 0; i < N; i++) {
+      const y = L / 2 - (i + 0.5) * (L / N);
+      const w = 1.1 + i * 0.6, seg = L / N + 0.8;
+      const core = box(fx.tilt, 0, y, 0, w * 0.45, seg, w * 0.45, FIRE_WHITE, { opacity: 0.95, ry: 45 });
+      const mid = box(fx.tilt, 0, y, 0, w * 0.85, seg, w * 0.85, FIRE_ORANGE, { opacity: 0.8 });
+      const out = box(fx.tilt, 0, y, 0, w * 1.35, seg * 0.9, w * 1.35, FIRE_RED, { opacity: 0.45, ry: 45 });
+      anim(core, "sx", 0.7, 1.3, 130 + i * 17);
+      anim(mid, "sx", 0.75, 1.25, 170 + i * 23);
+      anim(mid, "sz", 1.25, 0.75, 150 + i * 19);
+      anim(out, "sz", 0.8, 1.3, 210 + i * 29);
+      anim(out, "ry", 30, 60, 400 + i * 41);
+    }
+    // bright gouts racing down the stream
+    [480, 560, 640, 720, 800].forEach((ms, k) => {
+      const g = box(fx.tilt, 0, 0, 0, 1.8 + k * 0.3, 2.8, 1.8 + k * 0.3, k % 2 ? FIRE_WHITE : FIRE_HOT, { opacity: 0.85, ry: 45 });
+      anim(g, "y", L / 2, -L / 2, ms, { pingpong: false, easing: "easeInQuad" });
+      anim(g, "sx", 0.6, 1.6, ms / 2);
+    });
+    // --- the fire on the ground
+    const Rr = FIRE_R;
+    fx.ground = group({ y: A.gy, z: A.gz }, dragon);
+    lerpOn(fx.ground, "y,z", 500, "linear");
+    const bed = el("m-cylinder", { y: 0.1, radius: Rr, height: 0.2, color: FIRE_DEEP, opacity: 0.85 }, fx.ground);
+    anim(bed, "opacity", 0.6, 0.9, 300);
+    const glow = el("m-cylinder", { y: 0.3, radius: Rr * 0.8, height: 0.3, color: FIRE_ORANGE, opacity: 0.6 }, fx.ground);
+    anim(glow, "opacity", 0.35, 0.75, 220);
+    const heartF = box(fx.ground, 0, 2.2, 0, 4.4, 4.4, 4.4, FIRE_WHITE, { opacity: 0.85, ry: 45 });
+    anim(heartF, "sy", 0.6, 1.5, 160); anim(heartF, "sx", 1.2, 0.8, 190);
+    const heart2 = box(fx.ground, 0, 3.5, 0, 7, 7, 7, FIRE_HOT, { opacity: 0.5 });
+    anim(heart2, "sy", 0.7, 1.4, 240); anim(heart2, "ry", 0, 90, 900);
+    for (let i = 0; i < 12; i++) {
+      const a = (Math.PI * 2 * i) / 12, r = Rr * (i % 2 ? 0.85 : 0.65), tall = 6 + ((i * 5) % 6);
+      const f = box(fx.ground, Math.cos(a) * r, tall / 2, Math.sin(a) * r, 2.4, tall, 2.4,
+        i % 3 === 0 ? FIRE_ORANGE : i % 3 === 1 ? FIRE_RED : FIRE_HOT, { opacity: 0.8, ry: (i * 37) % 90 });
+      anim(f, "sy", 0.45, 1.35, 170 + i * 31);
+      anim(f, "sx", 1.2, 0.75, 210 + i * 17);
+    }
+    const ring = el("m-cylinder", { y: 0.5, radius: Rr * 1.1, height: 0.6, color: FIRE_ORANGE, opacity: 0.5 }, fx.ground);
+    anim(ring, "sx", 0.15, 1, 700, { pingpong: false }); anim(ring, "sz", 0.15, 1, 700, { pingpong: false });
+    for (let i = 0; i < 10; i++) {
+      const a = i * 2.39, r = Rr * (0.2 + (i % 5) * 0.15);
+      const e = box(fx.ground, Math.cos(a) * r, 0, Math.sin(a) * r, 0.5, 0.5, 0.5, i % 2 ? FIRE_HOT : FIRE_WHITE, { ry: 45 });
+      anim(e, "y", 0.5, 14 + (i % 4) * 3, 900 + i * 110, { pingpong: false });
+    }
+    // --- v21: the firelight. A flash as the fire lands, a burst of
+    // white heat spreading out from the spot, then two flickering lights
+    // out of step with each other so the glow never looks regular.
+    const LA = { type: "point", color: "#ff6a1a", distance: FIRE_LIGHT_REACH, "cast-shadows": "false" };
+    fx.flash = el("m-light", Object.assign({}, LA, { y: 4, intensity: FIRE_FLASH, color: "#ffd9a0" }), fx.ground);
+    lerpOn(fx.flash, "intensity", 700, "easeOutQuad");
+    const burst = el("m-sphere", { y: 1, radius: 2, color: FIRE_WHITE, opacity: 0.9 }, fx.ground);
+    lerpOn(burst, "radius,opacity", 650, "easeOutQuad");
+    const f1 = el("m-light", Object.assign({}, LA, { y: 3, intensity: FIRE_LIGHT }), fx.ground);
+    anim(f1, "intensity", FIRE_LIGHT * 0.55, FIRE_LIGHT, 170, { easing: "easeInOutSine" });
+    const f2 = el("m-light", Object.assign({}, LA, { y: 6, intensity: FIRE_LIGHT * 0.6, color: "#ff3a0a", distance: FIRE_LIGHT_REACH * 0.7 }), fx.ground);
+    anim(f2, "intensity", FIRE_LIGHT * 0.25, FIRE_LIGHT * 0.7, 290, { easing: "easeInOutSine" });
+    // the mouth glows too
+    fx.mouth = el("m-light", Object.assign({}, LA, { y: JAW_Y, z: JAW_Z, intensity: FIRE_LIGHT * 0.5, distance: 18 }), dragon);
+    const flashRef = fx.flash;
+    setTimeout(() => { set(flashRef, "intensity", 0); set(burst, "radius", FIRE_R * 1.8); set(burst, "opacity", 0); }, 60);
+    setTimeout(() => { try { burst.remove(); } catch (e) { /* gone */ } }, 800);
+    onBreath(true);
+  }
+  function breathTick(now) {
+    if (now >= st.fireUntil) { endBreath(); return; }
+    // follow the height: the stream stretches, the fire stays on the ground
+    const A = aimOf();
+    if (fx && Math.abs(A.gy - fx.gy) > 0.08) {
+      const S = streamShape(A);
+      fx.gy = A.gy;
+      set(fx.root, "y", S.my); set(fx.root, "z", S.mz);
+      set(fx.tilt, "rx", S.rx); set(fx.tilt, "sy", S.L / fx.L0);
+      set(fx.ground, "y", A.gy); set(fx.ground, "z", A.gz);
+    }
+  }
+  function endBreath() {
+    if (fx) {
+      // v21: the embers keep glowing a moment, then fade
+      const g = fx.ground;
+      const after = el("m-light", { type: "point", color: "#ff4a10", distance: FIRE_LIGHT_REACH * 0.8, "cast-shadows": "false",
+        x: 0, y: +g.getAttribute("y") + 2, z: +g.getAttribute("z"), intensity: FIRE_LIGHT * 0.8 }, dragon);
+      lerpOn(after, "intensity", 1500, "easeOutQuad");
+      setTimeout(() => set(after, "intensity", 0), 60);
+      setTimeout(() => { try { after.remove(); } catch (e) { /* gone */ } }, 1800);
+      try { fx.mouth.remove(); } catch (e) { /* gone */ }
+      try { fx.root.remove(); } catch (e) { /* gone */ }
+      try { fx.ground.remove(); } catch (e) { /* gone */ }
+    }
+    fx = null;
+    st.fireUntil = 0;
+    st.fireAt = Date.now() + FIRE_COOL_MS;
+    set(jaw, "rx", 0);
+    set(mouthLight, "opacity", 0);
+    onBreath(false);
+  }
+  // A hook for putting this dragon in a game: called when a breath
+  // starts and stops. Where the fire is on the ground, in world space:
+  // fireSpot().
+  function onBreath(started) { void started; }
+  function fireSpot() {
+    const A = aimOf();
+    return { x: st.x + Math.sin(R(st.h)) * A.gz, z: st.z + Math.cos(R(st.h)) * A.gz, r: FIRE_R };
+  }
+  void fireSpot;
+
+  // ==========================================================
+  // THE CALL KEYPAD (v3) - on the landing pad. Type 1 7 1 8.
+  // ==========================================================
+  // Built like the Titan Roamer's: each key a solid cap with a
+  // clickable label, a display that shows * for each digit typed, a C
+  // to clear, and a TYPE button that opens a text box for the code.
+  // Nobody aboard: the dragon is back on the pad at once. Riders
+  // aboard: it flies them home and lands.
+  function keypad(p, o, onCode) {
+    const g = group({ x: o.x || 0, y: o.y || 0, z: o.z || 0, ry: o.ry || 0 }, p);
+    const K = { entry: [], expires: 0, flashTok: 0, flashing: false };
+    box(g, 0, 2.2, 0, 3.4, 3.3, 0.25, "#0b161c", { collide: "true" });
+    box(g, 0, 2.2, -0.14, 3.6, 3.5, 0.05, NEON_DIM);
+    K.display = label(g, { y: 3.4, z: 0.15, width: 3.0, height: 0.5, color: INK, "font-color": NEON, "font-size": 28, content: "- - - -" });
+    if (o.title) label(g, { y: 4.3, z: 0.05, width: 3.6, height: 0.6, color: INK, "font-color": GOLD, "font-size": 28, content: o.title });
+    K.show = () => {
+      if (K.flashing) return;
+      const dots = [];
+      for (let i = 0; i < CODE.length; i++) dots.push(i < K.entry.length ? "*" : "-");
+      set(K.display, "content", dots.join(" "));
+    };
+    K.flash = (t) => {
+      const tok = ++K.flashTok;
+      K.flashing = true;
+      set(K.display, "content", t);
+      later(() => { if (tok !== K.flashTok) return; K.flashing = false; K.show(); }, 1800);
+    };
+    const isPrefix = (seq) => seq.every((d, i) => d === CODE[i]);
+    K.enter = (digit) => {
+      const now = Date.now();
+      if (now > K.expires) K.entry = [];
+      K.expires = now + CODE_TIMEOUT * 1000;
+      K.entry.push(digit);
+      while (K.entry.length && !isPrefix(K.entry)) K.entry.shift();
+      K.show();
+      if (K.entry.length === CODE.length) { K.entry = []; K.show(); onCode(K); }
+    };
+    K.typed = (str) => {
+      const digits = String(str || "").replace(/[^0-9]/g, "");
+      K.entry = [];
+      for (let i = 0; i < digits.length; i++) K.enter(Number(digits[i]));
+      if (digits.length && digits.length !== CODE.length) K.flash("NO");
+    };
+    [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["C", "0", ""]].forEach((row, r) => {
+      row.forEach((key, c) => {
+        if (key === "") return;
+        const clear = key === "C";
+        const capC = clear ? "#3d0c1a" : "#12303a";
+        const cap = box(g, (c - 1) * 0.92, 2.42 - r * 0.62, 0.22, 0.78, 0.5, 0.26, capC, { collide: "true" });
+        const face = label(cap, { z: 0.14, width: 0.74, height: 0.42, color: capC,
+          "font-color": clear ? "#ff8f8f" : CHALK, "font-size": 30, content: key, collide: "true" });
+        face.setAttribute("id", "skydragon-key-" + key);
+        let last = 0;
+        const hit = () => {
+          const now = Date.now();
+          if (now - last < 180) return;
+          last = now;
+          set(cap, "color", clear ? CALL_RED : NEON);
+          later(() => set(cap, "color", capC), 150);
+          if (clear) { K.entry = []; K.show(); } else K.enter(Number(key));
+        };
+        on(cap, "click", hit);
+        on(face, "click", hit);
+      });
+    });
+    if (o.promptX !== undefined) {
+      const pw = el("m-prompt", { message: "Dragon code", placeholder: "4 digits" }, g);
+      const btn = box(pw, o.promptX, 1.6, 0.1, 1.4, 1.1, 0.2, "#0b161c", { collide: "true" });
+      label(btn, { z: 0.11, width: 1.3, height: 1.0, color: "#0b161c", "font-color": GOLD, "font-size": 30, content: "TYPE", collide: "true" });
+      on(pw, "prompt", (event) => K.typed(event.detail && event.detail.value));
+    }
+    K.show();
+    return K;
+  }
+  function recall() {
+    if (st.landed && Math.hypot(st.x - PAD_X, st.z - PAD_Z) < 6) return "ALREADY HOME";
+    if (st.fireUntil) endBreath();
+    st.walk = 0;
+    if (ridersAboard() === 0) {
+      // nobody on it: straight back onto the pad
+      land(true);
+      st.tH = st.h;
+      set(tilt, "rx", 0); set(tilt, "rz", 0); st.bank = 0; st.pitch = 0;
+      send();
+      showState();
+      return "HOME";
+    }
+    // riders aboard: fly them home and land
+    if (st.landed) takeOff();
+    st.home = true; st.go = false; st.vert = 0; st.climbTo = 0;
+    showState();
+    return "FLYING HOME";
+  }
+  // the console: beside the foot of the ramp, facing people walking up
+  {
+    const cg = group({ x: PAD_X + 6.5, z: PAD_Z - SADDLE_D / 2 - RAMP_L - 3 });
+    box(cg, 0, 0.35, 0, 7, 0.7, 4, "#0b161c", { collide: "true" });
+    box(cg, 0, 0.75, 0, 7.4, 0.12, 4.4, NEON_DIM);
+    label(cg, { y: 6.2, z: -0.3, ry: 180, width: 10, height: 1.3, color: INK, "font-color": NEON, "font-size": 40, content: "CALL THE DRAGON" });
+    keypad(cg, { y: 0.7, ry: 180, title: "TYPE THE CODE", promptX: 2.6 }, (K) => K.flash(recall()));
+  }
+
+  setInterval(guard(flightTick), TICK_MS);
+  setInterval(guard(flapTick), 500);
+  showState();
+})();
+</script>

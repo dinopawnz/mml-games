@@ -1,0 +1,502 @@
+<!--
+  STARPOD - THE BIG ONE  v2  -  a giant starpod that stands still
+
+  Your Meshy starpod (starpod_pod_v6.glb from your starpod repo) at twice
+  the ride's size - about 16 m long, 6.4 m wide, 5.4 m tall - hovering
+  just off the floor on a soft glow. It's solid all over, so nobody walks
+  through it. v2: no stairs (STAIRS = true puts them back up its right
+  side). Its back is still a deck with invisible rails, if you get up there.
+
+  PLACE IT with the document's origin where its middle should be. Its
+  nose points along +z of the document; turn the document to aim it.
+  SCALE at the top sets the size (the ride uses 4.3).
+  v4: A CABIN INSIDE. A round door on its left side (as you face its
+  nose) - click it to open it; steps slide out down to the floor. Inside:
+  a bright white cabin with three glowing panels and teal seats at the
+  back, a bench under a round window, and a console with a big viewscreen
+  and two pilot seats at the nose.
+  v5: a restroom in the front-left corner - click its door to roll it up.
+  v6: the cabin's lights turned almost all the way down, and no OPEN
+  DOOR buttons - just click the door itself.
+  v7: the restroom door rolls up into a band over the doorway - click
+  that band (from outside or in) to roll it back down.
+  v8: IT FLIES. The console at the nose is a control pad - UP, DOWN,
+  LEFT, RIGHT, FORWARD, STOP and HOME (back to where it started, and
+  land). The dark visor band across its nose is now glass, so you can
+  see out through the opening above the console. The door stays locked
+  in the air.
+  v9: the round side window is open too - you can see out of it.
+  v10: the door opens from inside - a DOOR button on the control pad,
+  another on the wall beside the doorway, or click the door itself.
+  v11: THE FLIGHT DECK. Four steps up from the front of the cabin to a
+  deck in the nose with the control pad. The hull is now drawn from the
+  outside only, so from inside it is see-through: the whole nose is your
+  window, and the round side window looks straight out - while from
+  outside the ship looks exactly as before.
+  v12: starpod_remote.html flies it from a browser tab (the big Starpod
+  only).
+  v13: (the big Starpod) the door moved to its left side.
+  v14: a bigger flight deck with room to stand, and the round side window
+  is a real window now - open right through to the outside.
+  v15: the DOOR button by the doorway shows its whole word.
+  v16: SPEED - SLOWER and FASTER on the pad (speeds 1-6, 6 to 60 m/s).
+  More headroom for taller avatars: the doorway is 2.3 m high, the steps
+  up to the flight deck now climb inside the nose (no low beam over
+  them), and the restroom is wider and taller with a 1.1 m door.
+  v17: an even roomier restroom - its roof 35 cm higher (about 3 m
+  inside), and its doorway 1.3 m wide and 2.65 m tall.
+  v18: the restroom doorway is wider again - 1.5 m.
+  v19: RECALL on the browser remote - the ship jumps straight back home
+  and lands there, from anywhere, in an instant.
+  v20: the hidden RECALL button is off the control pad - it now hides at
+  a random spot far away underground.
+  v21: the door opens in the air too, so you can drop people off - it
+  still shuts by itself as the ship lifts off. Needs starpod_pod_v12.glb, starpod_interior_v10.glb
+  and starpod_door.glb in your starpod repo.
+-->
+<m-group id="root"></m-group>
+
+<script>
+  // ---------------- TUNING ----------------
+  const ASSET_BASE = "https://cdn.jsdelivr.net/gh/dinopawnz/starpod@main/";
+  const MODEL = "starpod_pod_v12.glb";
+  const INTERIOR = "starpod_interior_v10.glb";  // the cabin inside (v16: room for taller avatars; v17-18: taller restroom, wider door)
+  const DOOR = "starpod_door.glb";           // v4: its round door
+  const OPEN_DEG = 100;       // how far the door swings open
+  const SWING_MS = 1400;      // how long it takes to swing
+  const AUTO_CLOSE_S = 0;     // shut it by itself this many seconds after opening (0 = never)
+  const START_OPEN = false;   // true: the door starts open
+  const SPEEDS = [0, 6, 12, 20, 30, 42, 60];   // v16: speeds 1-6 in m/s (FASTER / SLOWER), like the Sky Dragon
+  const START_GEAR = 2;       // the speed it starts at (2 = 12 m/s)
+  const TURN_STEP = 30;       // degrees each LEFT / RIGHT press
+  const CLIMB_RATE = 4;       // metres a second going UP or DOWN
+  const HOME_ALT = 12;        // HOME flies back at least this high
+  const MAX_ALT = 0;          // highest it will climb (0 = no limit)
+  const TURN_FLIP = 1;        // -1 if LEFT and RIGHT come out the wrong way round
+  const DOOR_ON_LEFT = true;  // v13: the door on the ship's left (as you face its nose); false = on its right
+  const REMOTE_ID = "starpod";   // v12: ids the browser remote looks for ("" = no remote for this ship)
+  const CABIN_LIGHTS = 0;     // v6: off (1.2 was far too bright); a little above 0 adds two lamps inside
+  const SCALE = 10.3;         // the model is 1.9 m long: 10.3 makes it about 19.6 m (v2: 8.6, about 16 m)
+  const LIFT = 0.4;           // its belly this high off the floor
+  const STAIRS = false;       // the staircase up its right side (v2: off)
+  const RAILS = true;         // invisible rails round the top
+
+  const NAVY = "#15305e", NAVY_DK = "#0c1d3d", NAVY_LT = "#24508f", CYAN = "#3ff0ff", GOLD = "#e8c45a";
+
+  const root = document.createElement("m-group");                 // v8: the whole ship, which flies
+  document.getElementById("root").append(root);
+  function el(tag, a, p) {
+    const n = document.createElement(tag);
+    for (const k in a) n.setAttribute(k, typeof a[k] === "number" ? String(Math.round(a[k] * 1000) / 1000) : a[k]);
+    if (!("collide" in a)) n.setAttribute("collide", "false");
+    (p || root).append(n);
+    return n;
+  }
+  function group(a, p) { const g = document.createElement("m-group"); for (const k in a) g.setAttribute(k, String(a[k])); (p || root).append(g); return g; }
+  function box(p, x, y, z, w, h, d, color, o) { return el("m-cube", Object.assign({ x, y, z, width: w, height: h, depth: d, color }, o || {}), p); }
+  function cyl(p, x, y, z, r, h, color, o) { return el("m-cylinder", Object.assign({ x, y, z, radius: r, height: h, color }, o || {}), p); }
+  function sph(p, x, y, z, r, color, o) { return el("m-sphere", Object.assign({ x, y, z, radius: r, color }, o || {}), p); }
+  function wall(p, x, y, z, w, h, d) { return box(p, x, y, z, w, h, d, "#000000", { collide: "true", visible: "false" }); }
+  function anim(p, attr, a, b, ms) {
+    const n = document.createElement("m-attr-anim");
+    n.setAttribute("attr", attr); n.setAttribute("start", String(a)); n.setAttribute("end", String(b));
+    n.setAttribute("duration", String(ms)); n.setAttribute("loop", "true"); n.setAttribute("ping-pong", "true");
+    p.append(n); return n;
+  }
+
+  // Pod space (metres at scale 1 of the model): nose +z, right side +x, the
+  // model's middle at y 0. The model is 1.90 long, 0.70 wide, 0.58 tall.
+  const S = SCALE, MID = LIFT + 0.293 * S;
+  const pod = group({ y: MID });
+  el("m-model", { src: ASSET_BASE + MODEL, ry: -90, sx: S, sy: S, sz: S }, pod);
+
+  const BODY = [];                                          // v4: the body, carved hollow further down
+  function solid(x, y, z, w, h, d) { BODY.push([x - w / 2, x + w / 2, y + MID - h / 2, y + MID + h / 2, z - d / 2, z + d / 2]); }
+  // ITS BODY: solid, invisible, stepped to follow the hull's shape
+  //   [half length, half width, bottom, top, centre z] - all in model metres
+  [[0.62, 0.34, -0.26, 0.26, 0.05], [0.8, 0.29, -0.2, 0.22, 0.06], [0.93, 0.18, -0.12, 0.12, 0.02]].forEach(([hl, hw, y0, y1, cz]) =>
+    solid(0, (y0 + y1) / 2 * S, cz * S, hw * 2 * S, (y1 - y0) * S, hl * 2 * S));
+
+  // THE TOP: a flat deck on its back, where you stand
+  const TOP = 0.289 * S, DZ0 = -0.41 * S, DZ1 = 0.84 * S, DX = 0.26 * S;
+  wall(pod, 0, TOP - 0.1, (DZ0 + DZ1) / 2, DX * 2, 0.2, DZ1 - DZ0);
+  const SW = 2.4, SZ = (DZ0 + DZ1) / 2;                                    // the stairs arrive here
+  if (RAILS) {
+    const R = 0.8;
+    wall(pod, -DX, TOP + R / 2, (DZ0 + DZ1) / 2, 0.12, R, DZ1 - DZ0);      // left
+    wall(pod, 0, TOP + R / 2, DZ1, DX * 2, R, 0.12);                       // front
+    wall(pod, 0, TOP + R / 2, DZ0, DX * 2, R, 0.12);                       // back
+    if (STAIRS) {                                                          // right, with a gap for the stairs
+      const a = SZ - SW / 2, b = SZ + SW / 2;
+      wall(pod, DX, TOP + R / 2, (DZ0 + a) / 2, 0.12, R, a - DZ0);
+      wall(pod, DX, TOP + R / 2, (b + DZ1) / 2, 0.12, R, DZ1 - b);
+    } else wall(pod, DX, TOP + R / 2, (DZ0 + DZ1) / 2, 0.12, R, DZ1 - DZ0);
+  }
+
+  // THE STAIRS: up the right side, from the floor to the deck
+  if (STAIRS) {
+    const H = MID + TOP, n = Math.max(2, Math.ceil(H / 0.3)), rise = H / n, run = 0.62;
+    const x0 = 0.36 * S + 0.3;                                             // just clear of the hull's side
+    const st = group({ x: x0, z: SZ });
+    // a landing against the pod, level with the deck, reaching over to it
+    const land = 1.8;
+    box(st, (land - (x0 - DX)) / 2, H - 0.15, 0, land + (x0 - DX), 0.3, SW, NAVY_DK, { collide: "true" });
+    for (let k = 1; k < n; k++) {
+      const h = rise * k, x = land + (n - 1 - k) * run + run / 2;
+      box(st, x, h / 2, 0, run, h, SW, k % 2 ? NAVY : NAVY_LT, { collide: "true" });
+      box(st, x, h + 0.01, SW / 2 - 0.08, run, 0.03, 0.12, CYAN);          // cyan edge lights
+      box(st, x, h + 0.01, -SW / 2 + 0.08, run, 0.03, 0.12, CYAN);
+    }
+    const len = land + (n - 1) * run;
+    // gold handrails, and a solid rail you can't fall over
+    [-1, 1].forEach((s) => {
+      const ang = Math.atan2(H, (n - 1) * run) * 180 / Math.PI;
+      const rg = group({ x: land + (n - 1) * run / 2, y: H / 2 + 0.9, z: s * (SW / 2 + 0.05) }, st);
+      box(rg, 0, 0, 0, Math.hypot(H, (n - 1) * run), 0.1, 0.1, GOLD, { rz: -ang });
+      box(st, land / 2, H + 0.9, s * (SW / 2 + 0.05), land, 0.1, 0.1, GOLD);
+      wall(st, len / 2, H / 2 + 0.5, s * (SW / 2 + 0.05), len, H + 1, 0.1);
+      const orb = sph(st, 0.1, H + 1.1, s * (SW / 2 + 0.05), 0.16, CYAN);
+      anim(orb, "opacity", 0.55, 1, 900);
+    });
+  }
+
+  // =====================================================================
+  // THE CABIN (v4): walk in through the round door on its side (DOOR_ON_LEFT picks which side).
+  // Click the door (from outside or inside) to open or close it. Steps slide out
+  // when it opens. All in metres from the document's origin: nose +z.
+  // =====================================================================
+  const FLOOR = 1.85, WALL_X = 2.3, CEIL = 5.15, Z0 = -4.6, Z1 = 4.0;     // the cabin (matches starpod_interior.glb)
+  const DOOR_Y = 2.8, DOOR_R = 1.35, LIP = 3.64, HINGE_Z = 1.56;           // the doorway (matches the hole in the ship)
+  let flying = false;                                                      // v8: set by the flight controls below
+  const RISE = FLOOR / 7, RUN = 0.46, STEP_W = 2.1, NSTEP = 6;
+  // v13: DOOR_ON_LEFT puts the door (and everything else in the cabin, mirrored) on the ship's other side
+  const SX = DOOR_ON_LEFT ? -1 : 1;
+  // text size that fits a label (MML cuts off text that is too big for its label rather than shrinking it)
+  function fitFS(w, h, chars) { return Math.max(6, Math.floor(Math.min(h * 80, ((w * 100) / (Math.max(1, chars) * 0.72)) * 0.85))); }
+  const mwall = (x, y, z, w, h, d) => wall(root, SX * x, y, z, w, h, d);
+  const cabin = group({});
+  el("m-model", { src: ASSET_BASE + INTERIOR, sx: SX }, cabin);
+  if (CABIN_LIGHTS) [-2.4, 1.6].forEach((z) =>
+    el("m-light", { type: "point", x: 0, y: CEIL - 0.5, z, intensity: CABIN_LIGHTS, distance: 8, color: "#eefcff", "cast-shadows": "false" }, cabin));
+
+  // --- the solid body, hollowed out: the cabin, and the doorway through the hull
+  function carve(b, h) {                                  // boxes as [x0, x1, y0, y1, z0, z1]
+    if (b[0] >= h[1] || b[1] <= h[0] || b[2] >= h[3] || b[3] <= h[2] || b[4] >= h[5] || b[5] <= h[4]) return [b];
+    const out = [], r = b.slice();
+    for (let ax = 0; ax < 3; ax++) {
+      const lo = 2 * ax, hi = lo + 1;
+      if (r[lo] < h[lo]) { const p = r.slice(); p[hi] = h[lo]; out.push(p); r[lo] = h[lo]; }
+      if (r[hi] > h[hi]) { const p = r.slice(); p[lo] = h[hi]; out.push(p); r[hi] = h[hi]; }
+    }
+    return out;                                           // (what's left of r is inside the hole)
+  }
+  // v11: THE FLIGHT DECK in the nose, up four steps from the cabin (matches starpod_interior's)
+  // v14: roomier, fitted to the big Starpod's own nose - [z from, to, half width, top]
+  const NF = FLOOR + 1.1, NZ = 8.4, NOOK = [[3.9, 6.0, 2.3, 5.5], [6.0, 6.4, 2.12, 5.5], [6.4, 7.0, 2.02, 5.5], [7.0, 7.6, 1.84, 5.5], [7.6, 8.0, 1.69, 5.5], [8.0, NZ - 0.05, 1.55, 5.4]];
+  // v16: the steps up to the flight deck climb inside the nose (no low header over them), and are wider
+  const SX0 = -0.53, SX1 = 2.08, STAIR_END = 5.2, RISE_UP = (NF - FLOOR) / 4, RUN_UP = (STAIR_END - Z1) / 4;
+  const HOLES = [
+    [-WALL_X + 0.1, WALL_X - 0.1, FLOOR, CEIL - 0.05, Z0 + 0.05, Z1 - 0.05],   // the cabin
+    ...NOOK.map(([z0, z1, w, t]) => [-w, w, NF, t, z0, z1]),                  // the flight deck
+    [-LIP - 2, -WALL_X + 0.2, FLOOR, FLOOR + 2.45, -0.92, 0.92],             // the doorway (v16: headroom 2.45 m)
+    [SX0, SX1, FLOOR, NF + 0.01, 3.9, STAIR_END],                             // v16: the stairwell up into the nose
+  ];
+  let solids = BODY;
+  HOLES.map((h) => (SX > 0 ? h : [-h[1], -h[0], h[2], h[3], h[4], h[5]])).forEach((h) => { solids = solids.flatMap((b) => carve(b, h)); });
+  solids.forEach((b) => wall(root, (b[0] + b[1]) / 2, (b[2] + b[3]) / 2, (b[4] + b[5]) / 2, b[1] - b[0], b[3] - b[2], b[5] - b[4]));
+  const TL = LIP + 0.1 - (WALL_X - 0.2), TX = -(LIP + 0.1 + WALL_X - 0.2) / 2;   // the doorway's own floor, sides and roof, out to the sill
+  mwall(TX, FLOOR - 0.3, 0, TL, 0.6, 2.4);
+  [-1, 1].forEach((s) => mwall(TX, FLOOR + 1.35, s * 1.07, TL, 2.7, 0.3));
+  mwall(TX, FLOOR + 2.6, 0, TL, 0.3, 2.4);                                       // (v16: its roof 2.45 m up, not 1.95)
+  // the furniture you can bump into and hop onto
+  mwall(0, FLOOR + 0.28, Z0 + 0.5, 4.2, 0.56, 1.0);                         // back seats
+  // v11: the steps up to the flight deck, the front wall either side of them, and the deck's console and seats
+  for (let k = 1; k <= 4; k++) { const top = FLOOR + k * RISE_UP, z0 = Z1 + (k - 1) * RUN_UP; mwall((SX0 + SX1) / 2, (FLOOR + top) / 2, (z0 + STAIR_END) / 2, SX1 - SX0, top - FLOOR, STAIR_END - z0); }
+  mwall((-WALL_X + SX0) / 2 - 0.01, (FLOOR + CEIL) / 2, Z1, SX0 - -WALL_X, CEIL - FLOOR, 0.12);
+  mwall((SX1 + WALL_X) / 2 + 0.01, (FLOOR + CEIL) / 2, Z1, WALL_X - SX1, CEIL - FLOOR, 0.12);
+  mwall(0, NF + 0.42, NZ - 0.25, 2.4, 0.84, 0.5);                           // the deck's console
+  mwall(-1.4, NF + 0.35, 5.4, 0.8, 0.7, 0.75);                                // one seat, off to the pilot's left (the right one is gone)
+  mwall(WALL_X - 0.3, FLOOR + 0.26, 0, 0.6, 0.52, 2.6);                     // bench
+
+  // --- v5: THE RESTROOM, in the front-left corner. Its door rolls up when clicked (from either side).
+  const WC_X0 = -WALL_X, WC_X1 = -0.6, WC_Z0 = 2.0, WC_TOP = FLOOR + 3.1, WD0 = -2.2, WD1 = -0.7, WD_H = 2.65;   // v18: taller, with a 1.5 m door (matches starpod_interior_v10)
+  mwall((WC_X0 + WD0) / 2, (FLOOR + WC_TOP) / 2, WC_Z0, WD0 - WC_X0, WC_TOP - FLOOR, 0.12);       // back face, left of the door
+  mwall((WD1 + WC_X1) / 2, (FLOOR + WC_TOP) / 2, WC_Z0, WC_X1 - WD1 + 0.06, WC_TOP - FLOOR, 0.12); // right of it
+  mwall((WD0 + WD1) / 2, (FLOOR + WD_H + WC_TOP) / 2, WC_Z0, WD1 - WD0, WC_TOP - FLOOR - WD_H, 0.12); // over it
+  mwall(WC_X1, (FLOOR + WC_TOP) / 2, (WC_Z0 + Z1) / 2, 0.12, WC_TOP - FLOOR, Z1 - WC_Z0);         // its side
+  mwall((WC_X0 + WC_X1) / 2, WC_TOP - 0.05, (WC_Z0 + Z1) / 2, WC_X1 - WC_X0, 0.12, Z1 - WC_Z0);    // its roof
+  mwall((WC_X0 + WC_X1) / 2 + 0.05, FLOOR + 0.25, Z1 - 0.35, 0.46, 0.5, 0.7);                     // the toilet
+  mwall(WC_X0 + 0.17, FLOOR + 0.43, 2.72, 0.34, 0.86, 0.52);                                         // the sink
+  // the door is two panels (one on each face), so it can be clicked from outside and from inside. Shut, they
+  // fill the doorway; open, they roll up into a band over it - click that band to roll the door back down.
+  const WX = (WD0 + WD1) / 2, WW = WD1 - WD0 + 0.02, ROLL = 0.16, ROLL_Y = FLOOR + WD_H + 0.06 + ROLL / 2;
+  const wcPanels = [-1, 1].map((s) => box(root, SX * WX, FLOOR + WD_H / 2, WC_Z0 + s * 0.07, WW, WD_H, 0.05, "#eef3f7", { collide: "true" }));
+  const wcStripes = [-1, 1].map((s) => box(root, SX * WX, FLOOR + WD_H / 2, WC_Z0 + s * 0.1, 0.05, WD_H - 0.1, 0.01, CYAN));
+  [...wcPanels, ...wcStripes].forEach((d) => ["y", "height"].forEach((attr) => {
+    const l = document.createElement("m-attr-lerp"); l.setAttribute("attr", attr); l.setAttribute("duration", "650"); l.setAttribute("easing", "easeInOutQuad"); d.append(l);
+  }));
+  el("m-label", { x: SX * WX, y: FLOOR + WD_H + 0.06 + ROLL + 0.1, z: WC_Z0 - 0.05, ry: 180, width: 0.88, height: 0.17, alignment: "center", color: NAVY_DK, "font-color": CYAN, "font-size": 11, content: "RESTROOM" });
+  let wcOpen = false, wcClick = 0;
+  function setWc(o) {
+    wcOpen = o;
+    const r3 = (v) => String(Math.round(v * 1000) / 1000);
+    const y = o ? ROLL_Y : FLOOR + WD_H / 2;
+    wcPanels.forEach((d) => { d.setAttribute("height", r3(o ? ROLL : WD_H)); d.setAttribute("y", r3(y)); });
+    wcStripes.forEach((d) => { d.setAttribute("height", r3(o ? ROLL - 0.06 : WD_H - 0.1)); d.setAttribute("y", r3(y)); });
+  }
+  wcPanels.forEach((d) => d.addEventListener("click", () => { const now = Date.now(); if (now - wcClick < 500) return; wcClick = now; setWc(!wcOpen); }));
+
+  // --- the door: hangs off a hinge on its nose side and swings out
+  const hinge = group({ x: SX * (-LIP - 0.015), y: DOOR_Y, z: HINGE_Z, ry: 0 });
+  const swing = document.createElement("m-attr-lerp");
+  swing.setAttribute("attr", "ry"); swing.setAttribute("duration", String(SWING_MS)); swing.setAttribute("easing", "easeInOutQuad");
+  hinge.append(swing);
+  const doorModel = el("m-model", { src: ASSET_BASE + DOOR, z: -HINGE_Z, sx: SX, collide: "true" }, hinge);
+  // solid while it's shut. v10: set back behind the door's inner face (it used to sit 1 cm in front of it, so
+  // from inside the cabin the click hit this invisible block instead of the door), and clickable itself too
+  const doorBlock = wall(hinge, SX * -0.14, 0, -HINGE_Z, 0.1, 2 * DOOR_R + 0.1, 2 * DOOR_R + 0.1);
+
+  // --- the steps: tucked up under the sill while it's shut, sliding out as it opens
+  const steps = [];
+  for (let k = 1; k <= NSTEP; k++) {
+    const top = FLOOR - k * RISE, xOut = SX * (-LIP - (k - 0.5) * RUN), xIn = SX * (-LIP - 0.5 * RUN);
+    const g = group({ x: xIn, y: top, z: 0 });
+    const lerp = document.createElement("m-attr-lerp");
+    lerp.setAttribute("attr", "x"); lerp.setAttribute("duration", String(350 + k * 110)); lerp.setAttribute("easing", "easeInOutQuad");
+    g.append(lerp);
+    const parts = [
+      box(g, 0, -0.09, 0, RUN + 0.02, 0.18, STEP_W, k % 2 ? "#eef3f7" : "#dfe7ee", { collide: "false", visible: "false" }),
+      box(g, SX * (-RUN / 2 + 0.03), 0.005, 0, 0.05, 0.02, STEP_W - 0.1, CYAN, { visible: "false" }),
+      box(g, 0, -0.09, STEP_W / 2 - 0.02, RUN, 0.2, 0.05, GOLD, { visible: "false" }),
+      box(g, 0, -0.09, -STEP_W / 2 + 0.02, RUN, 0.2, 0.05, GOLD, { visible: "false" }),
+    ];
+    steps.push({ g, parts, xOut, xIn });
+  }
+
+  // --- v10: a DOOR button on the wall inside, just behind the doorway (the tail side of it)
+  const inBtn = group({ x: SX * (-WALL_X + 0.13), y: FLOOR + 1.25, z: -2.0, ry: SX * 90 });
+  box(inBtn, 0, 0, -0.04, 0.8, 0.5, 0.08, "#0c1d3d", { collide: "true" });
+  const inCap = box(inBtn, 0, 0, 0.02, 0.68, 0.38, 0.06, "#4a3a12", { collide: "true" });
+  // v15: the text sized to fit (at 24 it overflowed and showed only "OO")
+  const inFace = el("m-label", { z: 0.031, width: 0.64, height: 0.34, alignment: "center", color: "#4a3a12", "font-color": "#d6fdff", "font-size": fitFS(0.64, 0.34, 4), content: "DOOR", collide: "true" }, inCap);
+
+  // --- open / shut
+  let open = false, lastClick = 0, shutAt = 0;
+  const timers = [];
+  function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+  function setDoor(o) {
+    open = o; timers.splice(0).forEach(clearTimeout);
+    hinge.setAttribute("ry", o ? String(SX * OPEN_DEG) : "0");
+    steps.forEach((s, i) => {
+      if (o) {
+        s.parts.forEach((p) => p.setAttribute("visible", "true")); s.parts[0].setAttribute("collide", "true");
+        later(() => s.g.setAttribute("x", String(Math.round(s.xOut * 1000) / 1000)), 250);
+      } else {
+        s.g.setAttribute("x", String(Math.round(s.xIn * 1000) / 1000));
+        later(() => { s.parts.forEach((p) => p.setAttribute("visible", "false")); s.parts[0].setAttribute("collide", "false"); }, 400 + (i + 1) * 110 + 150);
+      }
+    });
+    shutAt = o && AUTO_CLOSE_S > 0 ? Date.now() + AUTO_CLOSE_S * 1000 : 0;
+  }
+  function toggle() {
+    const now = Date.now(); if (now - lastClick < 500) return; lastClick = now;
+    // v21: no lock in the air any more - open it while hovering to drop people off
+    setDoor(!open);
+  }
+  doorModel.addEventListener("click", toggle);
+  doorBlock.addEventListener("click", toggle);
+  [inCap, inFace].forEach((n) => n.addEventListener("click", toggle));
+  if (AUTO_CLOSE_S > 0) setInterval(() => { if (open && shutAt && Date.now() > shutAt) setDoor(false); }, 1000);
+  if (START_OPEN) setDoor(true);
+
+  // =====================================================================
+  // v8: FLYING. The console at the nose is the control pad:
+  //   UP / DOWN      climb or come down, and keep going until you press the
+  //                  other one or STOP. DOWN lands it once it reaches the floor.
+  //   LEFT / RIGHT   turn TURN_STEP degrees each press, holding its height
+  //   FORWARD        fly straight ahead, and keep going
+  //   STOP           stop and hover where it is
+  //   HOME           fly back to where it started and land there, facing the
+  //                  way it started
+  // The door shuts as it lifts off, but (v21) it can be opened again in the air to drop people off.
+  // The whole ship moves, cabin and all: its position is worked out 25 times
+  // a second and every screen glides it between those points (the Sky
+  // Dragon's way of moving).
+  // =====================================================================
+  const INK = "#03080b", CHALK = "#d6fdff";
+  const ACCEL = 5, VY_ACCEL = 6, TURN_RATE = 30, TICK_MS = 40;
+  const R = (d) => (d * Math.PI) / 180;
+  const wrap = (a) => ((a + 180) % 360 + 360) % 360 - 180;
+  const approach = (v, t, s) => (v < t ? Math.min(t, v + s) : Math.max(t, v - s));
+  const st = { x: 0, y: 0, z: 0, h: 0, v: 0, vy: 0, tH: 0, go: false, vert: 0, climbTo: 0, home: false, last: Date.now(), shown: "", msg: "", msgUntil: 0,
+    gear: Math.max(1, Math.min(SPEEDS.length - 1, START_GEAR)), gearShown: -1 };   // v16: speed 1..6, like the Sky Dragon
+  const glide = document.createElement("m-attr-lerp");
+  glide.setAttribute("attr", "x,y,z,ry"); glide.setAttribute("duration", String(TICK_MS + 30)); glide.setAttribute("easing", "linear");
+  root.append(glide);
+
+  // --- the pad: lying on the console, tipped up towards you
+  const PAD_W = 2.3, PAD_D = 1.1, PAD_TILT = 15;                              // v11: on the flight deck's console (v16: a speed row added)
+  const padAt = group({ x: 0, y: NF + 1.06, z: NZ - 0.3, ry: 180 });
+  const pad = group({ rx: -90 + PAD_TILT }, padAt);
+  box(pad, 0, 0, -0.03, PAD_W, PAD_D, 0.05, INK, { collide: "true" });
+  // two lines: what it's doing, then speed / height / how far from home
+  const readout = el("m-label", { y: 0.47, z: 0.001, width: PAD_W - 0.16, height: 0.1, alignment: "center", color: INK, "font-color": CYAN, "font-size": 8, content: "" }, pad);
+  const readout2 = el("m-label", { y: 0.37, z: 0.001, width: PAD_W - 0.16, height: 0.09, alignment: "center", color: INK, "font-color": CHALK, "font-size": 7, content: "" }, pad);
+  if (REMOTE_ID) { readout.setAttribute("id", REMOTE_ID + "-status-1"); readout2.setAttribute("id", REMOTE_ID + "-status-2"); }   // the browser remote reads these
+  const BTN = {};
+  const COLS = 4, GAP = 0.06, BW = (PAD_W - 0.16 - (COLS - 1) * GAP) / COLS, BH = 0.22;
+  const colX = (c) => -PAD_W / 2 + 0.08 + BW / 2 + c * (BW + GAP);
+  function padButton(nm, c, y, col, span) {
+    span = span || 1;
+    const w = span * BW + (span - 1) * GAP, x = (colX(c) + colX(c + span - 1)) / 2;
+    const cap = box(pad, x, y, 0.005, w, BH, 0.06, col, { collide: "true" });
+    const face = el("m-label", { z: 0.031, width: w - 0.04, height: BH - 0.04, alignment: "center", color: col, "font-color": CHALK,
+      "font-size": fitFS(w - 0.04, BH - 0.04, Math.max(4, nm.length)), content: nm, collide: "true" }, cap);
+    if (REMOTE_ID) face.setAttribute("id", REMOTE_ID + "-btn-" + nm);        // v12: the browser remote finds it by this
+    const B = { cap, face, col, lit: false, last: new Map() };
+    const hit = (e) => {
+      const now = Date.now(), who = e && e.detail && e.detail.connectionId !== undefined ? e.detail.connectionId : "?";
+      if (now - (B.last.get(who) || 0) < 150) return;                     // one click reported twice
+      B.last.set(who, now);
+      cap.setAttribute("color", "#ffffff"); face.setAttribute("color", "#ffffff");
+      setTimeout(() => paint(B), 140);
+      press(nm);
+    };
+    cap.addEventListener("click", hit); face.addEventListener("click", hit);
+    BTN[nm] = B; return B;
+  }
+  function paint(B) { const c = B.lit ? "#1f7a8c" : B.col; B.cap.setAttribute("color", c); B.face.setAttribute("color", c); }
+  function light(nm, on) { const B = BTN[nm]; if (B && B.lit !== on) { B.lit = on; paint(B); } }
+  // two rows; the first column is on your left as you face the nose
+  const DK = "#16323d";
+  padButton("LEFT", 0, 0.17, DK); padButton("UP", 1, 0.17, DK); padButton("DOWN", 2, 0.17, DK); padButton("RIGHT", 3, 0.17, DK);
+  padButton("STOP", 0, -0.11, "#5c3a10"); padButton("FORWARD", 1, -0.11, "#145c34"); padButton("HOME", 2, -0.11, "#123a4a");
+  padButton("DOOR", 3, -0.11, "#4a3a12");                                  // v10: opens and shuts the door (once landed)
+  // v16: SPEED - SLOWER and FASTER either side of a gauge, nearest you (like the Sky Dragon's arrow keys)
+  padButton("SLOWER", 0, -0.39, DK); padButton("FASTER", 3, -0.39, DK);
+  const LAMPS = [], lx0 = colX(1) - BW / 2, lx1 = colX(2) + BW / 2, NL = SPEEDS.length - 1, lw = (lx1 - lx0 - (NL - 1) * 0.04) / NL;
+  for (let i = 0; i < NL; i++) LAMPS.push(box(pad, lx0 + lw / 2 + i * (lw + 0.04), -0.39, 0.005, lw, 0.14, 0.05, "#10222a"));
+  // v19: RECALL - a hidden button only the browser remote presses. v20: it is NOT on the ship any more.
+  // Each time the document starts it goes to a new random spot 1.5-2.5 km away and 400-700 m
+  // underground, left behind when the ship flies. It's invisible, has no collider and is a 2 cm
+  // speck, so nobody in the world can reach it. The remote finds it by its id wherever it is.
+  if (REMOTE_ID) {
+    const ang = Math.random() * Math.PI * 2, far = 1500 + Math.random() * 1000;
+    const hideAt = group({ x: Math.round(Math.cos(ang) * far), y: -Math.round(400 + Math.random() * 300), z: Math.round(Math.sin(ang) * far) }, document.body);
+    const rc = el("m-label", { id: REMOTE_ID + "-btn-RECALL", visible: "false", collide: "false", width: 0.02, height: 0.02, content: "" }, hideAt);
+    let lastRc = 0;
+    rc.addEventListener("click", () => { const now = Date.now(); if (now - lastRc < 500) return; lastRc = now; recall(); });
+  }
+
+  function note(t) { st.msg = t; st.msgUntil = Date.now() + 2500; showState(); }
+  function takeOff(to) {
+    if (flying) return;
+    flying = true;
+    if (open) setDoor(false);                    // shut the door and pull the steps in
+    st.climbTo = to || 0;
+  }
+  function land() {
+    flying = false;
+    st.y = 0; st.v = 0; st.vy = 0; st.go = false; st.vert = 0; st.climbTo = 0;
+    if (st.home) { st.x = 0; st.z = 0; st.h = st.tH = Math.round(st.h / 360) * 360; }
+    st.home = false;
+    send();
+  }
+  function press(nm) {
+    const dist = Math.hypot(st.x, st.z);
+    if (nm === "UP") { st.home = false; st.climbTo = 0; st.vert = st.vert < 0 ? 0 : 1; takeOff(); }
+    else if (nm === "DOWN") { st.home = false; st.climbTo = 0; if (flying) st.vert = st.vert > 0 ? 0 : -1; }
+    else if (nm === "LEFT" || nm === "RIGHT") {
+      st.home = false; st.vert = 0;
+      st.tH += (nm === "LEFT" ? 1 : -1) * TURN_FLIP * TURN_STEP;
+      takeOff(3);
+    }
+    else if (nm === "FORWARD") { st.home = false; st.go = true; takeOff(4); }
+    else if (nm === "STOP") { st.go = false; st.vert = 0; st.climbTo = 0; st.home = false; }
+    else if (nm === "DOOR") { lastClick = 0; toggle(); return; }
+    else if (nm === "FASTER") st.gear = Math.min(SPEEDS.length - 1, st.gear + 1);
+    else if (nm === "SLOWER") st.gear = Math.max(1, st.gear - 1);
+    else if (nm === "HOME") {
+      if (!flying && dist < 0.6) { note("ALREADY HOME"); return; }
+      st.home = true; st.go = false; st.vert = 0; takeOff(3);
+    }
+    flyTick();
+  }
+  // v19: RECALL - no flying back: the ship jumps straight home, lands, and faces the way it started.
+  // The glide is taken off for the jump so it doesn't streak across the map, then put back.
+  function recall() {
+    if (!flying && Math.hypot(st.x, st.z) < 0.6 && st.y < 0.02) { note("ALREADY HOME"); return; }
+    flying = false;
+    Object.assign(st, { x: 0, y: 0, z: 0, v: 0, vy: 0, go: false, vert: 0, climbTo: 0, home: false });
+    st.h = st.tH = Math.round(st.h / 360) * 360;
+    glide.remove();
+    send();
+    setTimeout(() => root.append(glide), 300);
+    note("RECALLED HOME");
+  }
+  function send() {
+    const r3 = (v) => String(Math.round(v * 1000) / 1000);
+    [["x", st.x], ["y", st.y], ["z", st.z], ["ry", st.h]].forEach(([k, v]) => { const s = r3(v); if (root.getAttribute(k) !== s) root.setAttribute(k, s); });
+  }
+  function flyTick() {
+    const now = Date.now(), dt = Math.min(0.25, (now - st.last) / 1000); st.last = now;
+    if (!flying) { showState(); return; }
+    let wantV = st.go ? SPEEDS[st.gear] : 0, wantVy = st.vert * CLIMB_RATE;
+    if (st.climbTo) { if (st.y < st.climbTo) wantVy = CLIMB_RATE; else st.climbTo = 0; }
+    const dist = Math.hypot(st.x, st.z);
+    if (st.home) {
+      const aim = (Math.atan2(-st.x, -st.z) * 180) / Math.PI;
+      if (dist > 0.6) {
+        st.tH = st.h + wrap(aim - st.h);
+        const off = Math.abs(wrap(aim - st.h));
+        const homeV = Math.max(SPEEDS[st.gear], dist > 100 ? 30 : 12);         // home at your speed (at least 30 m/s when far), slowing near the end
+        wantV = off > 60 ? 0 : dist > 12 ? Math.min(homeV, Math.max(4, dist * 0.8)) : Math.min(4, dist);
+        const cruise = dist > 12 ? HOME_ALT : Math.max(3, Math.min(st.y, HOME_ALT));
+        wantVy = Math.max(-CLIMB_RATE, Math.min(CLIMB_RATE, (cruise - st.y) * 0.8));
+      } else {
+        wantV = 0; st.tH = Math.round(st.h / 360) * 360;                     // face the way it started
+        st.x += (0 - st.x) * Math.min(1, dt * 2); st.z += (0 - st.z) * Math.min(1, dt * 2);
+        wantVy = Math.abs(st.tH - st.h) < 2 ? -CLIMB_RATE * 0.8 : 0;
+        if (st.y <= 0.02 && Math.abs(st.tH - st.h) < 2) { land(); showState(); return; }
+      }
+    }
+    st.v = approach(st.v, wantV, ACCEL * dt);
+    st.vy = approach(st.vy, wantVy, VY_ACCEL * dt);
+    const dh = st.tH - st.h;
+    st.h += Math.sign(dh) * Math.min(TURN_RATE * dt, Math.abs(dh));
+    st.x += Math.sin(R(st.h)) * st.v * dt;
+    st.z += Math.cos(R(st.h)) * st.v * dt;
+    st.y += st.vy * dt;
+    if (MAX_ALT > 0 && st.y > MAX_ALT) { st.y = MAX_ALT; st.vy = Math.min(0, st.vy); if (st.vert > 0) st.vert = 0; }
+    // the floor: going forward it skims just above it; otherwise DOWN brings it down and it lands
+    const floorY = st.go && !st.home ? 1 : 0;
+    if (st.y <= floorY) {
+      st.y = floorY; if (st.vy < 0) st.vy = 0;
+      if (st.vert < 0) { if (st.go) st.vert = 0; else if (!st.home && st.v < 0.3) { land(); showState(); return; } }
+      if (st.home && st.y <= 0.02 && dist <= 0.6 && Math.abs(st.tH - st.h) < 2) { land(); showState(); return; }
+    }
+    send(); showState();
+  }
+  function showState() {
+    const dist = Math.hypot(st.x, st.z);
+    const doing = !flying ? (dist < 0.6 ? "LANDED AT HOME" : "LANDED") : st.home ? "GOING HOME" :
+      (st.go ? "FLYING" : "HOVERING") + (st.vert > 0 || st.climbTo ? " + UP" : st.vert < 0 ? " + DOWN" : "") + (Math.abs(st.tH - st.h) > 1 ? " + TURNING" : "");
+    const t1 = Date.now() < st.msgUntil ? st.msg : doing;
+    const t2 = "SPEED " + st.gear + "/" + (SPEEDS.length - 1) + " " + SPEEDS[st.gear] + "m/s   HEIGHT " + Math.round(st.y) + "m   HOME " + Math.round(dist) + "m";
+    if (t1 + "|" + t2 !== st.shown) {
+      st.shown = t1 + "|" + t2;
+      readout.setAttribute("content", t1); readout.setAttribute("font-size", String(fitFS(PAD_W - 0.16, 0.1, Math.max(12, t1.length))));
+      readout2.setAttribute("content", t2); readout2.setAttribute("font-size", String(fitFS(PAD_W - 0.16, 0.09, t2.length)));
+    }
+    if (st.gear !== st.gearShown) {
+      st.gearShown = st.gear;
+      LAMPS.forEach((l, i) => l.setAttribute("color", i + 1 <= st.gear ? (i + 1 >= 5 ? "#ff4a3a" : CYAN) : "#10222a"));
+    }
+    light("FORWARD", flying && st.go && !st.home); light("STOP", flying && !st.go && !st.home && !st.vert);
+    light("UP", st.vert > 0); light("DOWN", st.vert < 0); light("HOME", st.home);
+  }
+  setInterval(flyTick, TICK_MS);
+  showState();
+
+  // (v3: no glowing circle on the floor under it)
+</script>

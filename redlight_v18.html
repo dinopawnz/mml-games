@@ -1,0 +1,3754 @@
+<!--
+  TRAP RUN - SPRINT
+  ============================================================
+  v18 - THE WINDOW AT ITS FLOOR TOO.
+
+  Dinopawnz: "can we reduce leniency even still? maybe shorten
+  from 900 to 800."
+
+  Done. GRACE_MS 900 to 800. On the shortest red - 2.5s, which
+  is where this is felt - the game now judges for 1700ms of it,
+  against 1350ms in v13.
+
+    v13   1150 grace   1350ms judged   MOVE_TOL 0.25
+    v14   1000         1500                     0.25
+    v15    900         1600                     0.25
+    v16    900         1600                     0.20
+    v17    900         1600                     0.18
+    v18    800         1700                     0.18
+
+  Both dials are now sitting on their floors at the same time,
+  which is worth being clear about before you play it.
+
+  THE COMPOUND FAILURE
+  ------------------------------------------------------------
+  These two numbers are not independent, and the way they fail
+  together is specific enough to recognise on sight.
+
+  p.froze - the point you are pinned to - is written by the
+  first sweep of judge() after the window closes, out of
+  whatever position last arrived for you. So the window does not
+  only have to cover stopping. It has to cover stopping AND a
+  report of the STOPPED position getting back before that sweep:
+
+    see the light          ~300ms
+    brake to a halt        ~200ms
+    next report goes out   up to PROBE_MS, 120
+    the trip               ~100ms on a good connection
+
+  About 720 of the 800. If a player's last report before the
+  sweep was taken while they were still moving, they get pinned
+  to a point most of a metre behind where they actually stopped
+  - and MOVE_TOL is now 0.18, so they are outside it
+  immediately and get caged for stopping correctly.
+
+  The symptom: somebody stops cleanly, on time, in plain sight,
+  and is caged anyway - and it is the same people every round,
+  because it tracks their connection, not their play. That is
+  the v9 bug. It is not the game being hard.
+
+  THE REVERT is one number. 900 for the window is the first
+  thing to put back, not MOVE_TOL - the window is the half that
+  is unfair to slow connections specifically, while MOVE_TOL is
+  hard on everybody equally.
+
+  THERE IS ALSO A REAL FIX, if you want 800 to hold rather than
+  just trying it: make judge() refuse to take a freeze point off
+  a report that is already stale, and wait a sweep for a fresh
+  one instead. That removes the compound failure at its cause
+  rather than buying margin back with leniency, and it costs a
+  mover nothing. It is a change to the judging core rather than
+  a dial, so it is not in this build - if the symptom above
+  shows up, ask and it goes in on its own, where it can be told
+  apart from everything else.
+
+  ============================================================
+  v17 - THE FLOOR, AND THE AXIS THAT STILL HAD ROOM.
+
+  Dinopawnz: "its still too lenient. cut it down more."
+
+  Two numbers.
+
+  MOVE_TOL, 0.20 to 0.18. That is the last tick, and it is not a
+  step above the floor any more - it IS the floor. Under it the
+  jitter of a motionless avatar is on its own enough to trip the
+  drift test, and the game starts caging people for standing
+  still. That is not a harder game, it is the v9 bug coming back:
+  it caught some people every round and never touched others,
+  and the ones it caught were the ones with the worse
+  connection. So this dial is finished. If the next round of
+  play still feels soft, the answer is not a smaller number
+  here.
+
+  JUMP_TOL, 0.6 to 0.35. This is where the room actually was.
+  It is metres of RISE allowed from the freeze point, and unlike
+  drift it has no jitter floor under it - a player standing
+  still does not drift upward. What bounds it is how far a body
+  can rise for innocent reasons, which is a settle, not a hop.
+  An avatar hop is about 1.5m, so 0.6 was letting a genuine jump
+  get a third of the way up before it counted as one. 0.35 is
+  still well clear of a settle and takes most of that back.
+
+  It only ever measures RISE, so landing out of a fall cannot
+  trip it, and it only runs when both samples carried a real
+  height - a pads-only runtime uses the jump layer instead.
+
+  WHICH NUMBER DID IT, if something goes wrong in play:
+
+    caged while standing perfectly still   -> MOVE_TOL. Nothing
+        else in the build produces that. 0.22 is the retreat.
+    caged for a stumble or a settle on
+        landing                            -> JUMP_TOL. 0.45.
+    caught some people every round and
+        never others                       -> GRACE_MS, and it
+        means 900 is too short for the connections in the room.
+
+  WHAT IS LEFT AFTER THIS, and why none of it moved today:
+
+    SPRINT_TOL 0.30 looks loose next to a MOVE_TOL of 0.18, and
+    it is tempting for exactly that reason. Leave it. A contact
+    that clears it goes down the speed-measured branch, and that
+    branch does NOT check the point-alibi list - it only checks
+    cage volumes. So SPRINT_TOL is the last thing standing
+    between a jittery contact on one pad and a cage with no
+    alibi test at all. It is a guard, not slack.
+
+    ALIBI_MS 6000 is what lets a player who has stopped
+    reporting still prove they were standing somewhere. Cutting
+    it is the other way to reproduce the v9 bug.
+
+    STALE_MS 1500 - silence is not guilt. Same.
+
+  ============================================================
+  v16 - AND A TIGHTER TOLERANCE.
+
+  Dinopawnz: "what does taking a bite out of MOVE_TOL do? maybe
+  we should reduce that a little."
+
+  MOVE_TOL, 0.25 to 0.20. What it does, in full, because it is
+  not one thing:
+
+  1  THE DRIFT ALLOWED FROM YOUR FREEZE POINT, which is the one
+     you feel. When the reaction window closes, the first sweep
+     of judge() writes down where each player is - p.froze -
+     and from that instant you are allowed to be anywhere
+     within MOVE_TOL of it. Step outside and you are caged, no
+     second look. A 5cm cut is a 5cm shorter leash.
+
+  2  THE RADIUS ON EVERY ALIBI. Each recorded standing position
+     carries MOVE_TOL as a bubble meaning "somebody was here".
+     A floor contact inside one is not movement. Smaller
+     bubbles mean a contact near a still body is likelier to be
+     judged as a step, which is what catches the player who
+     creeps a little and hides inside somebody else's alibi.
+
+  3  THE POCKET THE STOPPERS LEAVE YOU. A block stays parked if
+     it is within MOVE_TOL + STOP_CLEAR of somebody known to be
+     standing. So the clear space round a still player went
+     from 1.25m to 1.20m and the invisible walls come up 5cm
+     nearer. Small, and worth knowing it moved at all.
+
+  WHY IT COMPOUNDS WITH v15. The freeze point is taken at the
+  first sweep after the window closes, so shortening the window
+  did not only start the judging sooner - it moved the point
+  you are pinned to EARLIER, to a moment when a runner may
+  still be settling out of their last stride. v16 then draws a
+  smaller circle round that earlier point. The two dials
+  multiply rather than add, which is why this is the right
+  place to stop and play it.
+
+  THE FLOOR IS 0.18 and this is 0.02 over it. Below that, the
+  jitter of a motionless avatar is on its own enough to trip
+  the test, and the game starts caging people for standing
+  still - which is not a harder game, it is a broken one. 0.22
+  is the retreat if that shows up.
+
+  WHY THIS RATHER THAN MORE WINDOW. A tight tolerance is hard
+  on everybody equally. A tight window is hardest on whoever
+  has the worst connection.
+
+  ============================================================
+  v15 - ONE MORE STEP OFF THE WINDOW.
+
+  Dinopawnz: "i want to push a little further on the leniency.
+  just a tad bit. lets try it."
+
+  GRACE_MS, 1000 to 900. Same single number as v14, same two
+  effects, because judging and the stoppers are the same
+  moment: both start 100ms sooner again.
+
+  On a short red - the 2.5s floor, which is where this dial is
+  felt - the window the game actually judges in has gone:
+
+    v13    1150 grace    1350ms judged
+    v14    1000 grace    1500ms judged
+    v15     900 grace    1600ms judged
+
+  which is a fifth more of a short round spent being watched
+  than two versions ago.
+
+  THIS IS THE LAST COMFORTABLE STEP. About 800 is the floor: a
+  report can be PROBE_MS (120ms) stale before it leaves, plus
+  the trip, and a person needs a good quarter second to see the
+  light at all. 900 already spends most of what is left over
+  after those two. Below 800 the game stops measuring who
+  stopped and starts measuring who has the better connection -
+  the exact failure v9 was written to end, where it caught some
+  people every round and never touched others.
+
+  THE OTHER DIAL  (taken in v16)
+  ------------------------------------------------------------
+  If 900 still plays soft, the next thing to take is MOVE_TOL
+  rather than more of the window. It is 0.25m of drift allowed
+  before you are out, and it is a different kind of leniency:
+  the window forgives you for being LATE, MOVE_TOL forgives you
+  for being SLOPPY.
+
+  ============================================================
+  The sprint variant. Same sealed arena, same invisible grid of
+  pressure points under one solid featureless floor, but the
+  cages do not keep you. A cage snaps up, holds you three
+  seconds, shrinks away, and you run on.
+
+  So nobody is eliminated and everybody finishes. What the
+  floor costs you is time. Whoever is first home wins, and the
+  boards read out the clock and the best time of the round.
+
+  Traps re-arm eight seconds after they fire, so the field
+  never clears out from under the back of the pack.
+
+  THE WINNER'S BOX
+  ------------------------------------------------------------
+  The first body across the finish line is boxed - once per
+  round, and only ever the first. The box is not a trap cage:
+  it is a gold pavilion that drops around them on the line and
+  holds them for thirty seconds while the field watches. Then
+  the glass goes and the pavilion stays standing as a monument
+  for the rest of the round.
+
+  WAY IN
+  ------------------------------------------------------------
+  Runners gather in the open lobby behind the start wall and
+  walk in through two portals either side of the podium. The
+  two at the far end open onto the winners' terrace and are
+  SEALED - glass barriers, shut from load, shut through the
+  whole run. Nobody enters the arena from the finish end. They
+  lift the moment the winner is boxed, which is how the winner
+  and everyone behind them gets out onto the terrace, and they
+  drop again when the round is stopped or a new one is called.
+
+  The run itself is a sealed corridor. A containment field down
+  both flanks means the stands cannot be climbed or skirted:
+  once you are on the floor, the only way out is across it.
+
+  THE GALLERY
+  ------------------------------------------------------------
+  The two elevated banks either side of the run are a spectator
+  gallery, and they are reached from OUTSIDE the corridor, never
+  from the floor. Stone flights climb from the lobby and the
+  terrace to deck height and pass through doorways cut into the
+  end walls. The deck carries the full length of the arena, so
+  you can follow a runner from the start line to the finish
+  without ever setting foot on the minefield.
+
+  The deck sits at y 4.3. The flank signal repeaters used to hang
+  at head height and had stone plinths planted on the running
+  surface; both are fixed - the repeaters now foot on the parapet,
+  so the flank is clear from the deck end to end and there is
+  nothing of theirs on the field at all.
+
+  THE SIGNAL
+  ------------------------------------------------------------
+  The floor is the light. The whole slab turns green or red the
+  instant the phase changes - a bright flash on the turn, then a
+  settled tone dark enough to read the gold inlay over - with two
+  lit strips down the length and glow lights just above the deck.
+  You never have to look at the walls to know what the light is
+  doing. Glance down, or just catch it in the corner of your eye
+  while you watch your feet.
+
+  There is now ONE rank of repeaters per flank rather than two.
+  The near rank, twenty-eight towers every 12.5m, was redundant
+  the moment the floor started carrying the signal. The taller,
+  sparser far rank stays as backup, along with the two big end
+  towers and the five overhead beacons.
+
+  The containment field still reaches y 24.4, so the gallery is
+  twenty metres of wall away from the floor in both directions:
+  nobody drops in, nobody climbs out.
+
+  THE STOPPERS - what changed in v11
+  ------------------------------------------------------------
+  v10 still left a line of cages behind anyone who simply held
+  the forward key. Every detector in the build is REACTIVE: it
+  sees the move, decides, builds a cage - and the whole time the
+  runner is still going, so the cage lands behind them. The next
+  detection does the same thing a few metres on. Correcting and
+  leading and alibi-ing only ever shortened the gap. None of it
+  could close it, because nothing ever stopped the runner.
+
+  Trap Run never had this problem, and the reason is physical,
+  not clever: its traps are SOLID. They stand from -0.6 to 3.4,
+  so you walk into one, your momentum dies against it, and the
+  cage is built around a body that is standing still. Detection
+  and the stop are the same event, with no network in between.
+
+  So red light now has the same thing. A grid of solid, invisible
+  blocks, parked underground on green. The instant the reaction
+  window closes on red, every block comes up EXCEPT the ones near
+  somebody who is known to be standing there. Stand still and you
+  are in a clear pocket and nothing touches you. Keep running and
+  within a few metres you hit a wall you cannot see, you stop, and
+  that contact builds the cage right there - just outside the face
+  you hit, which is where you are standing.
+
+  If a reactive cage was already built behind you this red, it is
+  not duplicated - it is PICKED UP and moved onto you, and any other
+  empty cages in your wake are cleared away. One runner, one cage.
+  If one landed just AHEAD of you instead, so you stopped against its
+  outside wall, it is slid back onto you. And if you are so laggy the
+  block reached your screen after you had already run onto its
+  ground, the cage goes where you actually are, not on its face.
+
+  A block only CATCHES when something has also been seen moving at
+  that spot - a floor contact away from anywhere a body was standing,
+  or an identity sighting that left its frozen point. A runner holding
+  forward leaves that evidence all the way up to the face. A player
+  standing so still their runtime reported nothing, who a block comes
+  up beside, leaves none - so however late their touch arrives, they
+  are recorded as standing there, not moving. Being boxed in by an
+  invisible block on red costs an honest player nothing - they were
+  meant to be stone anyway - and the blocks go the instant it turns
+  green.
+
+  The boards now read CAGES j/f/s - s is cages built by a stopper -
+  and SETTLED n, the number of rise-on contacts that were let off.
+  A stopper that picks up an existing cage does not add to s, so s
+  can sit low while the stoppers are doing most of the work.
+
+  The grid is 528 colliders at STOP_PITCH 6, on top of the 300 floor
+  pads. They are all parked underground except during a red. If the
+  runtime struggles, STOP_PITCH 8 halves the count at the cost of a
+  few more metres of free travel before a runner hits one.
+
+  DETECTION - what changed in v10
+  ------------------------------------------------------------
+  v9 fixed the line of cages and broke the catching. It had a
+  latch: the first connectionId to arrive from anywhere set
+  identity "live" forever, and being live switched the floor pads
+  off. But a connectionId arriving only proves the runtime emits
+  ids - it proves nothing about whether the POSITIONS attached to
+  them are usable. If the probes are range-clamped, or cover only
+  part of the run, or report in a frame that does not line up
+  with the arena, the judge ends up holding an id it can never
+  place on the field while the floor, which could see that body
+  perfectly well, has been turned off. Nobody gets caught. That
+  is what you saw.
+
+  v10 has no mode. Both detectors run, always, and they are
+  arbitrated per contact rather than per runtime: the floor
+  stands down at exactly one point - the instant before it would
+  build a cage - and only if identity can show a live, on-field
+  sighting within a pad's width of that contact. Where identity
+  is watching, the judge acts and the floor keeps quiet. Where
+  identity is blind, the floor works exactly as it always did.
+  Junk identity now costs nothing instead of costing everything.
+
+  Two supporting fixes came with it. The judge now writes its
+  cages into `frozen`, the floor's alibi list, so the floor stops
+  throwing cages at a body somebody has already dealt with - it
+  never knew about the judge's work before. And the alibi list is
+  maintained on every red rather than only in fallback, which on
+  its own cut the spurious cages in a no-identity runtime from
+  nine to five in testing.
+
+  The boards now read CAGES j/f: j built from identity, f built
+  by the floor. If j sits at zero while people are plainly being
+  caught, identity is not usable in your runtime and the floor is
+  carrying the game - which is fine, and is the entire point of
+  running both.
+
+  DETECTION - what changed in v9
+  ------------------------------------------------------------
+  v8 ran TWO detectors that did not know about each other. The
+  position probes judged players by connectionId and caged them;
+  the floor pads judged anonymous contacts and caged those too.
+  Neither could see the other's work, so one runner collected a
+  cage from the probes and a string of them from the pads. That
+  was the line of cages behind somebody who never got caught.
+
+  The pads were anonymous by choice, not by necessity - the note
+  in the old code read "identity is not needed". It was. Without
+  it a cage cannot be built for a PERSON, only for a patch of
+  floor, so the code had to guess how far ahead to throw it and
+  then guess again, by distance and heading, whether the next
+  contact was the same body it had just caged. Both guesses fail
+  in the same direction on a fast runner.
+
+  v9 has one detector. Probes and pads both just report positions
+  into one roster keyed by connectionId, and judge() is the only
+  thing in the build that decides somebody moved or builds a cage.
+  One cage per person per red, enforced by a lookup rather than a
+  radius. If the cage lands off them it is MOVED onto them for the
+  next second and a half instead of a second one being built.
+
+  Two bugs went with it. The old speed test kept its history per
+  PAD, so two different people crossing one 8m pad read as a
+  single body that moved 8 metres - a fabricated sprint that caged
+  someone standing still. And a tall avatar poking into the jump
+  layer was let off by an alibi radius; now the layer records who
+  was already inside it during the reaction window, so tall and
+  airborne are told apart properly.
+
+  If a runtime offers no connectionId on either probes or floor
+  contacts, the old anonymous logic switches itself back on a few
+  seconds into the round. The scoreboard shows which is running:
+  ID, ANON, or ... while it is still deciding.
+
+  Set your space's spawn point inside the lobby, around
+  x 0, z -168. If runners spawn at the world origin they land
+  in the middle of the minefield.
+
+  OPERATOR
+  ------------------------------------------------------------
+  Two numpad consoles now, and either one works. The first is on
+  the podium behind the start line, facing the lobby. The second
+  stands on the winners' terrace, OUTSIDE the run and past the
+  glass, so a round can be stopped from the finish end without
+  walking back across a live floor.
+
+  Click the keys: 1, 7, 1, 8. The display shows how many digits
+  have landed, C clears a fumble. Both consoles share one entry
+  buffer, so a half-entered code on one cannot be finished on the
+  other. The same code stops a round, clears every cage and the
+  winner's box, and reseals the finish doors.
+  Change CODE before you run anything public.
+-->
+
+<m-group id="arena"></m-group>
+<m-group id="mines"></m-group>
+<m-group id="cages"></m-group>
+<m-group id="winner"></m-group>
+
+<script>
+  // ==========================================================
+  // TUNING - the dials you actually want to touch
+  // ==========================================================
+
+  // --- the light --------------------------------------------
+  const GREEN_MIN = 3.0;    // shortest green, seconds
+  const GREEN_MAX = 8.0;    // longest. the gap between these two is
+                            // the whole tension of the game - a fixed
+                            // green can be counted and beaten.
+  const RED_MIN = 2.5;      // shortest red
+  const RED_MAX = 6.0;      // longest
+
+  // --- detection --------------------------------------------
+  // Movement is measured against a frozen snapshot taken when the
+  // light turns, not against the previous sample. A player who
+  // creeps forward and stops is still displaced from where they
+  // froze, so there is no sampling rate to slip between.
+  const MOVE_TOL = 0.18;    // metres of drift allowed before you are out.
+                            // Avatars settle and jitter a little; below
+                            // about 0.18 you will cage people for standing
+                            // still. Above 0.5 you can shuffle.
+                            // 0.25 v13, 0.20 v16, 0.18 v17. THIS IS THE
+                            // FLOOR, not a step above it - the number in
+                            // the line above is where a motionless avatar's
+                            // own jitter is enough to trip the test, and
+                            // this is now sitting on it. There is nothing
+                            // left to take here. It does three jobs:
+                            //   1 the drift allowed from p.froze, which is
+                            //     where judge() first saw you after the
+                            //     window closed. This is the one you feel.
+                            //   2 the radius on every entry in the alibi
+                            //     list, so the bubble that says "somebody
+                            //     was standing here" is smaller and a
+                            //     contact near a still body is likelier to
+                            //     read as movement.
+                            //   3 the pocket the stoppers leave round a
+                            //     known-still player: that is this plus
+                            //     STOP_CLEAR, so 1.25m is now 1.18m.
+                            // IF ANYONE GETS CAGED STANDING PERFECTLY
+                            // STILL, this is the number that did it and
+                            // 0.22 is the retreat. Nothing else in the
+                            // build can produce that symptom.
+  const JUMP_TOL = 0.35;    // metres of RISE allowed. Catches hopping on
+                            // the spot, which slips past a flat check.
+                            // 0.6 through v16, 0.35 in v17. This is the
+                            // one axis that still had real room: a player
+                            // standing still does not drift UPWARD, so
+                            // unlike MOVE_TOL there is no jitter floor
+                            // underneath it - it is bounded by how far a
+                            // body can rise for innocent reasons, which is
+                            // a settle, not a hop. An avatar hop is about
+                            // 1.5m, so 0.6 was letting a real jump get a
+                            // third of the way up before it counted.
+                            // Measured as RISE from the freeze point
+                            // only, so landing from a fall never trips it.
+  const GRACE_MS = 800;     // REACTION WINDOW. Nobody is judged until this
+                            // has passed after the light turns. It covers
+                            // both human reaction time and a stale update
+                            // in flight. Everywhere a body is seen during
+                            // this window counts as a place it is allowed
+                            // to be, so a runner who is mid-stride gets
+                            // their whole braking distance for free.
+                            // 1150 v13, 1000 v14, 900 v15, 800 v18.
+                            // THIS IS THE FLOOR. What has to finish inside
+                            // it is not just stopping - it is stopping AND
+                            // having a report of the stopped position land
+                            // before judge() takes the freeze point:
+                            //   see the light          ~300ms
+                            //   brake to a halt        ~200ms
+                            //   next report goes out   up to PROBE_MS 120
+                            //   the trip               ~100ms on a good one
+                            // which is about 720 of the 800. There is no
+                            // room under this, and the failure below it is
+                            // not "harder" - it is p.froze being written
+                            // from a report taken while the player was
+                            // still moving, so their real stopped position
+                            // is most of a metre from it and they are
+                            // caged for having stopped correctly. See
+                            // THE COMPOUND FAILURE in the header.
+                            // 900 is the retreat, and it is one number.
+  const PROBE_RANGE = 70;   // per probe. deliberately modest - see below
+  const PROBE_MS = 120;     // how often each probe reports
+  const PAD_MS = 70;        // how often each floor pad reports contact. Lower
+                            // is a faster catch and more work for the runtime.
+  // How long a gap between two reports on the same pad before the speed
+  // test gives up. It was PAD_MS * 4 = 280ms, which is not a property of
+  // the game - it is a property of the PLAYER. Anyone whose contacts
+  // arrive slower than that, because of ping or framerate or a busy
+  // runtime, had the speed test silently switched off and was judged by
+  // the alibi test alone. That is why the game caught some people every
+  // time and never touched others.
+  const SPEED_WINDOW = 600;
+
+  // --- IDENTITY (v9) ----------------------------------------
+  // The build always had identity in it - the position probes are
+  // keyed by connectionId - it just was not wired to the cages, and
+  // the floor pads were judged anonymously alongside it. Two
+  // detectors, no shared state, so a runner collected one cage from
+  // the probes and a string of them from the pads. That is the line
+  // of cages.
+  //
+  // v9 makes identity the primary detector wherever the runtime
+  // offers it, from EITHER source, and keeps the old anonymous path
+  // as a fallback for a runtime that offers neither.
+  const JUDGE_MS = 80;      // how often the judge sweeps the roster
+  const STALE_MS = 1500;    // stop judging anyone we have not heard from
+                            // in this long. A still player may simply
+                            // stop reporting, and silence is not guilt.
+  const VEL_MS = 150;       // how far back the velocity sample is held
+  const ID_LEAD_TIME = 0.25; // seconds of the runner's own travel to throw
+                            // the cage forward by. MUCH shorter than the
+                            // anonymous path's 0.45, because a cage that
+                            // knows its owner gets corrected onto them if
+                            // it lands wrong - it does not have to be
+                            // right first time.
+  const ID_LEAD_MAX = 3.0;
+  // A cage may be moved onto its owner for this long after it is
+  // built. A TIME budget, not a count: if the first correction is
+  // itself a step behind - which is exactly what a bad connection
+  // does - a count of three or four runs out while the cage is still
+  // chasing. Within the window it keeps snapping until it lands, and
+  // in practice it lands on the first or second try because the
+  // walls stop the runner the moment it does.
+  const CAGE_FIX_MS = 1500;
+  const CAGE_FIXES = 12;    // sanity cap on attribute churn, not the
+                            // real limit - CAGE_FIX_MS is.
+
+
+  // Lead by TIME, not distance. A cage is built at (report + lead), but
+  // the runner keeps moving while the report travels and the cage gets
+  // built. A fixed 1.0 is correct at exactly one speed-and-latency pair;
+  // for a faster player, or one further away, it lands behind them every
+  // single time - consistently, which is the other half of why this was
+  // per-player rather than random.
+  const LEAD_TIME = 0.45;   // seconds of the runner's own travel
+  const LEAD_MIN = 1.0;     // never shorter than the old fixed lead
+  const LEAD_MAX = 6.0;     // a 9 m/s runner with a 400ms cage lag is 3.6m
+                            // past the report before the cage exists, so a
+                            // 3.2 ceiling still lands behind them.
+
+  // ONE cage per runner per red, and no trail. When a detection lands
+  // close behind a cage that just went up, on the same heading, it is the
+  // same person - the previous cage missed and they ran out of its bubble.
+  // Building another one behind them is what makes the line of cages.
+  const TRACK_R = 9.0;
+  const TRACK_MS = 1800;
+
+  const SPRINT_TOL = 0.30;  // how far a contact may travel ON ONE PAD between
+                            // two reports before it counts as running
+  // --- THE STOPPERS (v11) -----------------------------------
+  // Solid blocks that rise on red wherever nobody is standing, so a
+  // runner holding forward hits a wall and stops - the way Trap Run's
+  // traps stop you. See the notes at the top of the file.
+  const STOPPERS = true;
+  const STOP_PITCH = 6;     // block grid, metres. Smaller means a runner
+                            // gets less free travel before they hit one,
+                            // and more colliders for the runtime. 6 is
+                            // Trap Run's trap pitch.
+  const STOP_CLEAR = 1.0;   // no block rises within this of anybody known
+                            // to be standing still, measured from the
+                            // body to the block's face. Covers jitter and
+                            // avatar width. It was 2.0, and in a crowd the
+                            // pockets that left around honest players
+                            // joined up into lanes a cheater could run down.
+                            // Honest players do not depend on it anyway -
+                            // STOP_EVIDENCE below is what protects them.
+  const STOP_BACK = 1.0;    // the cage is centred this far out from the
+                            // face they hit - i.e. on the runner, who is
+                            // pressed against it.
+  const STOP_ADOPT_R = 12;  // a cage built behind a runner in this radius...
+  const STOP_ADOPT_MS = 2500; // ...this recently, that nobody is standing
+                            // in, is moved onto them rather than left
+                            // behind as a second cage.
+  const STOP_ALIBI_R = 1.5; // a settle contact excuses this much of a face
+  // A block only catches when something has been SEEN moving at that
+  // exact spot, moments before - a floor contact away from anywhere a
+  // body was standing, or an identity sighting that left its frozen
+  // point. A runner's own footsteps lead right up to the face they hit,
+  // so they always qualify. A still player the runtime never reports,
+  // who a block came up beside, produces no such thing - and keeping
+  // this TIGHT is what stops a cheater who runs past them from getting
+  // them caged instead. At 3m and 1.5s a crowd test put the cheater's
+  // cage on the bystander.
+  const STOP_EVIDENCE_R = 1.5;
+  const STOP_EVIDENCE_MS = 900;
+  const OCC_DELAY = 600;    // a contact inside a cage only proves somebody is
+                            // IN it once the cage has had time to reach their
+                            // screen. Before that it is a runner passing
+                            // through ground a cage has not arrived on yet.
+  const STOP_SEE = 0;       // opacity. 0 is invisible, like Trap Run's traps.
+
+  // --- the jump layer ---------------------------------------
+  // Trap Run's pads were 4 tall so nobody could hop over them. That
+  // is not available here: a tall pad is a solid wall, and on green
+  // people have to be able to run. So the tall volume lives ABOVE
+  // head height instead, and only exists while the light is red.
+  // A standing avatar cannot touch it. Anyone leaving the ground
+  // puts their head straight into it.
+  const JUMP_LAYER = true;
+  const JUMP_BOTTOM = 3.4;  // underside. Deliberately generous - Otherside
+                            // avatars vary enormously in height and a slab
+                            // that clips a tall one standing still is worse
+                            // than one a short one can hop under. The alibi
+                            // check below is the real protection; this is
+                            // just margin on top of it.
+  const JUMP_H = 3.6;       // thickness of the slab
+  const JUMP_PAD = 12;      // its grid is coarser than the floor's - it only
+                            // has to report WHERE, not how finely
+  const SKY_PARK = -900;    // where it waits out the green light
+
+  const SPRINT_MAX = 2.5;   // ...and how far is too far to believe. A jump
+                            // bigger than this is two different people on the
+                            // same pad, not one person moving, so it is
+                            // ignored rather than caging an innocent.
+
+  // --- the starting gate ------------------------------------
+  const START_GATE = true;  // a solid barrier across the start threshold,
+                            // up until the first green light of a round
+  const GATE_H = 14;        // tall enough that it cannot be jumped
+  const GATE_SEE = 0.13;    // Faintly visible on purpose. A genuinely
+                            // invisible wall reads as a broken game -
+                            // people walk into nothing and assume they
+                            // are stuck. At this opacity you can see the
+                            // run through it and still know it is there.
+  const PROBE_Z = [-88, -44, 0, 44, 88];  // probes down the length of the run
+
+  // --- cages ------------------------------------------------
+  const CAGE_A = 2.8;       // interior half-width - Trap Run's size, which
+                            // is the one that actually landed on people.
+  const CAGE_LEAD = 1.0;    // metres thrown along the heading, fixed, also
+                            // as Trap Run had it.
+                            // own direction of travel. A cage built exactly
+                            // where the contact was reported arrives behind
+                            // a sprinter, because they have kept running in
+                            // the time it took to report and build. Trap Run
+                            // hit this same wall - see its notes on capture
+                            // feeling late.
+  const CAGE_H = 7;         // cage height
+  const HOLD_CYCLES = 1;    // How many WHOLE green lights a caged player
+                            // sits out. 1 means: caught on red, you watch
+                            // the next green go by, and you are released
+                            // when the one after it starts. Set to 0 and
+                            // they rejoin at the very next green, which is
+                            // barely a penalty. Set higher to punish more.
+  const MAX_CAGES = 240;    // hard ceiling, protects framerate
+
+  // --- the winner's box -------------------------------------
+  // Exactly one of these is ever built, and only for the first
+  // body over the line. It is deliberately bigger than a trap
+  // cage: a runner arriving flat out needs room to land in, and
+  // it has to read as a prize rather than a punishment.
+  const WINNER_BOX = true;
+  const WINNER_A = 3.6;     // interior half-width. Wide enough that the
+                            // whole depth of the finish sensor sits inside
+                            // it, so the box cannot close behind a sprinter.
+  const WINNER_H = 9;       // taller than a trap cage, and lidded
+  const WINNER_HOLD = 30;   // seconds the winner is held. After this the
+                            // glass is removed and the gold frame stays up
+                            // as a monument for the rest of the round.
+
+  // --- the finish doors -------------------------------------
+  const FINISH_SEALED = true;  // the two portals onto the terrace stay shut
+                            // at all times, so nobody walks into the arena
+                            // from the finish end. They lift only once the
+                            // winner has been boxed.
+
+  // --- the spectator gallery --------------------------------
+  const GALLERY = true;
+  const GALLERY_ENDS = [-1, 1];  // which ends get a doorway and a flight.
+                            // -1 is the lobby, 1 is the terrace. Set to
+                            // [-1] if you would rather the gallery could
+                            // not be walked end to end - with both ends
+                            // open, somebody can go up at the terrace and
+                            // come down in the lobby. It never touches the
+                            // run either way, but it is a route.
+  // The small flank repeaters were the problem. Their housings are
+  // centred at y 12 and are 11.4 x 0.95 tall, so the underside sits
+  // at y 6.585, and they repeat every 15m down both flanks at 5.89
+  // wide - which is 39% of the length of the run turned into solid
+  // black box at exactly the height a spectator's head was. Worse,
+  // the green lamp is a 2m sphere bulging out to x 50.29, and the
+  // deck's inner edge is at 48.9, so the lamps were physically
+  // inside the gallery.
+  //
+  // So the deck drops until a tall avatar's head passes UNDER the
+  // housings. Derived rather than typed, so if you retune the
+  // repeaters the gallery follows them.
+  // The flank repeaters, which were wrong in two ways.
+  //
+  // Height: the housings were centred at y 12, underside 6.585. Over
+  // a 4.3 deck that is barely above eye level - they read as a low
+  // awning every 15m - and the green lamp is a 2m sphere bulging out
+  // to x 50.29, hanging directly over a deck whose inner edge is at
+  // 48.9. Raised until there is real air between them and the
+  // gallery.
+  //
+  // Footing: signalTower plants a stone plinth 5 x scale square at
+  // ground level, and at x 48.3 that puts a solid, COLLIDING block
+  // between 2 and 3 metres onto the running surface. There were 42
+  // of them down the two flanks. The flank towers now foot on the
+  // parapet instead, which is what the parapet is for. Only the two
+  // big end towers still stand on the floor, and they stand on the
+  // apron where there is nothing to obstruct.
+  const REP_HY = 15.5;      // near rank, housing centre
+  const REP_SCALE = 0.95;
+  const REP_FAR_HY = 30;    // far rank: twice as high, half as often
+  const REP_FAR_SCALE = 1.35;
+  const REP_UNDER = REP_HY - 11.4 * REP_SCALE / 2;   // 10.085
+  const PARAPET_TOP = 4.48; // top of the parapet's gold cap, where
+                            // every flank tower is now footed
+
+  const HEADROOM = 2.2;     // generous. Otherside avatars get tall.
+  const DECK_CEIL = Math.floor((REP_UNDER - HEADROOM) * 10) / 10;
+  const DECK_PREF = 4.3;    // the deck height you actually want. With
+                            // the repeaters raised DECK_CEIL is now
+                            // 7.8, so the tall gallery is available
+                            // again - set this to 7.16 and the deck,
+                            // the stairs, the doorways and the
+                            // balustrades all follow it back up.
+  const DECK_Y = Math.min(DECK_PREF, DECK_CEIL);
+
+  const DOOR_W = 10;        // gallery doorway, cut into the outer return
+  const DOOR_H = 9.5;       // of each end wall. It sits ON the deck, so
+                            // from the run it is a hole in a wall you
+                            // cannot reach and that leads nowhere useful.
+  const RAIL_H = 1.2;       // Balustrade along the field edge, waist high.
+                            // It was 3.6 when the deck was up at 7.16 and
+                            // nobody was looking through it; at this deck
+                            // height a 3.6 wall of glass IS the view. It
+                            // collides, but only so nobody clips through
+                            // the edge - the containment field behind it
+                            // is what actually holds the boundary.
+  const STAIR_X = 58;       // centreline of each flight. Offset a metre
+                            // inboard of the doorway on purpose: the
+                            // lobby and terrace columns stand at x 64
+                            // with a 1.3 radius, and at 58.5 the stair
+                            // cheeks came within 100mm of them.
+  const STAIR_W = 7;
+  const STAIR_N = Math.max(6, Math.round(DECK_Y / 0.4));   // ~0.39 rise
+  const STAIR_RUN = 1.0;    // tread depth
+
+  function hasGallery(side) {
+    return GALLERY && GALLERY_ENDS.indexOf(side) >= 0;
+  }
+
+  // --- detail ----------------------------------------------
+  const DETAIL = true;      // arena decoration
+  const CAGE_DETAIL = true; // gold posts + finial on each cage
+  const LIGHT = 0.05;       // global brightness, applied to every light in
+                            // the build. 0 kills them outright and leaves
+                            // only whatever ambient the space itself has.
+
+  // --- control panel ----------------------------------------
+  const GATES_CLOSE_ON_RUN = false;  // governs the START doors only now. The
+                            // finish doors follow FINISH_SEALED above.
+  const ARMED_ON_LOAD = false;  // ALWAYS false, or you spawn into a live minefield
+  const ARM_DELAY = 10;         // countdown after entering the code, seconds
+  const CODE = [1, 7, 1, 8];    // rune discs, left to right are 1..9 then 0
+  const CODE_TIMEOUT = 15;      // seconds to finish the sequence before it resets
+  const FINISH_CONSOLE = true;  // a second numpad on the terrace, so a round
+                                // can be stopped from the finish end without
+                                // walking back across a live floor. It drives
+                                // the same lock and the same buffer as the
+                                // start console. Set false for one console
+                                // only, at the start end, as before.
+
+  // ==========================================================
+  // GEOMETRY
+  // ==========================================================
+  const FIELD_W = 96;
+  const FIELD_L = 200;
+  const START_Z = -(FIELD_L / 2 + 6);   // arches straddle the boundary line
+  const FINISH_Z = FIELD_L / 2 + 6;
+  const ARENA_W = FIELD_W + 40;
+  const ARENA_L = FIELD_L + 80;
+  const ARENA_H = 56;
+
+  // The deck length and the containment length MUST be the same
+  // number, which is why they now live together up here. See the
+  // note on BOUND_L below for what happened when they were not.
+  const DECK_L = GALLERY ? ARENA_L - 2 : FIELD_L;
+  const DECK_TOP = GALLERY ? DECK_Y : 7.16;   // the old stand height,
+                                              // if you turn the gallery off
+
+  const FLOOR = "#281d55";
+  // The floor carries the signal now. Two tones per phase: a HOT one
+  // that lands the instant the light turns, and a settled one it
+  // falls back to a quarter second later. The flash is what catches
+  // you in peripheral vision while you are watching your feet; the
+  // settled tone is dark enough that the gold inlay still reads on
+  // top of it, which a full-saturation floor would drown.
+  const FLOOR_GREEN = "#17693c";
+  const FLOOR_GREEN_HOT = "#2fd071";
+  const FLOOR_RED = "#7d1424";
+  const FLOOR_RED_HOT = "#ff2d3d";
+  const FLOOR_GLOW_OFF = "#3a2a72";
+  const GOLD = "#e8c547";
+  const WALL = "#120c26";
+  const STONE = "#1f1746";
+  const INK = "#e8e2ff";
+  const JEWELS = ["#ff5ec8", "#4ec9f0", "#a76bff", "#5ef0b8", "#ffb84e"];
+
+  const RED_ON = "#ff2d3d";
+  const RED_OFF = "#3a0a12";
+  const GREEN_ON = "#3dff88";
+  const GREEN_OFF = "#0a2a18";
+
+  const SIGN_TEXT = "WHEN THE LIGHT IS RED, BE STONE.";
+
+  const arena = document.getElementById("arena");
+  const mineRoot = document.getElementById("mines");
+  const cageRoot = document.getElementById("cages");
+  const winRoot = document.getElementById("winner");
+
+  function el(tag, attrs, parent) {
+    const node = document.createElement(tag);
+    node.setAttribute("collide", "false");
+    for (const key in attrs) {
+      let value = attrs[key];
+      if (tag === "m-light" && key === "intensity") {
+        value = Math.round(value * LIGHT * 10) / 10;
+      }
+      node.setAttribute(key, value);
+    }
+    (parent || arena).append(node);
+    return node;
+  }
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function jewel(i) { return JEWELS[i % JEWELS.length]; }
+
+  // ==========================================================
+  // SHELL - ground, walls, ceiling
+  // ==========================================================
+  el("m-cube", {
+    y: -2, width: ARENA_W, height: 4, depth: ARENA_L,
+    color: "#0e0922", collide: "true",
+  });
+
+  // long side walls - these stay sealed
+  [-1, 1].forEach((s, i) => {
+    el("m-cube", {
+      x: s * ARENA_W / 2, y: ARENA_H / 2,
+      width: 2, height: ARENA_H, depth: ARENA_L,
+      color: WALL, collide: "true",
+    });
+    [20, 40].forEach((y) => {
+      el("m-cube", {
+        x: s * ARENA_W / 2, y: y,
+        width: 2.6, height: 0.8, depth: ARENA_L, color: jewel(i),
+      });
+    });
+  });
+
+  // ==========================================================
+  // THE CEILING - coffered, with a rose over the centre circle
+  // ------------------------------------------------------------
+  // Beams on a 20m grid, recessed panels between them, gilded
+  // bosses at the crossings, and a rose directly above the floor
+  // rosette so the two read as a pair.
+  // ==========================================================
+  const CEIL_Y = 54;
+  const CEIL_STEP = 20;
+
+  // the sealing plane above the coffers
+  el("m-cube", {
+    y: CEIL_Y + 1.4, width: ARENA_W, height: 2, depth: ARENA_L,
+    color: "#0a0618", collide: "true",
+  });
+
+  // recessed panels
+  for (let x = -50; x <= 50; x += CEIL_STEP) {
+    for (let z = -130; z <= 130; z += CEIL_STEP) {
+      if (Math.sqrt(x * x + z * z) < 24) continue;      // the rose sits here
+      const alt = (Math.abs(x / CEIL_STEP) + Math.abs(z / CEIL_STEP)) % 2;
+      el("m-cube", {
+        x: x, z: z, y: CEIL_Y - 0.2,
+        width: 17.6, height: 0.7, depth: 17.6,
+        color: alt ? "#241a4d" : "#1b1440",
+      });
+    }
+  }
+
+  // beams
+  for (let x = -60; x <= 60; x += CEIL_STEP) {
+    el("m-cube", { x: x, y: CEIL_Y - 0.5, width: 2.4, height: 1.4, depth: ARENA_L - 6, color: "#2a1f5c" });
+    el("m-cube", { x: x, y: CEIL_Y - 1.25, width: 1.0, height: 0.14, depth: ARENA_L - 6, color: GOLD, opacity: 0.6 });
+  }
+  for (let z = -120; z <= 120; z += CEIL_STEP) {
+    el("m-cube", { z: z, y: CEIL_Y - 0.5, width: ARENA_W - 6, height: 1.4, depth: 2.4, color: "#2a1f5c" });
+    el("m-cube", { z: z, y: CEIL_Y - 1.25, width: ARENA_W - 6, height: 0.14, depth: 1.0, color: GOLD, opacity: 0.6 });
+  }
+
+  // gilded bosses on alternate crossings
+  [-40, 0, 40].forEach((x) => {
+    for (let z = -100; z <= 100; z += 40) {
+      if (Math.sqrt(x * x + z * z) < 24) continue;
+      el("m-sphere", { x: x, z: z, y: CEIL_Y - 1.5, radius: 0.9, color: GOLD });
+    }
+  });
+
+  // the rose
+  [[20, "#2a1f5c"], [15, "#3a2a72"], [10, "#2a1f5c"], [5, "#4a3690"]].forEach(([r, color], i) => {
+    el("m-cylinder", { y: CEIL_Y - 0.5 - i * 0.25, radius: r, height: 0.5, color: color });
+  });
+  for (let i = 0; i < 16; i++) {
+    el("m-cube", { y: CEIL_Y - 1.6, ry: i * 22.5, width: 0.45, height: 0.3, depth: 40, color: GOLD, opacity: 0.55 });
+  }
+  el("m-sphere", { y: CEIL_Y - 2.4, radius: 1.8, color: GOLD });
+  el("m-light", { y: CEIL_Y - 5, type: "point", intensity: 26, color: "#e0c48a" });
+
+  // pendant lamps hung off the crossings
+  [-30, 30].forEach((x, i) => {
+    for (let z = -100; z <= 100; z += 40) {
+      el("m-cylinder", { x: x, z: z, y: CEIL_Y - 4, radius: 0.12, height: 7, color: "#2a1f5c" });
+      el("m-sphere", { x: x, z: z, y: CEIL_Y - 7.6, radius: 0.85, color: jewel(i + z / 40) });
+      el("m-light", { x: x, z: z, y: CEIL_Y - 8.4, type: "point", intensity: 11, color: jewel(i + z / 40) });
+    }
+  });
+
+  // ==========================================================
+  // PORTALS - two doorways at each end, flanking the podium
+  // ------------------------------------------------------------
+  // The start pair are ordinary jewelled portcullises. The
+  // finish pair are glass barriers: same mechanism, but they
+  // are shut from the moment the world loads and only lift
+  // once a winner has been boxed. That is the whole reason
+  // nobody can walk in off the terrace and stroll up the run
+  // against the traffic.
+  // ==========================================================
+  const PORTAL_W = 16;
+  const PORTAL_H = 20;
+  const PORTAL_X = 42;      // portals sit at x = -42 and +42
+  const gates = [];
+
+  function endWall(z, side, i) {
+    const half = ARENA_W / 2;
+    const pL = PORTAL_X - PORTAL_W / 2;
+    const pR = PORTAL_X + PORTAL_W / 2;
+    const glassy = side > 0;          // the finish end
+
+    // the middle block between the two portals, full height
+    el("m-cube", {
+      x: 0, z: z, y: ARENA_H / 2,
+      width: 2 * pL, height: ARENA_H, depth: 2,
+      color: WALL, collide: "true",
+    });
+
+    // The outer returns are where the gallery doorways go. Note the
+    // wall below DECK_Y stays solid whatever happens: the opening
+    // sits ON the deck, which means that from the running floor it
+    // is a hole nine metres up in a wall you cannot climb. There is
+    // no version of this that gives a runner a way out.
+    const retW = half - pR;               // 18m of return, x 50 to 68
+    const retC = (pR + half) / 2;         // centred on x 59
+    const jambW = (retW - DOOR_W) / 2;
+    const doorTop = DECK_Y + DOOR_H;
+
+    [-1, 1].forEach((sx) => {
+      const cx = sx * retC;
+
+      if (!hasGallery(side)) {
+        el("m-cube", {
+          x: cx, z: z, y: ARENA_H / 2,
+          width: retW, height: ARENA_H, depth: 2, color: WALL, collide: "true",
+        });
+        return;
+      }
+
+      // everything below the deck: solid
+      el("m-cube", {
+        x: cx, z: z, y: DECK_Y / 2,
+        width: retW, height: DECK_Y, depth: 2, color: WALL, collide: "true",
+      });
+
+      // a jamb either side of the opening
+      [-1, 1].forEach((e) => {
+        el("m-cube", {
+          x: cx + e * (DOOR_W + jambW) / 2, z: z, y: DECK_Y + DOOR_H / 2,
+          width: jambW, height: DOOR_H, depth: 2, color: WALL, collide: "true",
+        });
+      });
+
+      // and everything above it
+      el("m-cube", {
+        x: cx, z: z, y: (doorTop + ARENA_H) / 2,
+        width: DOOR_W, height: ARENA_H - doorTop, depth: 2,
+        color: WALL, collide: "true",
+      });
+
+      // gold frame and a word, so it reads as a way through rather
+      // than a gap somebody forgot to fill in
+      [-1, 1].forEach((e) => {
+        el("m-cylinder", {
+          x: cx + e * (DOOR_W / 2 + 0.5), z: z,
+          y: DECK_Y + DOOR_H / 2, radius: 0.5, height: DOOR_H, color: GOLD,
+        });
+      });
+      el("m-cube", {
+        x: cx, z: z, y: doorTop + 0.5,
+        width: DOOR_W + 2, height: 1.0, depth: 2.4, color: GOLD,
+      });
+      [[1.35, 0], [-1.35, 180]].forEach(([dz, ry]) => {
+        el("m-label", {
+          x: cx, z: z + dz, y: doorTop + 2.3, ry: ry,
+          width: 8, height: 1.4, "font-size": 58, alignment: "center",
+          color: "#120c26", "font-color": GOLD, content: "GALLERY",
+        });
+      });
+    });
+
+    [8, 30].forEach((y) => {
+      el("m-cube", { z: z, y: y, width: 2 * pL, height: 0.8, depth: 2.6, color: jewel(i) });
+    });
+
+    [-1, 1].forEach((sx) => {
+      const px = sx * PORTAL_X;
+
+      // lintel over the opening
+      el("m-cube", {
+        x: px, z: z, y: (PORTAL_H + ARENA_H) / 2,
+        width: PORTAL_W, height: ARENA_H - PORTAL_H, depth: 2,
+        color: WALL, collide: "true",
+      });
+
+      // gold frame
+      [-1, 1].forEach((e) => {
+        el("m-cylinder", {
+          x: px + e * (PORTAL_W / 2 + 0.6), z: z,
+          y: PORTAL_H / 2, radius: 0.7, height: PORTAL_H + 1.4, color: GOLD,
+        });
+      });
+      el("m-cube", {
+        x: px, z: z, y: PORTAL_H + 0.7,
+        width: PORTAL_W + 2.6, height: 1.4, depth: 2.6, color: GOLD,
+      });
+
+      // portcullis - drops to seal the run, retracts into the lintel
+      const gate = document.createElement("m-group");
+      gate.setAttribute("x", px);
+      gate.setAttribute("z", z);
+      gate.setAttribute("y", 0);
+      arena.append(gate);
+
+      el("m-cube", {
+        y: PORTAL_H / 2, width: PORTAL_W, height: PORTAL_H, depth: 0.5,
+        color: glassy ? "#9fe8ff" : jewel(i + 2),
+        opacity: glassy ? 0.22 : 0.18, collide: "true",
+      }, gate);
+      for (let b = 0; b <= 8; b++) {
+        el("m-cylinder", {
+          x: -PORTAL_W / 2 + b * (PORTAL_W / 8),
+          y: PORTAL_H / 2, radius: 0.22, height: PORTAL_H, color: GOLD,
+        }, gate);
+      }
+      el("m-cube", { y: 0.4, width: PORTAL_W, height: 0.8, depth: 0.9, color: GOLD }, gate);
+
+      // The glass says what it is, on both faces, so nobody stands
+      // there wondering whether the world is broken. Children of the
+      // gate group, so they ride up with it when it lifts.
+      if (glassy) {
+        [[0.42, 0], [-0.42, 180]].forEach(([dz, ry]) => {
+          el("m-label", {
+            z: dz, y: 8.4, ry: ry,
+            width: 12, height: 1.8, "font-size": 74, alignment: "center",
+            color: "#0d0d14", "font-color": "#9fe8ff", content: "NO ENTRY",
+          }, gate);
+          el("m-label", {
+            z: dz, y: 6.6, ry: ry,
+            width: 13, height: 1.2, "font-size": 40, alignment: "center",
+            color: "#0d0d14", "font-color": GOLD,
+            content: "OPENS WHEN THE WINNER IS BOXED",
+          }, gate);
+        });
+      }
+
+      gates.push({ group: gate, side: side });
+    });
+  }
+
+  endWall(-ARENA_L / 2, -1, 0);   // start end, opens onto the lobby
+  endWall(ARENA_L / 2, 1, 1);     // finish end, glass, onto the terrace
+
+  function setGates(side, open) {
+    gates.forEach((g) => {
+      if (g.side === side) g.group.setAttribute("y", open ? PORTAL_H : 0);
+    });
+  }
+
+  // ==========================================================
+  // THE LOBBY - an open pavilion, not a sealed room.
+  // Roof on columns, no side or back walls: runners and
+  // spectators wander in and out from the surrounding world.
+  // ==========================================================
+  const LOBBY_D = 56;
+  const LOBBY_Z = -(ARENA_L / 2 + LOBBY_D / 2);
+  const ROOM_H = 22;
+
+  el("m-cube", {
+    z: LOBBY_Z, y: -2, width: ARENA_W, height: 4, depth: LOBBY_D,
+    color: "#0e0922", collide: "true",
+  });
+  el("m-cube", { z: LOBBY_Z, y: 0.1, width: ARENA_W - 16, height: 0.2, depth: LOBBY_D - 10, color: "#1b1440" });
+
+  // a step down on all three open sides, so the edge reads as an invitation
+  [-1, 1].forEach((s) => {
+    el("m-cube", {
+      x: s * (ARENA_W / 2 + 1.6), z: LOBBY_Z, y: -0.5,
+      width: 3.2, height: 1, depth: LOBBY_D, color: "#181040", collide: "true",
+    });
+  });
+  el("m-cube", {
+    z: -(ARENA_L / 2 + LOBBY_D) - 1.6, y: -0.5,
+    width: ARENA_W + 6.4, height: 1, depth: 3.2, color: "#181040", collide: "true",
+  });
+
+  // roof on columns
+  el("m-cube", {
+    z: LOBBY_Z, y: ROOM_H + 0.8, width: ARENA_W, height: 1.6, depth: LOBBY_D,
+    color: "#0a0618", collide: "true",
+  });
+  el("m-cube", {
+    z: LOBBY_Z, y: ROOM_H - 0.3, width: ARENA_W + 2, height: 0.5, depth: LOBBY_D + 2, color: GOLD,
+  });
+  [-1, 1].forEach((sx) => {
+    [-1, 1].forEach((sz) => {
+      const x = sx * (ARENA_W / 2 - 4);
+      const z = LOBBY_Z + sz * (LOBBY_D / 2 - 4);
+      el("m-cube", { x: x, z: z, y: 0.5, width: 4, height: 1, depth: 4, color: STONE, collide: "true" });
+      el("m-cylinder", { x: x, z: z, y: 10.5, radius: 1.3, height: 19, color: "#2a1f5c", collide: "true" });
+      el("m-cylinder", { x: x, z: z, y: 20.2, radius: 1.7, height: 0.6, color: GOLD });
+    });
+  });
+
+  el("m-light", { z: LOBBY_Z, y: ROOM_H - 4, type: "point", intensity: 38, color: "#8f7bd8" });
+
+  // the briefing, on the inside face of the start wall, at reading height
+  el("m-cube", {
+    z: -(ARENA_L / 2) - 1.2, y: 4.3, width: 30, height: 4.6, depth: 0.3, color: "#0d0d14",
+  });
+  el("m-label", {
+    z: -(ARENA_L / 2) - 1.45, y: 5.2, ry: 180,
+    width: 28, height: 1.9, "font-size": 80, alignment: "center",
+    color: "#0d0d14", "font-color": INK,
+    content: "GREEN LIGHT RUN. RED LIGHT FREEZE.",
+  });
+  el("m-label", {
+    z: -(ARENA_L / 2) - 1.45, y: 3.3, ry: 180,
+    width: 22, height: 1.3, "font-size": 58, alignment: "center",
+    color: "#0d0d14", "font-color": GOLD,
+    content: "MOVE ON RED AND YOU ARE CAGED WHERE YOU STAND",
+  });
+
+  // benches, set back so they never block a doorway
+  [-1, 1].forEach((s) => {
+    [-1, 1].forEach((sz) => {
+      el("m-cube", {
+        x: s * 30, z: LOBBY_Z + sz * 16,
+        y: 1.0, width: 16, height: 2.0, depth: 3, color: STONE, collide: "true",
+      });
+    });
+  });
+
+  // ==========================================================
+  // THE TERRACE - equally open to the world outside, but the
+  // only way from here onto the run is through the glass, and
+  // the glass does not lift until the round has been won.
+  // ==========================================================
+  const TER_D = 40;
+  const TER_Z = ARENA_L / 2 + TER_D / 2;
+
+  el("m-cube", {
+    z: TER_Z, y: -2, width: ARENA_W, height: 4, depth: TER_D,
+    color: "#0e0922", collide: "true",
+  });
+  el("m-cube", { z: TER_Z, y: 0.1, width: ARENA_W - 20, height: 0.2, depth: TER_D - 10, color: "#3a1436" });
+
+  [-1, 1].forEach((s) => {
+    el("m-cube", {
+      x: s * (ARENA_W / 2 + 1.6), z: TER_Z, y: -0.5,
+      width: 3.2, height: 1, depth: TER_D, color: "#181040", collide: "true",
+    });
+  });
+  el("m-cube", {
+    z: ARENA_L / 2 + TER_D + 1.6, y: -0.5,
+    width: ARENA_W + 6.4, height: 1, depth: 3.2, color: "#181040", collide: "true",
+  });
+
+  [-1, 1].forEach((sx) => {
+    [-1, 1].forEach((sz) => {
+      const x = sx * (ARENA_W / 2 - 4);
+      const z = TER_Z + sz * (TER_D / 2 - 4);
+      el("m-cube", { x: x, z: z, y: 0.5, width: 4, height: 1, depth: 4, color: STONE, collide: "true" });
+      el("m-cylinder", { x: x, z: z, y: 8, radius: 1.3, height: 14, color: "#2a1f5c", collide: "true" });
+      el("m-sphere", { x: x, z: z, y: 15.6, radius: 1.5, color: GOLD });
+    });
+  });
+
+  el("m-light", { z: TER_Z, y: 20, type: "point", intensity: 34, color: "#c25f9a" });
+
+  // ==========================================================
+  // THE FLOOR - one solid slab. no tiles, no seams, no tells.
+  // ==========================================================
+  const floorSlab = el("m-cube", {
+    z: 0, y: 0.1, width: FIELD_W, height: 0.2, depth: FIELD_L,
+    color: FLOOR,
+  });
+
+  // Two lit strips inlaid down the length, well inside the running
+  // surface. These are the part you actually catch while sprinting:
+  // dead ahead is the run, and the colour is in the bottom corners of
+  // your vision the whole way without turning your head.
+  const floorStrips = [-1, 1].map((s) => el("m-cube", {
+    x: s * (FIELD_W / 2 - 3), y: 0.23,
+    width: 1.1, height: 0.06, depth: FIELD_L - 4,
+    color: FLOOR_GLOW_OFF,
+  }));
+
+  // and lights just above the deck, so the phase colour is in the air
+  // of the corridor and not only underfoot
+  const floorGlow = [];
+  for (let z = -FIELD_L / 2 + 12.5; z < FIELD_L / 2; z += 25) {
+    floorGlow.push(el("m-light", {
+      z: z, y: 3.4, type: "point", intensity: 20, color: FLOOR_GLOW_OFF,
+    }));
+  }
+
+  // "GREEN" | "RED" | "OFF". Every phase change goes through here.
+  // The token guards the flash: if the light turns again inside the
+  // 260ms, the stale timeout must not repaint the floor the old
+  // colour on its way out.
+  let floorToken = 0;
+  function setFloor(state) {
+    floorToken++;
+    const mine = floorToken;
+    const settled = state === "GREEN" ? FLOOR_GREEN : state === "RED" ? FLOOR_RED : FLOOR;
+    const hot = state === "GREEN" ? FLOOR_GREEN_HOT : state === "RED" ? FLOOR_RED_HOT : FLOOR;
+    const lit = state === "GREEN" ? GREEN_ON : state === "RED" ? RED_ON : FLOOR_GLOW_OFF;
+
+    floorSlab.setAttribute("color", hot);
+    floorStrips.forEach((p) => p.setAttribute("color", lit));
+    floorGlow.forEach((l) => l.setAttribute("color", lit));
+
+    if (state === "OFF") return;
+    setTimeout(() => {
+      if (mine !== floorToken) return;
+      floorSlab.setAttribute("color", settled);
+    }, 260);
+  }
+
+  // gold trim on the outer edge only, never across the run
+  [-1, 1].forEach((s) => {
+    el("m-cube", {
+      x: s * (FIELD_W / 2 + 0.3), y: 0.14,
+      width: 0.6, height: 0.28, depth: FIELD_L, color: GOLD,
+    });
+  });
+
+  // safe aprons, outside the boundary at each end
+  [[-1, "#1c5c46"], [1, "#5c1c4e"]].forEach(([s, color]) => {
+    el("m-cube", { z: s * (FIELD_L / 2 + 12), y: 0.09, width: FIELD_W, height: 0.18, depth: 24, color: color });
+  });
+
+  // ==========================================================
+  // BOUNDARY - the line you do not want to be standing past
+  // ==========================================================
+  // BOUND_L was ARENA_L - 4, which ended the parapet at z +/-138.
+  // The gallery deck runs to +/-139. That left a metre of deck at
+  // each end with no containment beside it at all, so a spectator
+  // who walked to the end of the gallery could step off the inner
+  // edge and drop straight into the arena behind the finish line -
+  // and from there walk onto the field. Matched to the deck.
+  const BOUND_L = GALLERY ? DECK_L : ARENA_L - 4;
+
+  [-1, 1].forEach((s) => {
+    // Solid parapet. Runs wall to wall, not just the length of the
+    // field, so the stands cannot be climbed, jumped onto, or
+    // skirted round the ends where the tiers stop. Both portals
+    // sit at x 42, well inside this, so no doorway is blocked.
+    el("m-cube", {
+      x: s * 48.3, y: 2.1, width: 1.2, height: 4.2, depth: BOUND_L,
+      color: STONE, collide: "true",
+    });
+    el("m-cube", {
+      x: s * 48.3, y: 4.34, width: 1.7, height: 0.28, depth: BOUND_L, color: GOLD,
+    });
+    // The invisible extension, up to y 24.4. It used to start at
+    // 14.4 - height 20, so its underside was at 4.4, leaving a
+    // 200mm gap above the 4.2 parapet top. That gap never mattered
+    // while the gallery deck was at 7.16, because there was nothing
+    // at 4.3 to climb onto. There is now. Closed.
+    el("m-cube", {
+      x: s * 48.3, y: 14.3, width: 1.2, height: 20.2, depth: BOUND_L,
+      color: "#000000", opacity: 0, collide: "true",
+    });
+
+    // threshold band across each end
+    el("m-cube", { z: s * (FIELD_L / 2 - 0.6), y: 0.24, width: FIELD_W, height: 0.1, depth: 1.2, color: "#ff5ec8" });
+  });
+
+  // ==========================================================
+  // DISTANCE MARKERS - four per flank, and nothing else
+  // ------------------------------------------------------------
+  // These positions are exported, because the signal towers have to
+  // be placed AGAINST them. The boards sit at multiples of 25 in z,
+  // each 5 wide lying along the run.
+  // ==========================================================
+  const MARK_D = [25, 50, 75, 100, 125, 150, 175];
+  const MARK_Z = MARK_D.map((d) => -FIELD_L / 2 + d);
+  const MARK_HALF = 2.5;      // half the panel width, along z
+
+  MARK_D.forEach((d, mi) => {
+    const z = MARK_Z[mi];
+    [-1, 1].forEach((s) => {
+      el("m-cube", {
+        x: s * 47.62, z: z, y: 2.5, ry: s * -90,
+        width: 5, height: 1.9, depth: 0.18, color: "#0d0d14",
+      });
+      el("m-label", {
+        x: s * 47.48, z: z, y: 2.5, ry: s * -90,
+        width: 4.4, height: 1.5, "font-size": 95, alignment: "center",
+        color: "#0d0d14", "font-color": GOLD, content: String(d),
+      });
+    });
+  });
+
+  // ==========================================================
+  // STANDS - one clean bank per flank, flush to the parapet
+  // ------------------------------------------------------------
+  // With the gallery on, these run the WHOLE length of the arena
+  // rather than stopping level with the field, so the deck reaches
+  // the end walls and the stairs have somewhere to arrive. The
+  // corner sentinels' plinths end up buried inside the bank and
+  // their columns rise straight out of the deck, which is a better
+  // look than the old floating bases anyway.
+  // ==========================================================
+  [-1, 1].forEach((s) => {
+    el("m-cube", {
+      x: s * 58.45, y: (DECK_TOP - 0.16) / 2,
+      width: 19.1, height: DECK_TOP - 0.16, depth: DECK_L,
+      color: STONE, collide: "true",
+    });
+    el("m-cube", {
+      x: s * 58.45, y: DECK_TOP - 0.08,
+      width: 19.5, height: 0.16, depth: DECK_L, color: GOLD,
+    });
+  });
+
+  // ==========================================================
+  // THE SPECTATOR GALLERY
+  // ==========================================================
+  // Two stone flights per end, climbing from the lobby and the
+  // terrace to deck height and through the doorways cut above.
+  // Each step is a block from the ground up rather than a floating
+  // tread, so there is no gap under the stair for an avatar to
+  // catch a foot in.
+  const STAIR_RISE = DECK_Y / STAIR_N;
+  const ZEDGE = ARENA_L / 2 + 1;     // outer face of the end wall
+  const DOOR_X = (PORTAL_X + PORTAL_W / 2 + ARENA_W / 2) / 2;   // = 59
+
+  function galleryStair(sx, sz) {
+    const x = sx * STAIR_X;
+
+    // The landing that carries the deck through the doorway. It is
+    // centred on the DOOR, not on the stair, so it never clips a
+    // jamb; the stair is a metre inboard and simply lands on it.
+    el("m-cube", {
+      x: sx * DOOR_X, z: sz * (ARENA_L / 2 + 0.5), y: DECK_Y / 2,
+      width: DOOR_W - 0.4, height: DECK_Y, depth: 3,
+      color: STONE, collide: "true",
+    });
+    el("m-cube", {
+      x: sx * DOOR_X, z: sz * (ARENA_L / 2 + 0.5), y: DECK_Y + 0.05,
+      width: DOOR_W - 0.4, height: 0.1, depth: 3, color: GOLD, opacity: 0.5,
+    });
+
+    for (let i = 0; i < STAIR_N; i++) {
+      const h = (i + 1) * STAIR_RISE;
+      const zc = sz * (ZEDGE + (STAIR_N - 1 - i) * STAIR_RUN + STAIR_RUN / 2);
+
+      el("m-cube", {
+        x: x, z: zc, y: h / 2,
+        width: STAIR_W, height: h, depth: STAIR_RUN + 0.06,
+        color: STONE, collide: "true",
+      });
+
+      // gold nosing on the exposed edge of every tread. In this
+      // light a flight of plain stone steps is a ramp you cannot
+      // read the pitch of.
+      el("m-cube", {
+        x: x, z: zc + sz * (STAIR_RUN / 2), y: h + 0.04,
+        width: STAIR_W + 0.2, height: 0.08, depth: 0.18,
+        color: GOLD, opacity: 0.7,
+      });
+
+      // stepped cheeks either side, so nobody walks off the flank
+      [-1, 1].forEach((e) => {
+        el("m-cube", {
+          x: x + e * (STAIR_W / 2 + 0.3), z: zc, y: (h + 1.0) / 2,
+          width: 0.6, height: h + 1.0, depth: STAIR_RUN + 0.06,
+          color: "#2a1f5c", collide: "true",
+        });
+      });
+    }
+
+    // newel lamps at the foot
+    const zFoot = sz * (ZEDGE + STAIR_N * STAIR_RUN + 0.4);
+    [-1, 1].forEach((e) => {
+      const nx = x + e * (STAIR_W / 2 + 0.3);
+      el("m-cylinder", { x: nx, z: zFoot, y: 1.6, radius: 0.45, height: 3.2, color: "#2a1f5c", collide: "true" });
+      el("m-sphere", { x: nx, z: zFoot, y: 3.6, radius: 0.6, color: "#ffb84e" });
+      el("m-light", { x: nx, z: zFoot, y: 3.6, type: "point", intensity: 9, color: "#ffb84e" });
+    });
+
+    // and a sign facing whoever is walking up to it
+    const zSign = sz * (ZEDGE + STAIR_N * STAIR_RUN + 2.2);
+    const ry = sz < 0 ? 180 : 0;
+    el("m-cube", {
+      x: x, z: zSign, y: 2.6, ry: ry,
+      width: 9, height: 2.0, depth: 0.3, color: "#0d0d14",
+    });
+    el("m-label", {
+      x: x, z: zSign + sz * 0.25, y: 2.6, ry: ry,
+      width: 8.4, height: 1.4, "font-size": 52, alignment: "center",
+      color: "#0d0d14", "font-color": GOLD, content: "SPECTATOR GALLERY",
+    });
+  }
+
+  if (GALLERY) {
+    // Waist-high balustrade down the field edge of each deck. It
+    // collides, but only so nobody clips through the lip - the
+    // containment field at x 48.3 reaches y 24.4 and is what
+    // actually holds the boundary. At this deck height the rail has
+    // to stay low: anything much above a metre and the spectator is
+    // looking at glass rather than at the run.
+    [-1, 1].forEach((sx) => {
+      el("m-cube", {
+        x: sx * 49.0, y: DECK_Y + RAIL_H / 2,
+        width: 0.18, height: RAIL_H, depth: DECK_L,
+        color: "#9fe8ff", opacity: 0.1, collide: "true",
+      });
+      el("m-cube", {
+        x: sx * 49.0, y: DECK_Y + RAIL_H,
+        width: 0.5, height: 0.18, depth: DECK_L, color: GOLD,
+      });
+      for (let z = -132; z <= 132; z += 12) {
+        el("m-cylinder", {
+          x: sx * 49.0, z: z, y: DECK_Y + RAIL_H / 2,
+          radius: 0.1, height: RAIL_H, color: GOLD, opacity: 0.8,
+        });
+      }
+      // a low kerb against the outer wall, so the deck reads as a
+      // room with two sides rather than a shelf
+      el("m-cube", {
+        x: sx * 66.9, y: DECK_Y + 0.45,
+        width: 0.5, height: 0.9, depth: DECK_L, color: "#2a1f5c", collide: "true",
+      });
+    });
+
+    GALLERY_ENDS.forEach((sz) => {
+      [-1, 1].forEach((sx) => galleryStair(sx, sz));
+    });
+
+    // ------------------------------------------------------------
+    // Closing the ends of the deck.
+    //
+    // Two separate holes lived here. The first was the parapet
+    // stopping a metre short, fixed by BOUND_L above. The second is
+    // subtler: the runners' portal opening spans x 34 to 50, and
+    // the end wall's outer return does not begin until x 50, but
+    // the parapet's outer face is at 48.9. That leaves a slot 1.1m
+    // wide and 2m deep, at the exact corner where the deck meets
+    // the end wall, open all the way down to y 0 - with the deck
+    // surface right beside it. Step sideways off the end of the
+    // gallery and you drop through it into the arena.
+    //
+    // So: fill the slot solid to deck height, and put a balustrade
+    // across both ends of the deck so nobody can walk into that
+    // corner in the first place.
+    // ------------------------------------------------------------
+    [-1, 1].forEach((sx) => {
+      [-1, 1].forEach((sz) => {
+        // the plug
+        el("m-cube", {
+          x: sx * 49.55, z: sz * 140, y: DECK_Y / 2,
+          width: 1.3, height: DECK_Y, depth: 2.6,
+          color: STONE, collide: "true",
+        });
+
+        // and a rail across the end of the deck, in two stretches
+        // where there is a doorway and one where there is not
+        const zEnd = sz * (DECK_L / 2 - 0.1);
+        const runs = hasGallery(sz)
+          ? [[48.9, DOOR_X - DOOR_W / 2], [DOOR_X + DOOR_W / 2, 68]]
+          : [[48.9, 68]];
+
+        runs.forEach(([x0, x1]) => {
+          el("m-cube", {
+            x: sx * (x0 + x1) / 2, z: zEnd, y: DECK_Y + RAIL_H / 2,
+            width: x1 - x0, height: RAIL_H, depth: 0.18,
+            color: "#9fe8ff", opacity: 0.1, collide: "true",
+          });
+          el("m-cube", {
+            x: sx * (x0 + x1) / 2, z: zEnd, y: DECK_Y + RAIL_H,
+            width: x1 - x0, height: 0.18, depth: 0.5, color: GOLD,
+          });
+        });
+      });
+    });
+  }
+
+  // the motto, high on the side walls, clear of everything below
+  [-1, 1].forEach((s) => {
+    [-60, 0, 60].forEach((z) => {
+      el("m-cube", {
+        x: s * 66.2, z: z, y: 13, ry: s * -90,
+        width: 30, height: 3.8, depth: 0.3, color: "#0d0d14",
+      });
+      el("m-label", {
+        x: s * 66.0, z: z, y: 13, ry: s * -90,
+        width: 28, height: 2.6, "font-size": 68, alignment: "center",
+        color: "#0d0d14", "font-color": INK, content: SIGN_TEXT,
+      });
+    });
+  });
+
+  // ==========================================================
+  // COLOSSAL SENTINELS in the corners
+  // ------------------------------------------------------------
+  // Their plinths used to be 6 tall, which was invisible when the
+  // deck sat at 7.16 - the bank swallowed them. At a 4.3 deck they
+  // would be 1.7m blocks standing in the corner of the gallery,
+  // right where the stairs arrive, leaving a 4m squeeze to get
+  // past. So the plinth top is pinned to the deck and the column
+  // grows straight out of the floor instead.
+  // ==========================================================
+  [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([sx, sz], i) => {
+    const x = sx * (ARENA_W / 2 - 8);
+    const z = sz * (ARENA_L / 2 - 14);
+    const plinth = GALLERY ? DECK_Y : 6;
+    el("m-cube", { x: x, z: z, y: plinth / 2, width: 14, height: plinth, depth: 14, color: STONE, collide: "true" });
+    el("m-cylinder", { x: x, z: z, y: (plinth + 38) / 2, radius: 4.2, height: 38 - plinth, color: "#2a1f5c" });
+    el("m-sphere", { x: x, z: z, y: 40, radius: 4.5, color: "#2a1f5c" });
+    el("m-cylinder", { x: x, z: z, y: 44, radius: 3.0, height: 8, color: jewel(i) });
+    el("m-sphere", { x: x, z: z, y: 49, radius: 3.0, color: jewel(i) });
+    el("m-light", { x: x, z: z, y: 49, type: "point", intensity: 26, color: jewel(i) });
+  });
+
+  // ==========================================================
+  // ARCHES
+  // ==========================================================
+  [[START_Z, "START", 0], [FINISH_Z, "FINISH", 1]].forEach(([z, word, i]) => {
+    [-1, 1].forEach((s) => {
+      const px = s * (FIELD_W / 2 + 5);
+      el("m-cube", { x: px, z: z, y: 1.6, width: 5, height: 3.2, depth: 5, color: STONE, collide: "true" });
+      el("m-cylinder", { x: px, z: z, y: 9, radius: 1.6, height: 12, color: "#2a1f5c" });
+      el("m-sphere", { x: px, z: z, y: 15.6, radius: 2.0, color: jewel(i) });
+      el("m-light", { x: px, z: z, y: 15.6, type: "point", intensity: 15, color: jewel(i) });
+
+      // The word, at head height on the plinth. With the gallery on
+      // the plinth is buried inside the bank, so this rides up to
+      // read from the deck instead of being swallowed by it.
+      [0, 180].forEach((ry) => {
+        el("m-label", {
+          x: px, z: z + (ry ? -2.6 : 2.6), y: GALLERY ? DECK_Y + 1.9 : 2.4, ry: ry,
+          width: 4.6, height: 1.6, "font-size": 105, alignment: "center",
+          color: "#120c26", "font-color": GOLD, content: word,
+        });
+      });
+    });
+
+    el("m-cube", { z: z, y: 15, width: FIELD_W + 14, height: 1.8, depth: 1.8, color: "#2a1f5c" });
+    [0, 180].forEach((ry) => {
+      el("m-label", {
+        z: z, y: 17.6, ry: ry,
+        width: word.length * 2.6, height: 4,
+        "font-size": 180, alignment: "center",
+        color: "#120c26", "font-color": GOLD, content: word,
+      });
+    });
+  });
+
+  el("m-light", { y: 44, type: "point", intensity: 42, color: "#6d5cae" });
+  el("m-light", { z: -FIELD_L / 3, y: 30, type: "point", intensity: 24, color: "#5d4b9c" });
+  el("m-light", { z: FIELD_L / 3, y: 30, type: "point", intensity: 24, color: "#5d4b9c" });
+
+  // ==========================================================
+  // FLOOR INLAY
+  // ------------------------------------------------------------
+  // Flat, non-colliding, and fixed. Pure decoration - but useful
+  // here, because a runner freezing on a line has something to
+  // measure themselves against.
+  // ==========================================================
+  const INLAY = 0.22;
+
+  // centre rosette
+  [[15, "#31235f"], [11.5, "#3a2a72"], [8, "#31235f"], [5, "#4a3690"], [2.2, GOLD]]
+    .forEach(([r, color], i) => {
+      el("m-cylinder", { y: INLAY + i * 0.01, radius: r, height: 0.04, color: color });
+    });
+  for (let i = 0; i < 16; i++) {
+    el("m-cube", {
+      y: INLAY + 0.06, ry: i * 22.5,
+      width: 0.25, height: 0.04, depth: 34, color: GOLD, opacity: 0.5,
+    });
+  }
+
+  // straight transverse bands, evenly spaced
+  for (let d = 20; d < FIELD_L; d += 20) {
+    const z = -FIELD_L / 2 + d;
+    if (Math.abs(z) < 18) continue;
+    el("m-cube", {
+      z: z, y: INLAY, width: FIELD_W - 12, height: 0.04, depth: 0.3,
+      color: GOLD, opacity: 0.32,
+    });
+  }
+
+  // long inlaid borders, well inside the running surface
+  [-1, 1].forEach((s) => {
+    el("m-cube", { x: s * (FIELD_W / 2 - 6), y: INLAY, width: 0.3, height: 0.04, depth: FIELD_L - 12, color: GOLD, opacity: 0.4 });
+    el("m-cube", { x: s * (FIELD_W / 2 - 7.2), y: INLAY, width: 0.12, height: 0.04, depth: FIELD_L - 12, color: GOLD, opacity: 0.25 });
+  });
+
+  // ==========================================================
+  // VAULT RIBS + CHANDELIERS overhead
+  // ==========================================================
+  for (let d = 25; d < FIELD_L; d += 50) {
+    const z = -FIELD_L / 2 + d;
+
+    el("m-cube", { z: z, y: 52, width: ARENA_W - 6, height: 1.2, depth: 1.6, color: "#2a1f5c" });
+    [-1, 1].forEach((s) => {
+      el("m-cube", { x: s * (ARENA_W / 2 - 8), z: z, y: 46, width: 1.4, height: 12, depth: 1.6, color: "#2a1f5c" });
+    });
+
+    const ch = document.createElement("m-group");
+    ch.setAttribute("z", z);
+    ch.setAttribute("y", 26);
+    arena.append(ch);
+
+    el("m-cylinder", { y: 14, radius: 0.2, height: 28, color: "#2a1f5c" }, ch);
+    el("m-cylinder", { radius: 5.5, height: 0.5, color: "#2a1f5c" }, ch);
+    el("m-cylinder", { radius: 3.0, height: 0.4, y: 1.4, color: "#2a1f5c" }, ch);
+    for (let b = 0; b < 8; b++) {
+      const a = b * 45 * Math.PI / 180;
+      el("m-sphere", {
+        x: 5.5 * Math.sin(a), z: 5.5 * Math.cos(a),
+        y: -1.2, radius: 0.9, color: jewel(b + d),
+      }, ch);
+    }
+    el("m-light", { y: -2, type: "point", intensity: 22, color: "#e0a865" }, ch);
+
+    const spin = document.createElement("m-attr-anim");
+    spin.setAttribute("attr", "ry");
+    spin.setAttribute("start", "0");
+    spin.setAttribute("end", "360");
+    spin.setAttribute("duration", "48000");
+    spin.setAttribute("loop", "true");
+    ch.append(spin);
+  }
+
+  // ==========================================================
+  // DECORATION - wall banners only, evenly spaced, nothing loose
+  // ==========================================================
+  if (DETAIL) {
+    [-1, 1].forEach((s, si) => {
+      for (let z = -100; z <= 100; z += 50) {
+        el("m-cube", {
+          x: s * (ARENA_W / 2 - 2.2), z: z, y: 30,
+          width: 0.4, height: 26, depth: 9,
+          color: jewel(si + (z + 100) / 50),
+        });
+        el("m-cube", {
+          x: s * (ARENA_W / 2 - 2.2), z: z, y: 43.4,
+          width: 0.6, height: 0.5, depth: 9.6, color: GOLD,
+        });
+      }
+    });
+  }
+
+  // ==========================================================
+  // CAGES - built on demand, one per sprung trap
+  // ==========================================================
+  const cageSpots = [];
+  const SIDE = 2 * CAGE_A * Math.tan(Math.PI / 6) + 0.4;  // wall width, overlapped
+  const CORNER = CAGE_A / Math.cos(Math.PI / 6);           // post radius
+  let cageCount = 0;
+
+  function buildCage(x, z, idx) {
+    const g = document.createElement("m-group");
+    g.setAttribute("x", x);
+    g.setAttribute("z", z);
+    cageRoot.append(g);
+
+    const tint = jewel(idx);
+
+    el("m-cylinder", { y: 0.18, radius: CAGE_A + 0.55, height: 0.36, color: GOLD }, g);
+
+    // six translucent walls - solid to bodies, clear to eyes
+    for (let i = 0; i < 6; i++) {
+      const a = i * 60;
+      const r = a * Math.PI / 180;
+      el("m-cube", {
+        x: CAGE_A * Math.sin(r), z: CAGE_A * Math.cos(r),
+        y: CAGE_H / 2, ry: a,
+        width: SIDE, height: CAGE_H, depth: 0.12,
+        color: tint, opacity: 0.16, collide: "true",
+      }, g);
+    }
+
+    if (CAGE_DETAIL) {
+      for (let i = 0; i < 6; i++) {
+        const r = (i * 60 + 30) * Math.PI / 180;
+        el("m-cylinder", {
+          x: CORNER * Math.sin(r), z: CORNER * Math.cos(r),
+          y: CAGE_H / 2, radius: 0.13, height: CAGE_H + 0.5, color: GOLD,
+        }, g);
+      }
+    }
+
+    // lid, and the reason nobody vaults out
+    el("m-cylinder", {
+      y: CAGE_H + 0.15, radius: CAGE_A + 0.55, height: 0.3,
+      color: GOLD, collide: "true",
+    }, g);
+
+    if (CAGE_DETAIL) {
+      el("m-sphere", { y: CAGE_H + 1.0, radius: 0.5, color: tint }, g);
+    }
+
+    return g;
+  }
+  // ==========================================================
+  // THE SIGNAL
+  // ==========================================================
+  // One tower past the finish, facing back down the run, plus
+  // repeaters along both flanks so the light is readable from
+  // anywhere on the field. Nobody should ever have to guess
+  // what the light is doing, or turn around to find out.
+  const lamps = [];   // { red, green } pairs, all switched together
+
+  // hy is the CENTRE of the lamp housing, given directly. The old
+  // version took a post length and derived the height from it, which
+  // is how the low repeaters ended up with their green lamp at y 6.45
+  // - inside the stands, which are solid to y 7. Red showed, green did
+  // not, and the tower looked broken.
+  // foot: the y the post rises FROM. Leave it out and the tower is
+  // planted on the floor with a stone plinth, which is correct for
+  // the two big end towers standing out on the apron. Pass
+  // PARAPET_TOP and it foots on the parapet instead - a small corbel
+  // and no plinth at all. Anything standing at x 48.3 MUST use this:
+  // a plinth there is a block on the running surface.
+  //
+  // The post is also narrowed when it is footed, so the whole tower
+  // stays inside the parapet's 1.2m footprint instead of overhanging
+  // the field on one side and the gallery deck on the other.
+  function signalTower(x, z, ry, scale, hy, foot) {
+    const base = foot || 0;
+    const post = Math.max(0, hy - 5.2 * scale - base);
+    const postR = base ? Math.min(0.7 * scale, 0.55) : 0.7 * scale;
+    const g = document.createElement("m-group");
+    g.setAttribute("x", x);
+    g.setAttribute("z", z);
+    g.setAttribute("ry", ry);
+    arena.append(g);
+
+    if (post) {
+      el("m-cylinder", {
+        y: base + post / 2, radius: postR, height: post, color: "#2a1f5c",
+      }, g);
+      if (base) {
+        el("m-cube", {
+          y: base + 0.3, width: 1.1, height: 0.6, depth: 1.1, color: STONE,
+        }, g);
+      } else {
+        el("m-cube", {
+          y: 0.6, width: 5 * scale, height: 1.2, depth: 5 * scale, color: STONE, collide: "true",
+        }, g);
+      }
+    }
+
+    el("m-cube", {
+      y: hy, width: 6.2 * scale, height: 11.4 * scale, depth: 1.6 * scale, color: "#0d0d14",
+    }, g);
+    el("m-cube", {
+      y: hy, width: 6.8 * scale, height: 0.34, depth: 2.0 * scale, color: GOLD,
+    }, g);
+
+    // Centred in the housing, with a radius larger than the housing
+    // is deep, so each lamp bulges out of BOTH faces. The old
+    // version hung them on the front only, which meant anyone
+    // walking away from a tower saw the back of a box.
+    const red = el("m-sphere", {
+      y: hy + 2.7 * scale, z: 0, radius: 2.1 * scale, color: RED_OFF,
+    }, g);
+    const green = el("m-sphere", {
+      y: hy - 2.7 * scale, z: 0, radius: 2.1 * scale, color: GREEN_OFF,
+    }, g);
+
+    lamps.push({ red: red, green: green });
+    return g;
+  }
+
+  // A tower at each end, so the light is dead ahead whichever way
+  // you are facing along the run.
+  signalTower(0, FIELD_L / 2 + 30, 180, 3.4, 31);
+  signalTower(0, -FIELD_L / 2 - 26, 0, 3.4, 31);
+
+  // Flank repeaters sit OVER THE PARAPET at x 48.3, not out in the
+  // seating. Two reasons: the stands are solid to y 7 and swallow
+  // anything mounted inside them, and a lamp overhanging the field
+  // has a clean sightline from every point on the run. They are
+  // well above head height, so they block nobody.
+  //
+  // Every lamp switches on the same call, and the lower lamp of
+  // every tower clears y 8 - the guarantee the old version missed.
+  // The flank ranks. Both foot on the parapet, so nothing they are
+  // made of touches the running surface.
+  //
+  // Their z positions are chosen AGAINST the distance boards, which
+  // is the thing the previous two layouts both got wrong. Boards sit
+  // at multiples of 25. The old rank stepped 15 from -90, which put
+  // a pole dead centre on the 25, the 100 and the 175. Offsetting it
+  // to -82.5 to separate the two ranks then clipped the edge of four
+  // other boards instead.
+  //
+  // So: the near rank is every 12.5m at ODD multiples of 6.25, and
+  // the far rank every 25m at EVEN multiples of 6.25 that are not
+  // multiples of 25. Every tower is at least 6.25m from the nearest
+  // board against a 2.5m half-width, and the two ranks never share
+  // a z either.
+  const FLANK_X = 48.3;
+  const MARK_CLEAR = MARK_HALF + 1.0;   // 3.5: half the board, plus a
+                                        // 0.55 post, plus margin
+
+  // Belt and braces on top of the phasing above. If a tower ever
+  // does land on a board - because someone retuned the spacing -
+  // it gets pushed clear rather than covering the number.
+  function clearOfMarkers(z) {
+    for (let i = 0; i < MARK_Z.length; i++) {
+      const d = z - MARK_Z[i];
+      if (Math.abs(d) < MARK_CLEAR) {
+        return MARK_Z[i] + (d < 0 ? -MARK_CLEAR : MARK_CLEAR);
+      }
+    }
+    return z;
+  }
+
+  // ONE rank per flank, not two. There used to be a near rank every
+  // 12.5m as well, twenty-eight more towers, and with the floor now
+  // carrying the signal itself it was thirty percent of the length of
+  // the run turned into black housing for no information anybody
+  // needed. The rank that survives is the far one: higher, sparser,
+  // and readable from the far end of the corridor. REP_HY and
+  // REP_SCALE are kept because DECK_CEIL is derived from them and the
+  // gallery, the stairs and the doorways all follow that number - the
+  // near rank is gone, its headroom constraint is not.
+  [-1, 1].forEach((s) => {
+    for (let z = -87.5; z <= 87.5; z += 25) {
+      signalTower(s * FLANK_X, clearOfMarkers(z), s * -90, REP_FAR_SCALE, REP_FAR_HY, PARAPET_TOP);
+    }
+  });
+
+  // and one on each corner of the run, catching the diagonals.
+  // These sit at z +/-109, well past the last board at 75.
+  [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([sx, sz]) => {
+    signalTower(sx * FLANK_X, sz * (FIELD_L / 2 + 9), sx * -45, 1.1, 16, PARAPET_TOP);
+  });
+
+  // ==========================================================
+  // THE STARTING GATE
+  // ==========================================================
+  // Sits on the start threshold, so the waiting crowd is held on
+  // the apron and nobody can steal ground before the first green.
+  // It drops on that green and stays down for the rest of the
+  // round - after that the light is the only thing stopping you.
+  const gate = document.createElement("m-group");
+  gate.setAttribute("z", -FIELD_L / 2);
+  gate.setAttribute("y", 0);
+  arena.append(gate);
+
+  if (START_GATE) {
+    el("m-cube", {
+      y: GATE_H / 2, width: FIELD_W + 2, height: GATE_H, depth: 0.4,
+      color: "#4ec9f0", opacity: GATE_SEE, collide: "true",
+    }, gate);
+
+    // bars and rails, so it reads as a gate rather than a haze
+    for (let x = -FIELD_W / 2; x <= FIELD_W / 2; x += 8) {
+      el("m-cylinder", {
+        x: x, y: GATE_H / 2, radius: 0.11, height: GATE_H, color: GOLD, opacity: 0.75,
+      }, gate);
+    }
+    [0.35, GATE_H - 0.35].forEach((y) => {
+      el("m-cube", {
+        y: y, width: FIELD_W + 2.4, height: 0.28, depth: 0.7, color: GOLD,
+      }, gate);
+    });
+    el("m-label", {
+      y: 2.4, z: -0.45, ry: 180,
+      width: 16, height: 1.5, "font-size": 90,
+      alignment: "center", color: "#0d0d14", "font-color": GOLD,
+      content: "HOLD",
+    }, gate);
+  }
+
+  // Dropped by moving it under the floor, the same way the
+  // portcullises work. Nothing is created or destroyed.
+  function setStartGate(closed) {
+    gate.setAttribute("y", closed ? 0 : -(GATE_H + 12));
+  }
+
+  // ==========================================================
+  // OVERHEAD BEACONS
+  // ==========================================================
+  // Slung from the ceiling straight down the centreline. The flank
+  // repeaters mean turning your head; these mean glancing up, or
+  // just catching the colour in the corner of your eye while you
+  // watch where you are running. The two lamps sit side by side
+  // rather than stacked, so from directly underneath you see both
+  // and it is obvious which one is lit.
+  function beacon(z, y, scale) {
+    const g = document.createElement("m-group");
+    g.setAttribute("z", z);
+    arena.append(g);
+
+    el("m-cylinder", {
+      y: (y + 52) / 2, radius: 0.16, height: 52 - y, color: "#2a1f5c",
+    }, g);
+    el("m-cube", {
+      y: y + 1.5 * scale, width: 9 * scale, height: 0.5 * scale, depth: 1.4 * scale,
+      color: "#0d0d14",
+    }, g);
+
+    const off = 3.1 * scale;
+    const red = el("m-sphere", { x: -off, y: y, radius: 2.0 * scale, color: RED_OFF }, g);
+    const green = el("m-sphere", { x: off, y: y, radius: 2.0 * scale, color: GREEN_OFF }, g);
+    lamps.push({ red: red, green: green });
+  }
+
+  [-80, -40, 0, 40, 80].forEach((z) => beacon(z, 26, 1.5));
+
+  function setSignal(green) {
+    lamps.forEach((l) => {
+      l.red.setAttribute("color", green ? RED_OFF : RED_ON);
+      l.green.setAttribute("color", green ? GREEN_ON : GREEN_OFF);
+    });
+    setFloor(green ? "GREEN" : "RED");
+  }
+
+  // ==========================================================
+  // CAGES ON THE FIELD
+  // ==========================================================
+  // ==========================================================
+  // ROUND STATE
+  // ==========================================================
+  // These live here because the section that used to declare them
+  // went out with the minefield. Without them, startGame() throws
+  // on round++ the moment the fourth digit lands, and the console
+  // looks dead while the code is actually being accepted.
+  let armed = false;
+  let countdown = 0;
+  let round = 0;
+  let caught = 0;
+
+  // cageCount is already declared up in the CAGES section
+  const liveCages = [];
+
+  // Cages are released by the light, not by a stopwatch. Each one
+  // records the green light that frees it, and goGreen() lets out
+  // everyone whose number has come up. Counting cycles rather than
+  // seconds means a long red or a short green never changes how
+  // much of the game a caught player actually misses.
+  let cycle = 0;
+  const held = [];
+  let redId = 0;      // which red a cage was built in
+  let redAt = 0;      // when the current red began
+
+  function cageAt(x, z, owner) {
+    if (cageCount >= MAX_CAGES) return null;
+    const cx = Math.max(-FIELD_W / 2 - 2, Math.min(FIELD_W / 2 + 2, x));
+    const cz = Math.max(-FIELD_L / 2 - 2, Math.min(FIELD_L / 2 + 2, z));
+    const cage = buildCage(cx, cz, cageCount);
+    cageCount++;
+    caught++;
+    // +1 gets them past the green that is about to start; the rest
+    // is however many whole greens they are meant to sit out.
+    held.push({
+      g: cage, freeAt: cycle + HOLD_CYCLES + 1, owner: owner || null,
+      x: cx, z: cz, born: Date.now(), red: redId,
+      occupied: false,   // has anybody been seen INSIDE it yet
+    });
+    return cage;
+  }
+
+  function recOf(g) {
+    for (let i = 0; i < held.length; i++) if (held[i].g === g) return held[i];
+    return null;
+  }
+
+  // A cage somebody has been seen standing inside is doing its job.
+  // One nobody has is either a miss - built behind a runner - or a
+  // false alarm. Only the empty ones are ever moved or swept.
+  function noteOccupied(x, z) {
+    const r = CAGE_A - 0.3;
+    const now = Date.now();
+    for (let i = 0; i < held.length; i++) {
+      const h = held[i];
+      if (h.red !== redId) continue;
+      if (now - h.born < OCC_DELAY) continue;
+      const dx = x - h.x, dz = z - h.z;
+      if (dx * dx + dz * dz <= r * r) { h.occupied = true; h.lastIn = now; }
+    }
+  }
+
+  // A cage's footprint in the floor's alibi list follows the cage.
+  function moveFrozen(ox, oz, nx, nz) {
+    for (let i = 0; i < frozen.length; i++) {
+      if (frozen[i][2] >= 1 && frozen[i][0] === ox && frozen[i][1] === oz) {
+        frozen[i][0] = nx; frozen[i][1] = nz; return;
+      }
+    }
+  }
+  function dropFrozen(ox, oz) {
+    for (let i = frozen.length - 1; i >= 0; i--) {
+      if (frozen[i][2] >= 1 && frozen[i][0] === ox && frozen[i][1] === oz) frozen.splice(i, 1);
+    }
+  }
+
+  function releaseDue() {
+    for (let i = held.length - 1; i >= 0; i--) {
+      if (held[i].freeAt > cycle) continue;
+      const h = held[i];
+      if (h.g && h.g.parentNode) h.g.parentNode.removeChild(h.g);
+      // Hand the occupant back their freedom AND their innocence: no
+      // cage, and no stale frozen point to be judged against.
+      if (h.owner) { h.owner.cage = null; h.owner.froze = null; }
+      cageCount = Math.max(0, cageCount - 1);
+      held.splice(i, 1);
+    }
+  }
+
+  function clearField() {
+    while (cageRoot.firstChild) cageRoot.removeChild(cageRoot.firstChild);
+    liveCages.length = 0;
+    held.length = 0;
+    cycle = 0;
+    cageCount = 0;
+    caught = 0;
+    startedAt = 0;
+    bestTime = 0;
+    byJudge = 0;
+    byFloor = 0;
+    byStop = 0;
+    stopSettled = 0;
+    clearWinner();
+    players.forEach((p) => {
+      p.froze = null;
+      p.cage = null;
+      p.tall = false;
+    });
+  }
+
+  // ==========================================================
+  // WATCHING THE FIELD
+  // ==========================================================
+  // A row of probes rather than one big one. The range attribute
+  // has a modest default and I could not verify how large a value
+  // this runtime will honour, so this covers a 200m field with
+  // overlapping short-range probes instead of betting the whole
+  // game on one long one. If a probe is clamped, its neighbours
+  // still cover the ground.
+  const players = new Map();   // connectionId -> record, see seen()
+
+  // Which identity sources have actually spoken. Nothing is assumed:
+  // if a connectionId arrives on a probe sample or on a floor
+  // contact, that source is live and the judge takes over. If
+  // neither has said anything by ID_VERDICT_MS into a round, the
+  // old anonymous floor logic is switched back on.
+  // v10. v9 had a latch here: the first connectionId to arrive from
+  // anywhere set identity "live" forever, which switched the floor
+  // off permanently. That was wrong, and it is what stopped the
+  // cages catching anybody.
+  //
+  // A connectionId arriving only proves the runtime emits ids. It
+  // does NOT prove the positions attached to them are usable. If the
+  // probes are range-clamped, or cover only part of the field, or
+  // report in a frame that does not line up with the arena, then the
+  // judge can see a player it can never place on the field - and
+  // meanwhile the floor, which CAN see them, has been disabled.
+  // Nothing catches anyone, which is exactly what happened.
+  //
+  // So there is no mode any more. Both detectors run, always. They
+  // are arbitrated per contact instead: the floor stands down only
+  // where identity can prove it is actually watching that spot right
+  // now. Where identity is blind, the floor still works.
+  let idFromProbes = false;   // diagnostics only, never gates anything
+  let idFromPads = false;
+
+  const ID_FRESH_MS = 400;    // a position older than this proves nothing
+  // How close a live sighting has to be to a contact before identity
+  // claims responsibility for it. This CANNOT be a cage's width: a
+  // floor contact is reported somewhere on an 8m pad, so a sighting
+  // of the very same body can legitimately land half a pad diagonal
+  // away. Sized off the pad grid, with margin for the report lag.
+  // NOT a const derived from PAD here - the pad grid is declared
+  // several hundred lines further down and reading it this early is a
+  // dead scene, not a wrong number. Seeded with the value for an 8m
+  // grid and re-derived where the grid is actually built.
+  let ID_COVER_R = 8.2;
+
+  // Is there a player we can positively SEE at this spot, right now?
+  // Not "does identity work" - "is identity watching here, this
+  // instant". That is the only question worth asking, and it answers
+  // itself correctly whether the probes are perfect, partial or junk.
+  function coveredByIdentity(x, z) {
+    const now = Date.now();
+    let covered = false;
+    players.forEach((p) => {
+      if (covered) return;
+      if (now - p.t > ID_FRESH_MS) return;      // stale sighting, no opinion
+      if (!onField(p.x, p.z)) return;           // placed off the arena, junk
+      const dx = p.x - x, dz = p.z - z;
+      if (dx * dx + dz * dz <= ID_COVER_R * ID_COVER_R) covered = true;
+    });
+    return covered;
+  }
+
+  // which detector caught what, so the boards can show it
+  let byJudge = 0;
+  let byFloor = 0;
+
+  // One ingest for both sources. Everything downstream reads this
+  // and nothing downstream cares which one fed it.
+  function seen(id, x, y, z) {
+    const now = Date.now();
+    let p = players.get(id);
+    if (!p) {
+      p = {
+        x: x, y: (typeof y === "number" ? y : 0), z: z, t: now,
+        px: x, pz: z, pt: now,
+        hasY: typeof y === "number",   // floor contacts carry no body height
+        froze: null,      // where they were when this red locked
+        cage: null,       // the ONE cage they own this red
+        tall: false,      // was already in the jump layer before judging
+      };
+      players.set(id, p);
+      return p;
+    }
+    // hold the previous sample back far enough to measure a velocity
+    if (now - p.pt > VEL_MS) { p.px = p.x; p.pz = p.z; p.pt = p.t; }
+    p.x = x; p.z = z; p.t = now;
+    if (typeof y === "number") { p.y = y; p.hasY = true; }
+    return p;
+  }
+
+  // Tightened from +1 to +0.5 on x. The deck's inner edge is at
+  // x 48.9, and at the old tolerance a spectator leaning on the
+  // balustrade counted as being on the field: on a red light the
+  // probes would judge them and drop a cage seven metres below
+  // them, on the floor, for nothing. The floor pads only ever
+  // report out to x 48.3, so nothing on the run changes.
+  function onField(x, z) {
+    return Math.abs(x) <= FIELD_W / 2 + 0.5 &&
+           z >= -FIELD_L / 2 - 1 && z <= FIELD_L / 2 + 1;
+  }
+
+  // The probes now REPORT and do not judge. They used to build cages
+  // themselves, in parallel with the floor pads and with no knowledge
+  // of them, which is how one runner ended up owning several. All
+  // judging happens in exactly one place now - judge(), below.
+  function sample(event) {
+    const d = event && event.detail;
+    if (!d || d.connectionId === undefined) return;
+    const dr = d.documentRelative;
+    if (!dr || !dr.position) return;
+    idFromProbes = true;        // diagnostic flag only
+    const p = dr.position;
+    seen(d.connectionId, p.x, p.y, p.z);
+  }
+
+  function forget(event) {
+    const d = event && event.detail;
+    if (d && d.connectionId !== undefined) players.delete(d.connectionId);
+  }
+
+  PROBE_Z.forEach((pz) => {
+    const probe = document.createElement("m-position-probe");
+    probe.setAttribute("z", pz);
+    probe.setAttribute("y", 1);
+    probe.setAttribute("range", String(PROBE_RANGE));
+    probe.setAttribute("interval", String(PROBE_MS));
+    arena.append(probe);
+    probe.addEventListener("positionenter", sample);
+    probe.addEventListener("positionmove", sample);
+    probe.addEventListener("positionleave", forget);
+  });
+
+  // drop anyone whose leave event never arrived
+  setInterval(() => {
+    const cutoff = Date.now() - PROBE_MS * 8;
+    players.forEach((p, id) => { if (p.t < cutoff) players.delete(id); });
+  }, 2000);
+
+  // ==========================================================
+  // THE JUMP LAYER
+  // ==========================================================
+  // A ceiling of invisible slabs that exists only during red. It
+  // sits above a standing body, so raising it can never trap
+  // anyone who is behaving - and anyone airborne is inside it the
+  // moment their head leaves standing height.
+  //
+  // It is parked underground on green rather than deleted, which
+  // is how Trap Run moved its minefield: the elements are made
+  // once at load and teleported, so nothing is built or destroyed
+  // mid-round.
+  const SKY_COLS = Math.max(1, Math.round(FIELD_W / JUMP_PAD));
+  const SKY_ROWS = Math.max(1, Math.round(FIELD_L / JUMP_PAD));
+  const SKY_W = FIELD_W / SKY_COLS;
+  const SKY_D = FIELD_L / SKY_ROWS;
+  const sky = [];
+
+  function skyHit(px, pz, event) {
+    padHits++;
+    if (!armed || phase !== "RED") return;
+
+    let x = px, z = pz;
+    const hit = event && event.detail && event.detail.position;
+    if (hit && typeof hit.x === "number" && typeof hit.z === "number") {
+      x += hit.x;
+      z += hit.z;
+    }
+    if (!onField(x, z)) return;
+
+    // With identity, the tall-avatar problem solves itself properly
+    // rather than by alibi radius. If somebody is already inside the
+    // slab during the reaction window, they are TALL - their crown
+    // was up there before anybody was being judged. If they are only
+    // in it after judging begins, they left the ground. v8 could not
+    // tell those two apart and had to let both off if either was
+    // near a frozen point.
+    const cid = event && event.detail && event.detail.connectionId;
+    if (typeof cid === "number") {
+      idFromPads = true;
+      const p = seen(cid, x, undefined, z);
+      if (Date.now() < lockAt) { p.tall = true; return; }
+      if (p.tall || p.cage) return;
+      // Only act on identity if we can actually place this body on
+      // the arena. If we cannot, fall through and let the floor have
+      // it - a contact we can see is worth more than an id we cannot
+      // locate.
+      if (onField(p.x, p.z)) { cagePlayer(p); return; }
+    }
+    if (Date.now() < lockAt) return;
+    if (coveredByIdentity(x, z)) return;   // the judge owns this body
+    if (nearStopHold(x, z)) return;        // a stopper has this body
+
+    // Check the SAME alibi list the floor uses, not just cages.
+    // Otherwise a tall avatar - and Otherside has some very tall
+    // avatars - stands still, their crown pokes into the slab, and
+    // they are caged forever for doing nothing. If a body was
+    // already frozen at these coordinates, whatever is up there
+    // belongs to it.
+    for (let i = 0; i < frozen.length; i++) {
+      const dx = frozen[i][0] - x, dz = frozen[i][1] - z;
+      const rr = frozen[i][2];
+      if (dx * dx + dz * dz <= rr * rr) return;
+    }
+
+    // No heading to measure - they are in the air. Throw the cage
+    // down-field, which is where a jumper is going by default.
+    cageAt(x, z + CAGE_LEAD);
+    byFloor++;
+    frozen.push([x, z + CAGE_LEAD, CAGE_A]);
+    tickCount();
+  }
+
+  if (JUMP_LAYER) {
+    for (let r = 0; r < SKY_ROWS; r++) {
+      for (let c = 0; c < SKY_COLS; c++) {
+        const px = -FIELD_W / 2 + SKY_W / 2 + c * SKY_W;
+        const pz = -FIELD_L / 2 + SKY_D / 2 + r * SKY_D;
+        const slab = el("m-cube", {
+          x: px, z: pz, y: SKY_PARK,
+          width: SKY_W + 0.6, height: JUMP_H, depth: SKY_D + 0.6,
+          color: "#000000", opacity: 0,
+          collide: "true", "collision-interval": PAD_MS,
+        }, mineRoot);
+        const onSky = (e) => skyHit(px, pz, e);
+        slab.addEventListener("collisionstart", onSky);
+        slab.addEventListener("collisionmove", onSky);
+        sky.push(slab);
+      }
+    }
+  }
+
+  function setJumpLayer(on) {
+    if (!JUMP_LAYER) return;
+    const y = on ? JUMP_BOTTOM + JUMP_H / 2 : SKY_PARK;
+    for (let i = 0; i < sky.length; i++) sky[i].setAttribute("y", y);
+  }
+
+  // ==========================================================
+  // THE JUDGE - one detector, one cage per person per red
+  // ==========================================================
+  // Everything above only reports positions. This is the only code
+  // in the build that decides somebody moved, and the only code that
+  // builds a cage for it. That is the entire fix: the trail of cages
+  // was two independent detectors both firing on the same runner,
+  // neither able to tell that the contact it just saw was the same
+  // body the other one had already caged.
+  //
+  // Because a cage now belongs to a connectionId rather than to a
+  // patch of floor, "did this person already get caged" is a lookup
+  // instead of a guess about distance and heading. No radius, no
+  // heading tolerance, nothing to tune, and nothing that can merge
+  // two runners or split one.
+
+  function movedFrom(p) {
+    if (!p.froze) return false;
+    const dx = p.x - p.froze.x, dz = p.z - p.froze.z;
+    if (dx * dx + dz * dz > MOVE_TOL * MOVE_TOL) return true;
+    // Only compare heights when BOTH samples carried one. A pads-only
+    // runtime never does, and there the jump layer catches hopping
+    // instead. Comparing a real height against a defaulted zero is a
+    // 1.7m "jump" performed by somebody standing perfectly still.
+    if (!p.hasY || !p.froze.hasY) return false;
+    return (p.y - p.froze.y) > JUMP_TOL;
+  }
+
+  // Throw the cage forward by the runner's OWN measured velocity.
+  // This is short on purpose - a quarter second rather than the
+  // anonymous path's 0.45 - because a cage that knows whose it is
+  // can be corrected onto them afterwards. It does not have to be
+  // right on the first try, which is the assumption that made the
+  // old lead a guess that was wrong at every speed but one.
+  function leadOf(p) {
+    const dt = (p.t - p.pt) / 1000;
+    if (!(dt > 0)) return { x: 0, z: 0 };
+    const vx = (p.x - p.px) / dt, vz = (p.z - p.pz) / dt;
+    const sp = Math.sqrt(vx * vx + vz * vz);
+    if (!(sp > 0.2)) return { x: 0, z: 0 };
+    const d = Math.min(ID_LEAD_MAX, sp * ID_LEAD_TIME);
+    return { x: (vx / sp) * d, z: (vz / sp) * d };
+  }
+
+  function cagePlayer(p) {
+    if (p.cage) return;
+    // Already standing inside a cage from this red - most likely one a
+    // stopper just built around them. Take ownership of that one
+    // rather than throwing a second cage a lead-length ahead of it.
+    for (let i = 0; i < held.length; i++) {
+      const h = held[i];
+      if (h.red !== redId) continue;
+      const dx = p.x - h.x, dz = p.z - h.z;
+      if (dx * dx + dz * dz <= CAGE_A * CAGE_A) {
+        if (!h.owner) h.owner = p;
+        h.occupied = true;
+        p.cage = { g: h.g, x: h.x, z: h.z, fixes: CAGE_FIXES, until: 0 };
+        p.froze = null;
+        return;
+      }
+    }
+    // A stopper caught somebody near here a moment ago and the report
+    // we are holding for this player is from before they hit it. That
+    // cage is theirs.
+    const hold = nearStopHold(p.x, p.z);
+    if (hold) {
+      for (let i = 0; i < held.length; i++) {
+        const h = held[i];
+        if (!h.stopper || h.owner || h.red !== redId) continue;
+        if (h.x !== hold[0] || h.z !== hold[1]) continue;
+        h.owner = p;
+        p.cage = { g: h.g, x: h.x, z: h.z, fixes: CAGE_FIXES, until: 0 };
+        p.froze = null;
+        return;
+      }
+    }
+    const lead = leadOf(p);
+    const cx = p.x + lead.x, cz = p.z + lead.z;
+    const g = cageAt(cx, cz, p);
+    if (!g) return;
+    byJudge++;
+    // Tell the FLOOR about it. `frozen` is the floor's alibi list and
+    // it already stands down inside a cage volume - the judge simply
+    // was not writing to it, so the floor kept seeing a body it
+    // thought nobody had dealt with and threw cage after cage at it.
+    // This is the other half of the line-of-cages fix.
+    frozen.push([cx, cz, CAGE_A]);
+    p.cage = { g: g, x: cx, z: cz, fixes: 0, until: Date.now() + CAGE_FIX_MS };
+    p.froze = null;
+    tickCount();
+  }
+
+  // If the cage landed off them - too much lead, a stale report, a
+  // sharp turn - move it onto them instead of building another one.
+  // This is what replaces the line of cages: same runner, same cage,
+  // it just catches up.
+  const CAGE_GRIP = Math.max(1.0, CAGE_A - 0.5);
+  function correctCage(p) {
+    const c = p.cage;
+    if (!c || !c.g) return;
+    if (c.fixes >= CAGE_FIXES || Date.now() > c.until) return;
+    const dx = p.x - c.x, dz = p.z - c.z;
+    if (dx * dx + dz * dz <= CAGE_GRIP * CAGE_GRIP) {   // already inside
+      const h = recOf(c.g);
+      if (h) { h.occupied = true; h.lastIn = Date.now(); }
+      return;
+    }
+    c.fixes++;
+    const h = recOf(c.g);
+    moveFrozen(c.x, c.z, p.x, p.z);
+    c.x = p.x; c.z = p.z;
+    if (h) { h.x = c.x; h.z = c.z; }
+    c.g.setAttribute("x", c.x);
+    c.g.setAttribute("z", c.z);
+  }
+
+  function judge() {
+    // No capability gate. If the roster is empty or nobody in it can
+    // be placed on the field, this loop simply does nothing and the
+    // floor carries the round on its own.
+    if (!armed || phase !== "RED") return;
+    const now = Date.now();
+    if (now < lockAt) return;             // reaction window still open
+
+    players.forEach((p) => {
+      if (now - p.t > STALE_MS) return;   // not heard from. Silence is not guilt.
+      if (p.cage) { correctCage(p); return; }
+      if (!onField(p.x, p.z)) { p.froze = null; return; }
+
+      // First sight of them since judging began - wherever they are
+      // now is where they are allowed to be. Anyone who walks onto
+      // the field mid-red gets the same deal.
+      if (!p.froze) { p.froze = { x: p.x, y: p.y, z: p.z, hasY: p.hasY }; return; }
+
+      if (movedFrom(p)) { noteMover(p.x, p.z); cagePlayer(p); }
+    });
+  }
+
+  setInterval(judge, JUDGE_MS);
+
+  // ==========================================================
+  // THE LIGHT CYCLE
+  // ==========================================================
+  let phase = "OFF";
+  let lockAt = 0;
+  let cycleTimer = 0;
+
+  function goGreen() {
+    phase = "GREEN";
+    cycle++;
+    releaseDue();
+    if (cycle === 1) setStartGate(false);   // the round is properly on
+    setSignal(true);
+    setBanner("GREEN", "#5ef0b8");
+    players.forEach((p) => { p.froze = null; p.tall = false; });
+    frozen = [];
+    locked = false;
+    tracks = [];
+    setJumpLayer(false);
+    parkStoppers();
+
+    const ms = GREEN_MIN * 1000 + Math.random() * (GREEN_MAX - GREEN_MIN) * 1000;
+    cycleTimer = setTimeout(goRed, ms);
+  }
+
+  function goRed() {
+    phase = "RED";
+    setSignal(false);
+    setBanner("RED", "#ff2d3d");
+
+    // Nobody is judged until the grace window closes. A player who
+    // stops the instant the light changes can still have one stale
+    // position update in flight; without this the game punishes
+    // whoever has the worst connection.
+    lockAt = Date.now() + GRACE_MS;
+    // Fresh red: everybody is re-frozen where judge() first sees them
+    // once the reaction window closes, and the tall/short verdict on
+    // the jump layer is taken again. A cage in progress is NOT
+    // cleared - its owner keeps it until the cycle counter frees them.
+    players.forEach((p) => { p.froze = null; p.tall = false; });
+    // During the grace window every pad contact is recorded as a
+    // frozen position. After lockAt, anything not near one of them
+    // is movement.
+    frozen = [];
+    locked = false;
+    tracks = [];
+    // padLast is NOT cleared: it is the rolling record of where
+    // bodies have been, and it is what gives a quiet player an
+    // alibi. The speed test below ignores anything older than a few
+    // hundred ms, so stale entries cannot trigger a false catch.
+    setJumpLayer(true);
+
+    // The stoppers come up when judging starts, not when the light
+    // turns - a body still braking in the reaction window must not
+    // be walled in mid-stride.
+    redId++;
+    redAt = Date.now();
+    graceSeen = [];
+    parkStoppers();
+    if (STOPPERS) stopTimer = setTimeout(raiseStoppers, GRACE_MS);
+
+    const ms = RED_MIN * 1000 + Math.random() * (RED_MAX - RED_MIN) * 1000;
+    cycleTimer = setTimeout(goGreen, Math.max(GRACE_MS + 600, ms));
+  }
+
+  function beginCycle() {
+    stopCycle();
+    goGreen();
+  }
+
+
+  // ==========================================================
+  // THE WATCH FLOOR - the detection that is actually proven
+  // ==========================================================
+  // Position probes are unverified in this runtime. Collision
+  // pads are not: Trap Run's minefield ran on exactly this
+  // mechanism, in this arena, and worked. So the game is built on
+  // pads, and the probes above are kept only as a second opinion.
+  //
+  // Pads are FLAT - 0.36 tall, like the finish sensor. A tall pad
+  // is an invisible wall. Learned that one the hard way.
+  //
+  // Identity is not needed. What matters is: was there contact at
+  // a point that nobody was frozen at? At the moment red locks in,
+  // every contact point on the field is recorded as a frozen
+  // position. After that, any contact more than MOVE_TOL from
+  // every frozen point means somebody is somewhere they were not,
+  // and a cage goes up on that spot.
+  const PAD = 8;                        // pad size, metres. Smaller means
+                                        // fewer players share a pad, which
+                                        // is what makes the per-pad speed
+                                        // check below safe to use.
+  const PAD_COLS = Math.max(1, Math.round(FIELD_W / PAD));
+  const PAD_ROWS = Math.max(1, Math.round(FIELD_L / PAD));
+  const PAD_W = FIELD_W / PAD_COLS;
+  const PAD_D = FIELD_L / PAD_ROWS;
+
+  // now that the grid exists, size identity's coverage radius to it
+  ID_COVER_R = Math.hypot(PAD_W, PAD_D) / 2 + 2.5;
+
+  let frozen = [];       // [x, z, radius] recorded when red locks in
+  let locked = false;    // has this red phase seeded its alibi list yet
+  let padHits = 0;       // diagnostic: contacts seen this round
+
+  // How far back to trust a contact as proof somebody was standing
+  // somewhere. A motionless player may report rarely - some runtimes
+  // only fire collisionmove when the contact point actually moves -
+  // so relying on a report landing inside the one second grace
+  // window is exactly how a still player ends up with no alibi and
+  // gets caged over and over.
+  const ALIBI_MS = 6000;
+
+  // Second detector, independent of the frozen list. The frozen test
+  // asks "is this somewhere nobody was standing" - which a player can
+  // in principle beat by staying near a legitimate frozen point. This
+  // one asks "did the contact on this pad just travel", which nothing
+  // stationary can trigger. Either test catches you.
+  const padLast = new Map();   // pad index -> { x, z, t }
+
+  // Cages built moments ago, with the heading they were thrown along.
+  let tracks = [];
+
+  // true if this detection is the same runner as a cage just built
+  function sameRunner(x, z, hx, hz) {
+    const now = Date.now();
+    for (let i = tracks.length - 1; i >= 0; i--) {
+      if (now - tracks[i].t > TRACK_MS) { tracks.splice(i, 1); continue; }
+      const dx = x - tracks[i].x, dz = z - tracks[i].z;
+      if (dx * dx + dz * dz > TRACK_R * TRACK_R) continue;
+      if (hx * tracks[i].hx + hz * tracks[i].hz < 0.3) continue;
+      tracks[i].t = now; tracks[i].x = x; tracks[i].z = z;
+      return true;
+    }
+    tracks.push({ x: x, z: z, hx: hx, hz: hz, t: now });
+    return false;
+  }
+
+  function leadFor(speed) {
+    if (!(speed > 0)) return CAGE_LEAD;
+    return Math.max(LEAD_MIN, Math.min(LEAD_MAX, speed * LEAD_TIME));
+  }
+
+  function contact(px, pz, idx, event) {
+    padHits++;
+
+    // Work out where the contact is FIRST, and record it, whatever
+    // the light is doing. The rolling record has to be kept during
+    // green as well as red - it is the only proof a quiet player was
+    // ever standing anywhere, and building it only during red left
+    // exactly those players with no alibi.
+    let x = px, z = pz, exact = false;
+    const hit = event && event.detail && event.detail.position;
+    if (hit && typeof hit.x === "number" && typeof hit.z === "number") {
+      x += hit.x;
+      z += hit.z;
+      exact = true;
+    }
+    if (!onField(x, z)) return;
+    if (phase === "RED") noteOccupied(x, z);
+
+    // Identity first. If the runtime puts a connectionId on a floor
+    // contact then this pad has just told us WHO is standing on it,
+    // which is worth more than every heuristic below it. Feed the
+    // roster and get out - judge() does the rest, and it is the only
+    // thing allowed to build a cage.
+    const cid = event && event.detail && event.detail.connectionId;
+    if (typeof cid === "number") {
+      idFromPads = true;
+      seen(cid, x, undefined, z);
+    }
+
+    // ---- the floor detector, which now ALWAYS runs ----
+    // It no longer waits for a verdict on whether identity works.
+    // It does its full job every time and stands down at one single
+    // point - the moment before it would build a cage - if identity
+    // can prove it is watching that exact spot. See the guards on
+    // each cageAt below.
+    const now = Date.now();
+    const prev = padLast.get(idx);
+    padLast.set(idx, { x: x, z: z, t: now, exact: exact });
+
+    if (!armed || phase !== "RED") return;
+    if (now < lockAt) return;             // grace window still open
+
+    // First judged contact of this red: everyone the floor has seen
+    // recently counts as standing where it last saw them, whether or
+    // not they happened to report during the grace window.
+    if (!locked) {
+      locked = true;
+      padLast.forEach((p) => {
+        if (now - p.t <= ALIBI_MS) frozen.push([p.x, p.z, MOVE_TOL]);
+      });
+    }
+
+    // Evidence for the stoppers: is this contact somewhere nobody was
+    // standing? Recorded whatever the floor then decides to do about
+    // it - build, defer to identity, or treat as the same runner.
+    let standing = false;
+    for (let i = 0; i < frozen.length; i++) {
+      if (frozen[i][2] >= 1) continue;
+      const fx = x - frozen[i][0], fz = z - frozen[i][1];
+      if (fx * fx + fz * fz <= (MOVE_TOL + 0.3) * (MOVE_TOL + 0.3)) { standing = true; break; }
+    }
+    if (!standing && exact) noteMover(x, z);
+
+    // A reactive cage can land just AHEAD of a runner - they hit its
+    // outer wall and stop there, outside it, which is a stop but not a
+    // catch. If somebody who has been moving is now PINNED against the
+    // outside of a young, empty cage - seen at this same spot a moment
+    // ago as well - slide it back onto them. Pinned, not passing: a
+    // runner going by an empty cage must not drag it onto a bystander,
+    // and a player standing still is never a mover in the first place.
+    if (!standing && exact && pinnedAt(x, z) && nudgeOnto(x, z)) return;
+
+    // --- speed test ---------------------------------------------
+    if (prev) {
+      const gx = x - prev.x, gz = z - prev.z;
+      const gone = Math.sqrt(gx * gx + gz * gz);
+      const dt = now - prev.t;
+      if (dt <= SPEED_WINDOW && gone > SPRINT_TOL && gone < SPRINT_MAX) {
+        // Moving, measured directly - so both the heading AND the
+        // speed are known, and the cage can be thrown to where the
+        // body will actually be rather than a fixed guess.
+        const hx = gx / gone, hz = gz / gone;
+        if (sameRunner(x, z, hx, hz)) return;   // already has a cage. no trail.
+        const lead = leadFor(gone / (dt / 1000));
+        const lx = x + hx * lead;
+        const lz = z + hz * lead;
+        let inside = false;
+        for (let i = 0; i < frozen.length; i++) {
+          if (frozen[i][2] < 1) continue;            // only cage volumes
+          const fx = frozen[i][0] - x, fz = frozen[i][1] - z;
+          if (fx * fx + fz * fz <= frozen[i][2] * frozen[i][2]) { inside = true; break; }
+        }
+        if (!inside && !coveredByIdentity(x, z) && !nearStopHold(x, z)) {
+          cageAt(lx, lz);
+          byFloor++;
+          frozen.push([lx, lz, CAGE_A]);
+          padLast.delete(idx);
+          tickCount();
+          return;
+        }
+      }
+    }
+
+    // Within tolerance of somewhere a body was already standing?
+    // Then it is that body, still standing there. Each frozen
+    // point carries its own radius: a standing player is a point
+    // with MOVE_TOL around it, but a cage is a volume, and someone
+    // shifting about inside their own cage must not earn a second.
+    // The nearest frozen point is kept, because the line from it to
+    // here is the direction the runner is travelling.
+    let nearX = 0, nearZ = 0, nearD = Infinity, found = false;
+    for (let i = 0; i < frozen.length; i++) {
+      const dx = x - frozen[i][0];
+      const dz = z - frozen[i][1];
+      const d2 = dx * dx + dz * dz;
+      const rr = frozen[i][2];
+      if (d2 <= rr * rr) return;
+      if (d2 < nearD) { nearD = d2; nearX = frozen[i][0]; nearZ = frozen[i][1]; found = true; }
+    }
+
+    // Nobody was frozen here, so somebody moved. Throw the cage
+    // forward along their heading rather than dropping it on the
+    // spot the pad reported - by the time it exists they are past
+    // that point. Where the heading is unusable, fall back to
+    // down-field, which is where a runner is going by default.
+    let cx = x, cz = z;
+    const vx = x - nearX, vz = z - nearZ;
+    const mag = found ? Math.sqrt(vx * vx + vz * vz) : 0;
+
+    // Use a speed measured on this pad a moment ago if there is one;
+    // otherwise fall back to the old fixed distance.
+    let lead = CAGE_LEAD;
+    if (prev) {
+      const px2 = x - prev.x, pz2 = z - prev.z;
+      const pd = Math.sqrt(px2 * px2 + pz2 * pz2);
+      const pdt = now - prev.t;
+      if (pd > 0.02 && pdt > 0 && pdt <= SPEED_WINDOW) lead = leadFor(pd / (pdt / 1000));
+    }
+    if (mag > 0.05) {
+      cx = x + (vx / mag) * lead;
+      cz = z + (vz / mag) * lead;
+    } else {
+      cz = z + lead;
+    }
+
+    if (mag > 0.05 && sameRunner(x, z, vx / mag, vz / mag)) return;
+
+    // The one place the floor defers. If a live, on-field sighting
+    // sits within a cage's width of this contact, the judge owns
+    // that body and will deal with it; anything else is ours.
+    if (coveredByIdentity(x, z)) return;
+    if (nearStopHold(x, z)) return;       // a stopper has this runner
+
+    cageAt(cx, cz);
+    byFloor++;
+    // Only the cage INTERIOR is suppressed. The walls are solid, so
+    // anyone reporting within CAGE_A of the centre is the occupant.
+    // The old CAGE_A + 0.6 reached past the walls and handed a
+    // moving player immunity for running close to somebody's cage.
+    frozen.push([cx, cz, CAGE_A]);
+    tickCount();
+  }
+
+  function freezeNow(px, pz, idx, event) {
+    padHits++;
+    if (!armed || phase !== "RED") return;
+    if (Date.now() >= lockAt) return;     // too late, judging has begun
+
+    let x = px, z = pz;
+    const hit = event && event.detail && event.detail.position;
+    if (hit && typeof hit.x === "number" && typeof hit.z === "number") {
+      x += hit.x;
+      z += hit.z;
+    }
+    if (onField(x, z)) {
+      frozen.push([x, z, MOVE_TOL]);
+      graceSeen.push([x, z, MOVE_TOL]);
+    }
+  }
+
+  for (let r = 0; r < PAD_ROWS; r++) {
+    for (let c = 0; c < PAD_COLS; c++) {
+      const px = -FIELD_W / 2 + PAD_W / 2 + c * PAD_W;
+      const pz = -FIELD_L / 2 + PAD_D / 2 + r * PAD_D;
+
+      const pad = el("m-cube", {
+        x: px, z: pz, y: 0.18,
+        width: PAD_W + 0.6, height: 0.36, depth: PAD_D + 0.6,
+        color: "#000000", opacity: 0,
+        collide: "true", "collision-interval": PAD_MS,
+      }, mineRoot);
+
+      const idx = r * PAD_COLS + c;
+      const onHit = (e) => { freezeNow(px, pz, idx, e); contact(px, pz, idx, e); };
+      pad.addEventListener("collisionstart", onHit);
+      pad.addEventListener("collisionmove", onHit);
+    }
+  }
+
+  // ==========================================================
+  // THE STOPPERS (v11) - the part that actually stops a runner
+  // ==========================================================
+  // Everything above this line notices a move and reacts to it,
+  // and a runner holding forward outruns every reaction. These do
+  // not react. They are already standing there when the runner
+  // arrives, and they are solid, so the runner stops against one
+  // on their own screen with no round trip at all - exactly what
+  // Trap Run's traps do. The contact that stops them is also the
+  // contact that reports them, from the exact spot they stopped.
+  //
+  // Same height rule as Trap Run: the surface bodies stand on is the
+  // shell top at y 0, so each block runs -0.6 to 3.4. You walk INTO
+  // it, never onto it, and nobody hops it. Parked at SKY_PARK the
+  // rest of the time, so on green the floor is as open as ever.
+  const STOP_COLS = Math.max(1, Math.round(FIELD_W / STOP_PITCH));
+  const STOP_ROWS = Math.max(1, Math.round(FIELD_L / STOP_PITCH));
+  const STOP_W = FIELD_W / STOP_COLS;
+  const STOP_D = FIELD_L / STOP_ROWS;
+  const STOP_HW = STOP_W / 2 + 0.1;     // half-extent, with a small overlap
+  const STOP_HD = STOP_D / 2 + 0.1;     // so neighbours leave no seam
+  const STOP_H = 4;
+  const STOP_Y = STOP_H / 2 - 0.6;      // -0.6 to 3.4
+  const PAD_HALF_DIAG = Math.hypot(PAD_W, PAD_D) / 2;
+
+  const stoppers = [];
+  let stopTimer = 0;
+  let graceSeen = [];   // contacts from the reaction window, for placement
+  let stopAlibi = [];   // [x, z, r] settle contacts this red
+  let byStop = 0;       // cages built by a stopper
+  let stopSettled = 0;  // rise-on contacts let off
+  let movers = [];      // [x, z, t] places something was seen moving this red
+  let stopHolds = [];   // [x, z, t] where a stopper just caught somebody
+
+  // For a moment after a stopper catch, contacts still arriving from
+  // around it are that runner's approach, already in flight when the
+  // wall stopped them. The floor must not build cages off them. It is
+  // safe to be generous here, because the stoppers themselves are
+  // what catches anyone else who moves nearby.
+  function nearStopHold(x, z) {
+    const now = Date.now();
+    const rr = STOP_ADOPT_R * STOP_ADOPT_R;
+    for (let i = stopHolds.length - 1; i >= 0; i--) {
+      if (now - stopHolds[i][2] > STOP_ADOPT_MS) { stopHolds.splice(i, 1); continue; }
+      const dx = x - stopHolds[i][0], dz = z - stopHolds[i][1];
+      if (dx * dx + dz * dz <= rr) return stopHolds[i];
+    }
+    return null;
+  }
+
+  function noteMover(x, z) {
+    const now = Date.now();
+    movers.push([x, z, now]);
+    if (movers.length > 400) movers = movers.filter((m) => now - m[2] <= STOP_EVIDENCE_MS);
+  }
+
+  function moverNear(x, z) {
+    const now = Date.now();
+    const rr = STOP_EVIDENCE_R * STOP_EVIDENCE_R;
+    for (let i = movers.length - 1; i >= 0; i--) {
+      if (now - movers[i][2] > STOP_EVIDENCE_MS) continue;
+      const dx = x - movers[i][0], dz = z - movers[i][1];
+      if (dx * dx + dz * dz <= rr) return true;
+    }
+    return false;
+  }
+
+  function parkStopper(st) {
+    if (!st.up) return;
+    st.up = false;
+    st.el.setAttribute("y", SKY_PARK);
+  }
+
+  function parkStoppers() {
+    if (stopTimer) clearTimeout(stopTimer);
+    stopTimer = 0;
+    stopAlibi = [];
+    movers = [];
+    stopHolds = [];
+    for (let i = 0; i < stoppers.length; i++) parkStopper(stoppers[i]);
+  }
+
+  // Up everywhere EXCEPT near a body we know is standing still.
+  // What counts as known: anything seen in the reaction window, any
+  // floor contact since the light turned, any fresh identity
+  // sighting, and every cage on the field. Deliberately NOT the older
+  // rolling floor record: that is a trail of where people ran through
+  // on green, and honouring it would punch a corridor of holes down
+  // the run for somebody to sprint along.
+  function raiseStoppers() {
+    stopTimer = 0;
+    if (!STOPPERS || !armed || phase !== "RED") return;
+    const now = Date.now();
+
+    const keep = graceSeen.slice();
+    padLast.forEach((p) => {
+      if (p.t < redAt - 300) return;
+      // a contact with no position is only known to be somewhere on
+      // its pad, so the whole pad is kept clear
+      keep.push([p.x, p.z, p.exact ? MOVE_TOL : PAD_HALF_DIAG]);
+    });
+    players.forEach((p) => {
+      if (now - p.t <= STALE_MS && onField(p.x, p.z)) keep.push([p.x, p.z, MOVE_TOL]);
+    });
+    held.forEach((h) => keep.push([h.x, h.z, CAGE_A + 0.6]));
+
+    for (let i = 0; i < stoppers.length; i++) {
+      const st = stoppers[i];
+      st.excused = false;
+      st.lastCatch = null;
+      let clear = true;
+      for (let k = 0; k < keep.length; k++) {
+        // distance from the point to the block's footprint
+        const ex = Math.max(0, Math.abs(keep[k][0] - st.x) - STOP_HW);
+        const ez = Math.max(0, Math.abs(keep[k][1] - st.z) - STOP_HD);
+        const rr = keep[k][2] + STOP_CLEAR;
+        if (ex * ex + ez * ez < rr * rr) { clear = false; break; }
+      }
+      if (!clear) { parkStopper(st); continue; }
+      if (!st.up) {
+        st.up = true;
+        st.rose = now;
+        st.el.setAttribute("y", STOP_Y);
+      }
+    }
+  }
+
+  // Where is the body that touched this block, if the event did not
+  // say? The freshest sighting near it, from either source.
+  function sightingNear(st) {
+    const now = Date.now();
+    let best = null, bestT = 0;
+    const rx = STOP_HW + 3, rz = STOP_HD + 3;
+    const consider = (x, z, t) => {
+      if (Math.abs(x - st.x) > rx || Math.abs(z - st.z) > rz) return;
+      if (t > bestT) { bestT = t; best = { x: x, z: z }; }
+    };
+    padLast.forEach((p) => { if (p.exact && now - p.t <= 400) consider(p.x, p.z, p.t); });
+    players.forEach((p) => { if (now - p.t <= ID_FRESH_MS) consider(p.x, p.z, p.t); });
+    return best;
+  }
+
+  // Has whoever was in this cage been seen LEAVING it, towards (x, z),
+  // since the last time anyone was seen inside it? A runner a cage
+  // landed on for a moment before they ran out of it looks occupied -
+  // their contacts were inside it - but they have left a trail of
+  // movement out the far side since. A player really standing in it
+  // has not.
+  function abandoned(h, x, z) {
+    if (!h.occupied) return true;
+    const since = h.lastIn || h.born;
+    const toCatch = Math.hypot(x - h.x, z - h.z);
+    for (let i = 0; i < movers.length; i++) {
+      const m = movers[i];
+      if (m[2] <= since) continue;
+      const out = Math.hypot(m[0] - h.x, m[1] - h.z);
+      if (out <= CAGE_A + 0.3) continue;                 // still inside it
+      if (Math.hypot(m[0] - x, m[1] - z) < toCatch + 1) return true;
+    }
+    return false;
+  }
+
+  // The empty cage nearest this spot built this red, if there is one
+  // young enough to have been chasing whoever is here.
+  function chasingCage(x, z) {
+    const now = Date.now();
+    let best = null, bestD = STOP_ADOPT_R * STOP_ADOPT_R;
+    for (let i = 0; i < held.length; i++) {
+      const h = held[i];
+      if (h.red !== redId || h.stopper || now - h.born > STOP_ADOPT_MS) continue;
+      if (!abandoned(h, x, z)) continue;
+      const dx = x - h.x, dz = z - h.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < bestD) { bestD = d2; best = h; }
+    }
+    return best;
+  }
+
+  function removeCage(h) {
+    if (h.g && h.g.parentNode) h.g.parentNode.removeChild(h.g);
+    if (h.owner && h.owner.cage && h.owner.cage.g === h.g) h.owner.cage = null;
+    dropFrozen(h.x, h.z);
+    const i = held.indexOf(h);
+    if (i >= 0) held.splice(i, 1);
+    cageCount = Math.max(0, cageCount - 1);
+    caught = Math.max(0, caught - 1);
+  }
+
+  // Where the body that touched this block actually is.
+  function stopSpot(st, x, z) {
+    const dx = x - st.x, dz = z - st.z;
+    // Deep inside the footprint: the block reached their screen after
+    // they had already run onto that ground - a laggy runner, or a very
+    // fast one. They are standing where the contact says, not at a face.
+    if (STOP_HW - Math.abs(dx) > 0.6 && STOP_HD - Math.abs(dz) > 0.6) {
+      return { x: x, z: z, nx: 0, nz: 0 };
+    }
+    // Otherwise centre the cage just outside the face they hit. They are
+    // pressed against it, so that is where they are - and they are
+    // standing still, so it is still where they are when it arrives.
+    if (Math.abs(dx) / STOP_HW >= Math.abs(dz) / STOP_HD) {
+      const nx = dx < 0 ? -1 : 1;
+      return { x: st.x + nx * (STOP_HW + STOP_BACK), z: z, nx: nx, nz: 0 };
+    }
+    const nz = dz < 0 ? -1 : 1;
+    return { x: x, z: st.z + nz * (STOP_HD + STOP_BACK), nx: 0, nz: nz };
+  }
+
+  function placeCage(h, x, z) {
+    moveFrozen(h.x, h.z, x, z);
+    h.x = x; h.z = z;
+    h.g.setAttribute("x", x);
+    h.g.setAttribute("z", z);
+    if (h.owner && h.owner.cage && h.owner.cage.g === h.g) {
+      h.owner.cage.x = x;
+      h.owner.cage.z = z;
+      h.owner.cage.until = 0;   // the stopper is ground truth now
+    }
+  }
+
+  function pinnedAt(x, z) {
+    const now = Date.now();
+    for (let i = 0; i < movers.length; i++) {
+      const age = now - movers[i][2];
+      if (age < 200 || age > 1200) continue;
+      const dx = x - movers[i][0], dz = z - movers[i][1];
+      if (dx * dx + dz * dz <= 0.36) return true;
+    }
+    return false;
+  }
+
+  function nudgeOnto(x, z) {
+    const now = Date.now();
+    const outer = CAGE_A + 1.6;
+    for (let i = 0; i < held.length; i++) {
+      const h = held[i];
+      if (h.red !== redId || h.stopper || h.occupied) continue;
+      if (now - h.born > STOP_ADOPT_MS || (h.nudges || 0) >= 3) continue;
+      const dx = h.x - x, dz = h.z - z;
+      const d = Math.sqrt(dx * dx + dz * dz);
+      if (d <= CAGE_A || d > outer) continue;
+      h.nudges = (h.nudges || 0) + 1;
+      placeCage(h, x + (dx / d) * STOP_BACK, z + (dz / d) * STOP_BACK);
+      return true;
+    }
+    return false;
+  }
+
+  function catchAtStopper(st, x, z) {
+    const spot = stopSpot(st, x, z);
+    const cx = spot.x, cz = spot.z, nx = spot.nx, nz = spot.nz;
+    const now = Date.now();
+
+    // This block caught somebody a moment ago, right here, and this
+    // contact is outside that cage - so the first placement missed and
+    // this is the same body still touching the same block. Move the
+    // cage onto them. Never a second cage off the same block.
+    const last = st.lastCatch;
+    if (last && held.indexOf(last.h) >= 0 && now - last.t < STOP_ADOPT_MS && last.moves < 4) {
+      const ex = x - last.h.x, ez = z - last.h.z;
+      const reach = CAGE_A + STOP_BACK + 2.5;
+      if (ex * ex + ez * ez <= reach * reach) {
+        last.moves++;
+        placeCage(last.h, cx, cz);
+        stopHolds.push([cx, cz, now]);
+        return;
+      }
+    }
+    const chase = chasingCage(cx, cz);
+    let mine = null;
+    if (chase) {
+      // One of the reactive detectors already threw a cage at this
+      // runner and missed. Pick it up and put it on them.
+      placeCage(chase, cx, cz);
+      mine = chase;
+    } else {
+      const g = cageAt(cx, cz);
+      if (!g) return;
+      frozen.push([cx, cz, CAGE_A]);
+      byStop++;
+      mine = recOf(g);
+    }
+    if (mine) {
+      mine.occupied = true;
+      mine.born = now;
+      mine.stopper = true;
+      st.lastCatch = { h: mine, t: now, moves: 0 };
+    }
+    stopHolds.push([cx, cz, now]);
+
+    // And sweep the rest of the trail: any other empty cage thrown in
+    // this runner's wake this red. Only EMPTY ones - a cage somebody
+    // is still standing in is never touched - and only BEHIND them, on
+    // the side of the face they came from.
+    for (let i = held.length - 1; i >= 0; i--) {
+      const h = held[i];
+      if (h === mine || h.red !== redId || h.stopper) continue;
+      if (now - h.born > STOP_ADOPT_MS) continue;
+      if (!abandoned(h, cx, cz)) continue;
+      const ex = h.x - cx, ez = h.z - cz;
+      if (ex * ex + ez * ez > STOP_ADOPT_R * STOP_ADOPT_R) continue;
+      if (ex * nx + ez * nz < -1.0) continue;   // ahead of the wall, not theirs
+      removeCage(h);
+    }
+    tickCount();
+  }
+
+  function stopperHit(st, event) {
+    padHits++;
+    if (!armed || phase !== "RED" || !st.up) return;
+    const now = Date.now();
+
+    let x = st.x, z = st.z, exact = false;
+    const hit = event && event.detail && event.detail.position;
+    if (hit && typeof hit.x === "number" && typeof hit.z === "number" &&
+        Math.abs(hit.x) <= STOP_W && Math.abs(hit.z) <= STOP_D) {
+      x += hit.x; z += hit.z; exact = true;
+    } else {
+      const s2 = sightingNear(st);
+      if (s2) { x = s2.x; z = s2.z; exact = true; }
+    }
+
+    // The ends of the run face the aprons. A body touching a block
+    // from beyond the start or finish line is not on the field.
+    if (exact && (z < -FIELD_L / 2 + 0.05 || z > FIELD_L / 2 - 0.05)) return;
+
+    // Already inside a cage - pressing on a block from in there.
+    if (exact) {
+      for (let i = 0; i < frozen.length; i++) {
+        const rr = frozen[i][2];
+        if (rr < 1) continue;
+        const fx = x - frozen[i][0], fz = z - frozen[i][1];
+        if (fx * fx + fz * fz <= rr * rr) return;
+      }
+    }
+
+    if (!exact) { st.excused = true; return; }   // no position, no cage - the floor has it
+    if (st.excused) return;
+    for (let i = 0; i < stopAlibi.length; i++) {
+      const ax = x - stopAlibi[i][0], az = z - stopAlibi[i][1];
+      if (ax * ax + az * az <= stopAlibi[i][2] * stopAlibi[i][2]) return;
+    }
+
+    // Let off if nothing has been seen moving right where you are
+    // touching it: the block came up beside you, you did not run into
+    // it. A runner holding forward cannot pass this - the floor watched
+    // their feet all the way up to the face.
+    if (!moverNear(x, z)) {
+      stopSettled++;
+      stopAlibi.push([x, z, STOP_ALIBI_R]);
+      return;
+    }
+
+    catchAtStopper(st, x, z);
+  }
+
+  if (STOPPERS) {
+    for (let r = 0; r < STOP_ROWS; r++) {
+      for (let c = 0; c < STOP_COLS; c++) {
+        const sx = -FIELD_W / 2 + STOP_W / 2 + c * STOP_W;
+        const sz = -FIELD_L / 2 + STOP_D / 2 + r * STOP_D;
+        const block = el("m-cube", {
+          x: sx, z: sz, y: SKY_PARK,
+          width: STOP_HW * 2, height: STOP_H, depth: STOP_HD * 2,
+          color: "#ff2d3d", opacity: STOP_SEE,
+          collide: "true", "collision-interval": PAD_MS,
+        }, mineRoot);
+        const st = { el: block, x: sx, z: sz, up: false, rose: 0, excused: false, lastCatch: null };
+        const onStop = (e) => stopperHit(st, e);
+        block.addEventListener("collisionstart", onStop);
+        block.addEventListener("collisionmove", onStop);
+        stoppers.push(st);
+      }
+    }
+  }
+
+  function stopCycle() {
+    if (cycleTimer) clearTimeout(cycleTimer);
+    cycleTimer = 0;
+    phase = "OFF";
+    lockAt = 0;
+    setSignal(false);
+    setJumpLayer(false);
+    parkStoppers();
+    frozen = [];
+    locked = false;
+    tracks = [];
+    padLast.clear();
+    players.forEach((p) => { p.froze = null; p.cage = null; p.tall = false; });
+    lamps.forEach((l) => {
+      l.red.setAttribute("color", RED_OFF);
+      l.green.setAttribute("color", GREEN_OFF);
+    });
+    // setSignal(false) above lit the floor red on its way past. The
+    // cycle is stopping, not turning red, so put it back to neutral.
+    setFloor("OFF");
+    players.forEach((p) => { p.snap = null; });
+  }
+
+  // ==========================================================
+  // THE WINNER'S BOX
+  // ==========================================================
+  // One per round, first body over the line, and nothing else in
+  // the build can create a second one. It lives in its own group
+  // so the trap-cage housekeeping never touches it.
+  //
+  // Geometry note, the important one: the box is centred on the
+  // CENTRE of the finish sensor, not on the point the sensor
+  // reported. A runner trips the sensor on its leading edge, so a
+  // box built on that edge closes behind them and they sail
+  // through. Centred, with a half-width of 3.6 against a sensor
+  // 6 deep, the whole sensor sits inside the box - wherever on it
+  // they were seen, they are inside when it appears.
+  const WIN_Z = FIELD_L / 2 + 3;          // = the finish sensor's centre
+  const WIN_SIDE = 2 * WINNER_A * Math.tan(Math.PI / 6) + 0.4;
+  const WIN_POST = WINNER_A / Math.cos(Math.PI / 6);
+
+  let winnerBox = null;        // the group, once it exists
+  let winnerGlass = [];        // the parts that come away on release
+  let winnerTimer = 0;
+  let winnerFreeAt = 0;        // wall clock, for the countdown readout
+  let winnerOpen = false;      // have the finish doors been released
+
+  function buildWinnerBox(x) {
+    const cx = Math.max(-FIELD_W / 2 + WINNER_A, Math.min(FIELD_W / 2 - WINNER_A, x));
+
+    const g = document.createElement("m-group");
+    g.setAttribute("x", cx);
+    g.setAttribute("z", WIN_Z);
+    winRoot.append(g);
+
+    winnerGlass = [];
+
+    // dais
+    el("m-cylinder", { y: 0.12, radius: WINNER_A + 1.6, height: 0.24, color: "#5c1c4e" }, g);
+    el("m-cylinder", { y: 0.3, radius: WINNER_A + 0.9, height: 0.28, color: GOLD }, g);
+
+    // six panes of glass. Solid to the winner, clear to the crowd.
+    for (let i = 0; i < 6; i++) {
+      const a = i * 60;
+      const r = a * Math.PI / 180;
+      winnerGlass.push(el("m-cube", {
+        x: WINNER_A * Math.sin(r), z: WINNER_A * Math.cos(r),
+        y: WINNER_H / 2, ry: a,
+        width: WIN_SIDE, height: WINNER_H, depth: 0.14,
+        color: "#ffe9a8", opacity: 0.15, collide: "true",
+      }, g));
+    }
+
+    // gold frame - stays up afterwards, so the pavilion outlives
+    // the glass and the finish line has a monument on it
+    for (let i = 0; i < 6; i++) {
+      const r = (i * 60 + 30) * Math.PI / 180;
+      const px = WIN_POST * Math.sin(r);
+      const pz = WIN_POST * Math.cos(r);
+      el("m-cylinder", {
+        x: px, z: pz, y: WINNER_H / 2, radius: 0.19, height: WINNER_H + 0.7, color: GOLD,
+      }, g);
+      el("m-sphere", { x: px, z: pz, y: WINNER_H + 0.6, radius: 0.32, color: jewel(i) }, g);
+    }
+
+    // lid. Collides while the glass is up, so nobody jumps out.
+    winnerGlass.push(el("m-cylinder", {
+      y: WINNER_H + 0.25, radius: WINNER_A + 0.9, height: 0.4,
+      color: GOLD, collide: "true",
+    }, g));
+
+    // crown
+    el("m-cylinder", { y: WINNER_H + 1.1, radius: 1.3, height: 1.1, color: "#3a2a72" }, g);
+    el("m-sphere", { y: WINNER_H + 2.3, radius: 0.95, color: GOLD }, g);
+    el("m-light", { y: WINNER_H + 3.0, type: "point", intensity: 34, color: "#ffd76b" }, g);
+
+    // a turning halo of jewels, the one piece of motion in the build
+    // that is not the chandeliers
+    const halo = document.createElement("m-group");
+    halo.setAttribute("y", WINNER_H + 1.6);
+    g.append(halo);
+    for (let i = 0; i < 8; i++) {
+      const a = i * 45 * Math.PI / 180;
+      el("m-sphere", {
+        x: 2.7 * Math.sin(a), z: 2.7 * Math.cos(a), radius: 0.34, color: jewel(i),
+      }, halo);
+    }
+    const spin = document.createElement("m-attr-anim");
+    spin.setAttribute("attr", "ry");
+    spin.setAttribute("start", "0");
+    spin.setAttribute("end", "360");
+    spin.setAttribute("duration", "9000");
+    spin.setAttribute("loop", "true");
+    halo.append(spin);
+
+    // the word, on all six faces, so it reads from anywhere
+    for (let i = 0; i < 6; i++) {
+      const a = i * 60;
+      const r = a * Math.PI / 180;
+      el("m-label", {
+        x: (WINNER_A + 0.3) * Math.sin(r), z: (WINNER_A + 0.3) * Math.cos(r),
+        y: WINNER_H - 1.4, ry: a,
+        width: 4.0, height: 1.1, "font-size": 54, alignment: "center",
+        color: "#120c26", "font-color": GOLD, content: "WINNER",
+      }, g);
+    }
+
+    return g;
+  }
+
+  function crownWinner(x) {
+    if (!WINNER_BOX || winnerBox) return;
+    winnerBox = buildWinnerBox(x);
+    winnerFreeAt = Date.now() + WINNER_HOLD * 1000;
+    winnerTimer = setTimeout(releaseWinner, WINNER_HOLD * 1000);
+
+    // and this is what unseals the terrace. Not a timer, not the
+    // operator - the box closing is the event that opens the doors.
+    winnerOpen = true;
+    applyGates();
+  }
+
+  function releaseWinner() {
+    winnerTimer = 0;
+    winnerFreeAt = 0;
+    // Only the glass and the lid come away. Everything else stands.
+    winnerGlass.forEach((p) => {
+      if (p && p.parentNode) p.parentNode.removeChild(p);
+    });
+    winnerGlass = [];
+    tickCount();
+  }
+
+  function clearWinner() {
+    if (winnerTimer) clearTimeout(winnerTimer);
+    winnerTimer = 0;
+    winnerFreeAt = 0;
+    winnerGlass = [];
+    while (winRoot.firstChild) winRoot.removeChild(winRoot.firstChild);
+    winnerBox = null;
+    winnerOpen = false;
+  }
+
+  // ==========================================================
+  // THE CLOCK AND THE FINISH LINE
+  // ==========================================================
+  let startedAt = 0;
+  let bestTime = 0;
+
+  function clock(ms) {
+    const total = Math.max(0, Math.floor(ms / 1000));
+    const m = Math.floor(total / 60);
+    const sec = total % 60;
+    return m + ":" + (sec < 10 ? "0" : "") + sec;
+  }
+
+  function tickCount() {
+    if (!armed || !startedAt) return;
+    let line = "ROUND " + round + " - " + clock(Date.now() - startedAt);
+    if (bestTime) line += " - WON IN " + clock(bestTime);
+    line += " - " + caught + " CAGED";
+    if (winnerFreeAt) {
+      const left = Math.ceil((winnerFreeAt - Date.now()) / 1000);
+      if (left > 0) line += " - BOX OPENS IN " + left;
+    }
+    // Visible diagnostic. PADS should climb whenever anyone is on
+    // the field. If it stays at 0, the floor is not reporting and
+    // nothing else matters. EYES is the probe count, for comparison.
+    // MODE is the one to look at if anything feels wrong. ID means
+    // the judge is running and cages belong to people. ANON means
+    // this runtime gave no identity and the old floor logic took
+    // over. PADS should climb whenever anyone is on the floor; if it
+    // stays at 0 the floor is not reporting and nothing else matters.
+    // CAGES j/f is the readout that matters: j built by the judge
+    // from identity, f built by the floor. If j stays 0 while people
+    // are plainly being caught, identity is not usable in this
+    // runtime and the floor is carrying it - which is fine, and is
+    // the whole point of both of them running.
+    line += " - CAGES " + byJudge + "/" + byFloor + "/" + byStop +
+            " - SETTLED " + stopSettled +
+            " - PADS " + padHits + " - EYES " + players.size;
+    setCount(line);
+  }
+
+  // A sensor lying across the finish threshold. It has to be flat
+  // and it has to sit past the line: anything with height here is
+  // a full-width invisible wall and nobody finishes at all. A low
+  // strip on the deck fires the collision when it is stepped on
+  // and is shallow enough to walk straight over.
+  const FINISH_X = 0;
+  const finishPad = el("m-cube", {
+    z: WIN_Z, y: 0.36,
+    width: FIELD_W, height: 0.36, depth: 6,
+    color: "#000000", opacity: 0,
+    collide: "true", "collision-interval": 150,
+  });
+
+  // and something to actually run at
+  el("m-cube", {
+    z: WIN_Z, y: 0.24, width: FIELD_W, height: 0.1, depth: 6.4, color: "#5c1c4e",
+  });
+  [-1, 1].forEach((s) => {
+    el("m-cube", {
+      z: WIN_Z + s * 3.2, y: 0.28,
+      width: FIELD_W, height: 0.12, depth: 0.5, color: GOLD,
+    });
+  });
+
+  let lastHome = 0;
+  function home(event) {
+    if (!armed || !startedAt) return;
+    if (winnerBox) return;               // the box is claimed. one per round.
+    const now = Date.now();
+    if (now - lastHome < 1200) return;   // one crossing, not a stream
+    lastHome = now;
+
+    bestTime = now - startedAt;
+
+    // Where across the line did they cross? The sensor reports
+    // relative to its own centre, and the sensor sits at x 0, but
+    // add the offset explicitly rather than relying on that.
+    let wx = FINISH_X;
+    const hit = event && event.detail && event.detail.position;
+    if (hit && typeof hit.x === "number") wx = FINISH_X + hit.x;
+
+    crownWinner(wx);
+
+    setBanner("WINNER", GOLD);
+    tickCount();
+  }
+  finishPad.addEventListener("collisionstart", home);
+  finishPad.addEventListener("collisionmove", home);
+
+  // ==========================================================
+  // CONTROL CONSOLES - one behind the start line, one on the
+  // winners' terrace
+  // ==========================================================
+  // The terrace console is the new one. With a single podium at the
+  // start end, stopping a round meant walking the length of the
+  // arena to reach it - across a live minefield, through a red
+  // light, and the operator gets caged like anyone else. The
+  // terrace console sits OUTSIDE the corridor, past the glass, so
+  // whoever is running the round can watch the finish and kill it
+  // from where they are standing.
+  //
+  // Both drive the same lock. There is one entry buffer between
+  // them, so a half-entered code on one cannot be completed on the
+  // other, and both displays show the same dots.
+  const CTRL_Z = -(ARENA_L / 2) + 8;      // start end, inside the arena
+  const FIN_CTRL_Z = ARENA_L / 2 + 12;    // terrace, outside the arena
+
+  // every status readout in the world, updated together
+  const statusLabels = [];
+  const countLabels = [];
+  const keyDisplays = [];
+
+  function setBanner(text, color) {
+    statusLabels.forEach((l) => {
+      l.setAttribute("content", text);
+      l.setAttribute("font-color", color);
+    });
+  }
+  function setCount(text) {
+    countLabels.forEach((l) => l.setAttribute("content", text));
+  }
+  function setKeyDisplay() {
+    const dots = [];
+    for (let i = 0; i < CODE.length; i++) dots.push(i < entry.length ? "*" : "-");
+    const text = dots.join(" ");
+    keyDisplays.forEach((l) => l.setAttribute("content", text));
+  }
+
+  function press(digit, clear, cap) {
+    const lit = clear ? "#ff5ec8" : GOLD;
+    const dark = clear ? "#4a1030" : "#241a4d";
+    cap.setAttribute("color", lit);
+    setTimeout(() => cap.setAttribute("color", dark), 150);
+    if (clear) {
+      entry = [];
+      setKeyDisplay();
+    } else {
+      enter(digit);
+    }
+  }
+
+  // --- the keys ---------------------------------------------
+  // Ten unmarked caps. Left to right: 1 2 3 4 5 6 7 8 9 0.
+  const KEYS = [
+    ["1", "2", "3"],
+    ["4", "5", "6"],
+    ["7", "8", "9"],
+    ["C", "0", ""],
+  ];
+
+  // face: -1 the console looks down -z, +1 it looks down +z. Either
+  // way it is turned towards whoever walks up to it.
+  //
+  // Every clickable thing here follows one rule: the label is a
+  // CHILD of the thing you click, never a sibling floating in front
+  // of it. A sibling label intercepts the cursor ray and the click
+  // dies on an element with no listener.
+  function buildConsole(zPod, face) {
+    const ry = face < 0 ? 180 : 0;
+
+    el("m-cube", { z: zPod, y: 0.5, width: 18, height: 1, depth: 10, color: STONE, collide: "true" });
+    el("m-cube", { z: zPod + face * 5.6, y: 0.25, width: 18, height: 0.5, depth: 1.6, color: "#2a1f5c", collide: "true" });
+    el("m-cube", { z: zPod, y: 1.04, width: 18.4, height: 0.12, depth: 10.4, color: GOLD });
+    [-1, 1].forEach((s) => {
+      el("m-cylinder", { x: s * 7.5, z: zPod - face * 3.5, y: 3, radius: 0.35, height: 6, color: "#2a1f5c" });
+      el("m-sphere", { x: s * 7.5, z: zPod - face * 3.5, y: 6.3, radius: 0.55, color: "#ffb84e" });
+      el("m-light", { x: s * 7.5, z: zPod - face * 3.5, y: 6.3, type: "point", intensity: 7, color: "#ffb84e" });
+    });
+
+    const cg = document.createElement("m-group");
+    cg.setAttribute("z", zPod + face);
+    cg.setAttribute("y", 1);
+    cg.setAttribute("ry", ry);
+    arena.append(cg);
+
+    el("m-cube", { y: 0.3, width: 2.6, height: 0.6, depth: 0.7, color: STONE, collide: "true" }, cg);
+    el("m-cube", { y: 2.2, width: 3.4, height: 3.3, depth: 0.2, color: "#15151f", collide: "true" }, cg);
+    [-1, 1].forEach((s) => {
+      el("m-cube", { x: s * 1.76, y: 2.2, width: 0.16, height: 3.3, depth: 0.28, color: GOLD }, cg);
+    });
+    [0.55, 3.85].forEach((y) => {
+      el("m-cube", { y: y, width: 3.68, height: 0.16, depth: 0.28, color: GOLD }, cg);
+    });
+
+    statusLabels.push(el("m-label", {
+      y: 3.58, z: 0.12, width: 3.0, height: 0.5,
+      "font-size": 40, alignment: "center",
+      color: "#0a0a12", "font-color": "#ff5ec8", content: "STANDBY",
+    }, cg));
+
+    keyDisplays.push(el("m-label", {
+      y: 3.06, z: 0.12, width: 3.0, height: 0.46,
+      "font-size": 36, alignment: "center",
+      color: "#07070d", "font-color": "#5ef0b8", content: "- - - -",
+    }, cg));
+
+    countLabels.push(el("m-label", {
+      y: 0.34, z: 0.4, width: 2.4, height: 0.36,
+      "font-size": 24, alignment: "center",
+      color: "#0a0a12", "font-color": INK, content: "FIELD CLEAR",
+    }, cg));
+
+    KEYS.forEach((row, r) => {
+      row.forEach((key, c) => {
+        if (key === "") return;
+        const clear = key === "C";
+        const x = (c - 1) * 0.92;
+        const y = 2.42 - r * 0.62;
+
+        // the cap is the click target and it sits proud of the panel
+        const cap = el("m-cube", {
+          x: x, y: y, z: 0.2,
+          width: 0.78, height: 0.5, depth: 0.24,
+          color: clear ? "#4a1030" : "#241a4d",
+          collide: "true",
+        }, cg);
+
+        // nested inside the cap, so a click on the digit bubbles to it
+        const capFace = el("m-label", {
+          z: 0.13, width: 0.74, height: 0.42,
+          "font-size": 30, alignment: "center",
+          color: clear ? "#4a1030" : "#241a4d",
+          "font-color": clear ? "#ff5ec8" : GOLD,
+          content: key, collide: "true",
+        }, cap);
+
+        let last = 0;
+        const hit = () => {
+          const now = Date.now();
+          if (now - last < 180) return;
+          last = now;
+          press(Number(key), clear, cap);
+        };
+
+        // listener on both, in case the client doesn't bubble
+        cap.addEventListener("click", hit);
+        capFace.addEventListener("click", hit);
+      });
+    });
+
+    // --- typed entry, as a backstop -------------------------
+    // One big target on the podium deck. Click it and a text box
+    // opens; type the four digits. Useful if per-key clicking is
+    // fiddly in your client, or if you're operating at a distance.
+    const promptWrap = document.createElement("m-prompt");
+    promptWrap.setAttribute("message", "Operator code");
+    promptWrap.setAttribute("placeholder", "4 digits");
+    arena.append(promptWrap);
+
+    const promptPad = el("m-cube", {
+      z: zPod + face * 3.6, y: 1.08,
+      width: 3.6, height: 0.16, depth: 1.6,
+      color: "#15151f", collide: "true",
+    }, promptWrap);
+
+    el("m-cube", {
+      z: zPod + face * 3.6, y: 1.1,
+      width: 3.9, height: 0.1, depth: 1.9, color: GOLD,
+    });
+
+    el("m-label", {
+      y: 0.1, rx: -90, ry: ry,
+      width: 3.4, height: 1.4,
+      "font-size": 30, alignment: "center",
+      color: "#15151f", "font-color": GOLD,
+      content: "TYPE CODE", collide: "true",
+    }, promptPad);
+
+    promptWrap.addEventListener("prompt", (event) => {
+      const typed = String((event.detail && event.detail.value) || "").replace(/[^0-9]/g, "");
+      entry = [];
+      for (let i = 0; i < typed.length; i++) enter(Number(typed[i]));
+    });
+  }
+
+  buildConsole(CTRL_Z, -1);
+  if (FINISH_CONSOLE) buildConsole(FIN_CTRL_Z, 1);
+
+
+  // --- status boards the runners can actually read ----------
+  // One behind the start line, one past the finish. The finish
+  // board sits ten metres beyond the winner's box, so whoever is
+  // standing in the box for their thirty seconds is looking
+  // straight at their own time.
+  [START_Z - 7, FINISH_Z + 7].forEach((bz) => {
+    [-1, 1].forEach((s) => {
+      el("m-cylinder", { x: s * 7, z: bz, y: 3.4, radius: 0.4, height: 6.8, color: "#2a1f5c" });
+    });
+    el("m-cube", { z: bz, y: 7.2, width: 15, height: 3.4, depth: 0.4, color: "#0d0d14" });
+
+    [180, 0].forEach((ry) => {
+      statusLabels.push(el("m-label", {
+        z: bz + (ry ? -0.25 : 0.25), y: 7.7, ry: ry,
+        width: 12, height: 1.8, "font-size": 105, alignment: "center",
+        color: "#0d0d14", "font-color": "#ff5ec8", content: "STANDBY",
+      }));
+      countLabels.push(el("m-label", {
+        z: bz + (ry ? -0.25 : 0.25), y: 6.35, ry: ry,
+        width: 12, height: 1.0, "font-size": 52, alignment: "center",
+        color: "#0d0d14", "font-color": INK, content: "FIELD CLEAR",
+      }));
+    });
+  });
+
+  // The start end works as it always did. The finish end no longer
+  // takes orders from the round at all - it is shut, full stop,
+  // until winnerOpen is set by the box closing on the winner.
+  function applyGates() {
+    if (!GATES_CLOSE_ON_RUN) setGates(-1, true);
+    else setGates(-1, !(armed || countdown > 0));
+
+    setGates(1, FINISH_SEALED ? winnerOpen : true);
+  }
+
+  function startGame() {
+    if (armed || countdown > 0) return;
+    clearField();
+    // The gate exists only between the code landing and the first
+    // green. Before that the field is open, so people can wander
+    // the run while nothing is happening.
+    setStartGate(true);
+    round++;
+    countdown = ARM_DELAY;
+    applyGates();
+    setBanner(String(countdown), "#ffb84e");
+    setCount("ROUND " + round + " - ON YOUR MARKS");
+  }
+
+  function stopGame() {
+    countdown = 0;
+    armed = false;
+    stopCycle();
+    setStartGate(false);
+    lastHome = 0;
+    clearField();
+    applyGates();
+    setBanner("STANDBY", "#ff5ec8");
+    setCount("FIELD CLEAR");
+  }
+
+  function toggleGame() {
+    if (armed || countdown > 0) stopGame();
+    else startGame();
+  }
+
+  // --- the lock ---------------------------------------------
+  // Ten unmarked discs. Left to right: 1 2 3 4 5 6 7 8 9 0.
+  // They look like every other rune in the arena.
+  let entry = [];
+  let entryExpires = 0;
+
+  function isPrefix(seq) {
+    for (let i = 0; i < seq.length; i++) if (seq[i] !== CODE[i]) return false;
+    return true;
+  }
+
+  function enter(digit) {
+    const now = Date.now();
+    if (now > entryExpires) entry = [];
+    entryExpires = now + CODE_TIMEOUT * 1000;
+    entry.push(digit);
+    // keep the longest tail that still matches the code, so a
+    // repeated digit or a fumbled press doesn't dead-end you
+    while (entry.length && !isPrefix(entry)) entry.shift();
+    setKeyDisplay();
+    if (entry.length === CODE.length) {
+      entry = [];
+      setKeyDisplay();
+      toggleGame();
+    }
+  }
+
+  setInterval(() => {
+    if (countdown > 0) {
+      countdown--;
+      if (countdown > 0) {
+        setBanner(String(countdown), "#ffb84e");
+      } else {
+        armed = true;
+        startedAt = Date.now();
+        applyGates();
+        beginCycle();
+      }
+    }
+    tickCount();
+  }, 1000);
+
+  if (ARMED_ON_LOAD) {
+    armed = true;
+    startedAt = Date.now();
+    applyGates();
+    beginCycle();
+    setCount("0 CAUGHT");
+  } else {
+    stopGame();
+  }
+
+  setKeyDisplay();
+</script>

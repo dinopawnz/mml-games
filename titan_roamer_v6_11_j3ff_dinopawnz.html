@@ -1,0 +1,2046 @@
+<!--
+  TITAN ROAMER  -  v6: J3FF, AND NOTHING ELSE
+  v6.28: THE FIRE GLOWS AGAIN. The explosion flash, the jet stream
+  glow and the burning-ground glow light up like they did in v6.10,
+  even though every other light stays at 0 (FIRE_LIGHTS_ON).
+  v6.27: LIGHTS turns the headlights on at 0.05 (HEADLIGHT_DIM).
+  v6.26: the visible glass ceiling of the control room is removed.
+  v6.25: the invisible lid over the room is 20m above the floor.
+  v6.24: ROBOT_SCALE 0.5 - j3ff is 40m tall, room in the head 2.8m.
+  v6.23: ROBOT_SCALE 0.55 - j3ff is 44m tall, room in the head 3.1m.
+  v6.22: THE LID IS HIGHER. The glass ceiling is only a window again
+  (not solid), and the invisible walls carry on up to an invisible lid
+  8m above the floor, so the camera stays under it and clicks reach
+  the desk buttons.
+  v6.21: ROBOT_SCALE 0.65 - j3ff is 52m tall and the room in the head
+  is 3.6m tall, so avatars' heads stay inside the helmet. The glass
+  ceiling is solid again (no invisible head room needed).
+  v6.20: ROBOT_SCALE 0.45 - j3ff is 36m tall, the smallest size
+  where the room inside the head is 2.5m tall (4.8 x 4.9m floor), so
+  any avatar stands up inside without poking out of the helmet.
+  v6.19: THE ROOM IS BACK INSIDE J3FF'S HEAD (BRIDGE_S = 1). Only the
+  way in is big: the room's door is 1.4m wide and 2.6m tall, running
+  up through the top of the back wall, the glass ceiling is no longer
+  solid, and invisible walls and lid give 2.9m of head room above the
+  floor. The lift, its top door and the walkway stay big (v6.17-18).
+  v6.18: ANY AVATAR CAN REACH THE CONTROL ROOM. The top of the lift
+  shaft is tall enough to stand in, its top door is as big as the
+  shaft allows and 3.8m tall, the walkway is 2.2m wide with 1.1m
+  rails, and the captain's room is scaled up (BRIDGE_S) so its door
+  is 2.1 x 2.45m and its ceiling 3.9m. At quarter size the room is
+  bigger than j3ff's head, so the glass room shows around the head.
+  v6.17: the doorway into the lift is FULL SIZE again - 5.2m wide and
+  3.8m tall, the same as the original 80m build - at any ROBOT_SCALE.
+  It is the front of a small glass lobby on the shaft.
+  v6.16: (the lift doorway was 1.4 x 2.4m - replaced by v6.17) The CALL keypad is back to its
+  full old size and place - only the robot is scaled.
+  v6.15: LIGHTS turns the headlights on at 0.1 (HEADLIGHT_DIM), as
+  dim as they go while still on. The control room's ceiling is now
+  a glass window like its four walls - glass all round.
+  v6.14: EVERY LIGHT AT 0 (LIGHTS_ON = false). The only light that
+  comes on is the headlights, when you press LIGHTS on the desk.
+  v6.13: QUARTER SIZE. ROBOT_SCALE is now 0.25: j3ff is 20m tall.
+  v6.12: HALF SIZE. The whole robot is scaled to half (ROBOT_SCALE =
+  0.5): j3ff is 40m tall, and the captain's room, lift, walkway,
+  desk, keypad, speeds, heights and fire all shrink with it.
+  v6.11: NO HEIGHT LIMIT. RISE keeps climbing 3m a click with no
+  ceiling (ALT_MAX was 60). LOWER still stops at -40m.
+  v6.2: the captain's desk is now a flat panel lying right on the
+  floor, set back from the front glass, so nothing stands between
+  you and the window. Look down at your feet to press the buttons.
+  v6.3: the status screen on the front glass is smaller (6 x 1.4m,
+  was 8.4 x 2m) and tucked up against the ceiling.
+  v6.4: new FLOSS dance.
+  v6.10: THE JETS ARE FIRE, EVERYWHERE. The old yellow cylinders under
+  the jetpack are gone. Whenever the jets are on - HOVER, SLAM, RISE,
+  LOWER, and the whole time it is up in the air - the real fire pours
+  from both cans to the ground, stretching to reach it at any height,
+  with the ground burning under the robot and following it around.
+  v6.9: FIRE. HOVER pours two streams of real fire (the Kingdom Clash
+  dragon fire) from the jetpack cans down to the ground, which burns
+  under it. BLAST and BARRAGE fire flaming shells that blow up where
+  they land: fireball, smoke, embers, shock ring, a burning scorch
+  mark, and for BLAST a column of fire with a smoke cap.
+  v6.8: DAB is replaced by BREAK - a breakdance. Toprock steps, drop
+  into a deep crouch, a full spin with one leg swept out, then a
+  freeze pose. The crew drops ~15m and spins once with it.
+  v6.7: desk buttons and the status screen have ids so the browser
+  remote (j3ff_remote.html) can find them and press them from outside.
+  v6.6: the FLOSS got real hips - the whole body sways side to side
+  with the feet planted, arms whipping the opposite way.
+  v6.5: a whole row of Fortnite-style dances on the desk:
+    FLOSS    hips sway, arms whip the other way, one front one back
+    BREAK    breakdance (v6.8, was DAB): toprock, drop, spin, freeze
+    L HOP    hand makes an L on the forehead, hopping leg to leg
+    RUN MAN  the running man - knee up, slide back, arms pumping
+  ============================================================
+  Dinopawnz: "i wanted the titan roamer to look exactly like j3ff,
+  not like the previous models of titan roamer blended with j3ff.
+  only the captains room is necessary in the finished model and the
+  rest of the body just needs to look like j3ff and the elevator
+  just needs to let the player get into the captains room so they
+  can operate the j3ff titan roamer."
+  ... "the emotes and the sword doesnt have to be there anymore.
+  you can create new emotes that suit this model better"
+
+  WHAT CHANGED
+  ------------------------------------------------------------
+  THE BODY IS J3FF. j3ff.glb is used at its own shape and its own
+  proportions, just 40x bigger (80m tall). v5.1 bent the pieces to
+  fit the old robot's joints; v6 moves the joints to j3ff's own
+  skeleton instead, so standing still it is exactly j3ff.glb.
+  It is cut into nine pieces, one per moving part, each hung on
+  j3ff's own bone pivot:
+    body         torso, head, jetpack, wings (the bridge is in here)
+    upperarm_l/r on each shoulder     forearm_l/r (with the cannon
+    thigh_l/r    on each hip           fist) on each elbow
+    shin_l/r     on each knee (boot included)
+  Nothing else is on the outside: no box armour, no rooms, no
+  sword, no shield plate, no thrusters, no lamps.
+
+  ONLY THE CAPTAIN'S ROOM. The bridge sits inside j3ff's helmet.
+  The skin is one-sided, so from inside the helmet you see straight
+  out through it in every direction. The room's walls are clear
+  glass (for bumping into), and nothing in the room pokes out of
+  the helmet. The ear-cylinder that ran through the middle of the
+  helmet was trimmed inside the head (you can't see that from
+  outside - the ear caps are still there).
+  Gone: waist, leg bays, chest hall, power room, arm bays, spine
+  ramp and hatch. Everything they did is on the captain's desk.
+
+  THE LIFT goes straight from the ground to the captain's room: a
+  glass shaft behind j3ff's jetpack, and a walkway from the top of
+  it into the back of the helmet. It still hides while the robot
+  moves, and only reaches the ground at height 0.
+
+  THE SWORD IS GONE. The right arm punches like the left.
+
+  NEW MOVES, made for j3ff (jetpack, wings, forearm cannons):
+    HOVER    jetpack lift-off, hangs in the air, lands
+    SLAM     jets up, then crashes down - shockwave
+    BLAST    both cannons forward, two big shots
+    BARRAGE  left-right-left-right cannon fire
+    WAVE  FLEX  SALUTE  DANCE
+    FLOSS  BREAK  L HOP  RUN MAN   (the dance row)
+
+  THE MODEL FILES are NOT inside this page. Upload the nine
+  j3ff6_*.glb files to the same place as before (the root of
+  dinopawnz/j3ff-roamer). They have new names on purpose: jsDelivr
+  keeps old files cached for days, and the new names make sure the
+  world loads these and not the v5.1 pieces.
+
+  ============================================================
+  THE CAPTAIN'S DESK
+  ------------------------------------------------------------
+  Click the buttons on the desk. Nearest row to your hands last:
+                  HOVER   SLAM    BLAST   BARRAGE
+                  WAVE    FLEX    SALUTE  DANCE
+                  FLOSS   BREAK   L HOP   RUN MAN
+                  TURN L  RISE    LOWER   TURN R
+                  L PUNCH SHIELD  R PUNCH LIGHTS
+    nearest row   BACK    STOP    WALK    SPRINT
+  Drive buttons keep going until you pick another. TURN turns 30
+  degrees per click. RISE / LOWER move the robot 3m up or down on
+  its jets (the world's ground is invisible to the robot).
+  SHIELD: click to raise, click again to lower.
+  Arm moves (BLAST BARRAGE WAVE FLEX SALUTE) work while you run.
+  Leg moves (HOVER SLAM DANCE and the dance row) stop the robot first.
+  Or stand on the TURN L / TURN R pads beside the desk.
+
+  CALLING IT BACK
+  ------------------------------------------------------------
+  The CALL keypad stays where the robot starts. Type 1 7 1 8.
+  Nobody aboard: it jumps home. Crew aboard: it walks home.
+-->
+
+<m-group id="world"></m-group>
+
+<script>
+  // ==========================================================
+  // TUNING
+  // ==========================================================
+  // v6.12: THE WHOLE ROBOT AT HALF SIZE. Everything - j3ff, the
+  // captain's room, the lift, the keypad, the fire - is built at the
+  // old size and then the world group is scaled by this. Every number
+  // below is still in the old (80m robot) metres; set 1 for full size.
+  // v6.21: 0.65 - at 0.45 heads still came out through the top of the
+  // helmet (it is rounded, so it is lower than the room's ceiling near
+  // the walls). Now the room is 3.6m tall and j3ff is 52m tall.
+  // v6.24: 0.5 - between 0.45 (heads came out of the helmet) and
+  // 0.55 (plenty of head room). Room 2.8m tall, j3ff 40m tall.
+  const ROBOT_SCALE = 0.5;
+
+  const CODE = [1, 7, 1, 8];    // CALL keypad
+  const CODE_TIMEOUT = 15;
+
+  // ---- DRIVING ----
+  const WALK_SPEED = 3;         // m/s
+  const SPRINT_SPEED = 8;       // m/s (riders!)
+  const BACK_SPEED = 2;
+  const ACCEL = 2;
+  const TURN_RATE = 10;         // degrees per second
+  const TURN_ACCEL = 25;
+  const CLICK_TURN = 30;        // degrees per TURN click
+  const MAX_SPEED = 10;
+  const WALK_STEP_MS = 1200;    // leg cycle (longer legs than v5)
+  const SPRINT_STEP_MS = 750;
+  const HOME = { x: 0, z: 0 };
+
+  // ---- HEIGHT ----
+  const ALT_STEP = 3;           // metres per RISE / LOWER click
+  const ALT_SPEED = 2;          // m/s
+  // v6.11: no ceiling - RISE keeps going up. Put a number back in
+  // ALT_MAX (it was 60) to bring a ceiling back.
+  const ALT_MIN = -40, ALT_MAX = Infinity;
+  const HOVER_H = 10;           // HOVER lift, metres (riders!)
+  const SLAM_H = 7;             // SLAM hop, metres
+
+  // ---- ARMS ----
+  const THROW_MS = 300;
+  const PUNCH_COOL_MS = 1200;
+  const SHOT_MS = 450;          // cannon shot flight time
+  const SHOT_RANGE = 70;        // metres
+  const BLAST_COOL_MS = 2500;
+  const HEADLIGHT_I = 120;      // (only used if LIGHTS_ON is true)
+  const HEADLIGHT_DIM = 0.05;   // v6.27: what LIGHTS gives the headlights (was 0.1)
+
+  // ---- PLATES ----
+  const PLATE_GRACE_MS = 350;
+  const PLATE_PAD = 0.2;
+  const PROBE_MS = 100;
+  const PROBE_Y = 34, PROBE_Z = -12, PROBE_RANGE = 60;
+
+  const SIGN_GAP = 0.2;
+  const ANIM_MS = 50;
+  const JOINT_LERP_MS = 80;
+  const ROOT_LERP_MS = 120;
+  const MIN_DEG = 0.4;
+  const MIN_M = 0.04;
+  const TICK_MS = 100;
+
+  const LIFT_MS = 11000;           // bottom to top (64m)
+  const LIFT_MIN_OPEN_MS = 8000;
+  const LIFT_GO_MS = 3000;
+  const LIFT_WAIT_MS = 12000;
+  const LIFT_TOP_MS = 14000;
+  const LIFT_HOLD_MS = 30000;
+  const LIFT_SHOW_DELAY_MS = 1500;
+
+  const LIGHT = 0.05;
+  // v6.14: EVERY LIGHT IN THE BUILD STARTS AT 0 - the bridge lamp, the
+  // lift lamp, the flash for big moves, and the fire and explosion
+  // glows. The only light that ever comes on is the headlights, and
+  // only when you press LIGHTS on the desk. Set true to bring the rest back.
+  const LIGHTS_ON = false;
+  // v6.28: the fire's own lights (explosions, jet streams, burning
+  // ground) ignore LIGHTS_ON and glow as they did in v6.10. Set false to
+  // turn them off again.
+  const FIRE_LIGHTS_ON = true;
+  const PANEL = "#0d0d14";
+  const GOLD = "#e8c547";
+  const INK = "#e8e2ff";
+  const GLASS = "#9fe8ff";
+  const STONE = "#241a4d";
+
+  // ---- J3FF MODEL FILES ----
+  // The folder holding the nine j3ff6_<part>.glb files (no slash at the end).
+  const J3FF_URL = "https://cdn.jsdelivr.net/gh/dinopawnz/j3ff-roamer@main";
+  const J3FF_PREFIX = "j3ff6_";
+
+  // colours for the desk, screens, lift and effects - j3ff's own
+  const LOOK = {
+    name: "J3FF",
+    main: "#4c3450", lit: "#7a4c66", trim: "#d2b03a",
+    frame: "#33303d", dark: "#16141c", glow: "#6ab4f0", team_lit: "#8cc8ff",
+    inner: "#241c2a", innerFloor: "#1b1522", hot: "#ff9a2e",
+  };
+
+  // ==========================================================
+  // J3FF'S SKELETON - measured from j3ff.glb at 40x
+  // ==========================================================
+  // Robot frame: y up from the soles, z+ is the way j3ff faces,
+  // x+ is its left. The part files are cut to hang on these points.
+  // Arm angles are j3ff's own standing pose; every arm move is
+  // measured from a straight arm hanging down, so "rest" = j3ff.
+  const ARM = {
+    L: { shoulder: [6.648, 60.934, -1.322], upper: 11.405, reach: 19.14,
+         rest: { rx: 4.12, rz: 35.7, erx: -21.33, erz: 13.06 } },
+    R: { shoulder: [-6.619, 60.888, -1.754], upper: 11.405, reach: 19.4,
+         rest: { rx: 6.54, rz: 34.97, erx: -20.69, erz: 14.44 } },
+  };
+  const LEG = {
+    L: { hip: [3.814, 41.773, 0.276], knee: [1.206, -18.286, -0.24] },
+    R: { hip: [-3.814, 41.773, 0.276], knee: [-1.206, -18.286, -0.24] },
+  };
+  const JETS = [[8, 37.8, -16], [-8, 37.8, -16]];   // under the jetpack cans
+  const CHEST = { y: 53, z: 12 };                   // front of the chest
+  // the helmet, inside: the bridge fits in here with room to spare
+  // (helmet box: x +-5.8, y 63.0-69.6, z -5.2..6.6)
+  const BRIDGE = { hw: 5.3, z0: -4.8, z1: 6.1, floor: 63.6, top: 69.2 };
+  const BACK_Z = -24.3;         // back of the jetpack
+  const DOOR_W = 3, DOOR_H = 3.5;
+  // v6.18: THE WAY UP IS AVATAR SIZE. The captain's room (with its
+  // door, desk, pads and screen) is scaled up by BRIDGE_S around its
+  // own floor, so it is never smaller than 70% of the original room -
+  // a 2.1 x 2.45m door and a 3.9m ceiling - whatever ROBOT_SCALE is.
+  // At quarter size that makes it bigger than j3ff's head, so the glass
+  // room shows around the head from outside. At ROBOT_SCALE 1 it is 1.
+  const BRIDGE_S = 1;   // v6.19: back to 1 - the room fits inside j3ff's head again
+  // v6.19: THE ROOM FITS IN THE HEAD, THE WAY IN FITS ANY AVATAR. The
+  // room's door is at least 1.4m wide and 2.6m tall in real metres. The
+  // room itself is only as tall as the helmet, so the door runs up
+  // through the top of the back wall, and above the room there is
+  // clear, invisible head room (ROOM_CLEAR) - the visible glass ceiling
+  // is not solid, and invisible walls carry on up to an invisible lid
+  // so nobody falls out. From outside you only ever see j3ff.
+  const ROOM_DOOR_W = Math.min(2 * BRIDGE.hw - 1, Math.max(DOOR_W, 1.4 / ROBOT_SCALE));
+  const ROOM_DOOR_H = Math.max(DOOR_H, 2.6 / ROBOT_SCALE);
+  // v6.22/v6.25: the invisible lid is 20m above the floor (was 8m),
+  // far above the camera, so it never gets between you and the desk
+  const ROOM_CLEAR = Math.max(BRIDGE.top - BRIDGE.floor, 20 / ROBOT_SCALE);
+  const BRIDGE_ZC = (BRIDGE.z0 + BRIDGE.z1) / 2;
+  const BRIDGE_BACK = BRIDGE_ZC + (BRIDGE.z0 - BRIDGE_ZC) * BRIDGE_S;   // back wall, in the body's frame
+  // a point in the body's frame -> the room's own (unscaled) frame
+  const toBridge = (p) => ({ x: p.x / BRIDGE_S, y: BRIDGE.floor + (p.y - BRIDGE.floor) / BRIDGE_S,
+    z: BRIDGE_ZC + (p.z - BRIDGE_ZC) / BRIDGE_S });
+  const WALK_W = Math.max(DOOR_W, 2.2 / ROBOT_SCALE);   // walkway from the lift: at least 2.2m wide
+
+  // ==========================================================
+  // PLUMBING
+  // ==========================================================
+  const world = document.getElementById("world") || (() => {
+    const g = document.createElement("m-group");
+    g.setAttribute("id", "world");
+    (document.body || document.documentElement).appendChild(g);
+    return g;
+  })();
+  ["sx", "sy", "sz"].forEach((k) => world.setAttribute(k, String(ROBOT_SCALE)));
+
+  const r3 = (v) => Math.round(v * 1000) / 1000;
+
+  function el(tag, attrs, parent) {
+    const node = document.createElement(tag);
+    node.setAttribute("collide", "false");
+    for (const key in attrs) {
+      let v = attrs[key];
+      if (tag === "m-light" && key === "intensity") v = LIGHTS_ON ? Math.round(v * LIGHT * 10) / 10 : 0;   // v6.14
+      if (tag === "m-light" && key === "distance") v = v * ROBOT_SCALE;   // light reach isn't scaled by the group
+      if (typeof v === "number") v = r3(v);
+      node.setAttribute(key, v);
+    }
+    (parent || world).append(node);
+    return node;
+  }
+  // v6.28: a fire light - skips LIGHTS_ON (see FIRE_LIGHTS_ON)
+  function fireLight(attrs, parent) {
+    const node = el("m-light", Object.assign({}, attrs, { intensity: 0 }), parent);
+    const v = FIRE_LIGHTS_ON ? Math.round(attrs.intensity * LIGHT * 10) / 10 : 0;
+    node.setAttribute("intensity", String(v));
+    return node;
+  }
+  function group(attrs, parent) {
+    const g = document.createElement("m-group");
+    for (const k in attrs) g.setAttribute(k, typeof attrs[k] === "number" ? r3(attrs[k]) : attrs[k]);
+    (parent || world).append(g);
+    return g;
+  }
+  function withO(base, o) { for (const k in (o || {})) base[k] = o[k]; return base; }
+  function box(p, x, y, z, w, h, d, color, o) {
+    return el("m-cube", withO({ x: x, y: y, z: z, width: w, height: h, depth: d, color: color }, o), p);
+  }
+  function cyl(p, x, y, z, r, h, color, o) {
+    return el("m-cylinder", withO({ x: x, y: y, z: z, radius: r, height: h, color: color }, o), p);
+  }
+  function sph(p, x, y, z, r, color, o) {
+    return el("m-sphere", withO({ x: x, y: y, z: z, radius: r, color: color }, o), p);
+  }
+  // scaled versions, for limbs drawn at stage 1 size
+  // K scales lengths (y), W scales thickness (x and z)
+  const kbox = (K, W) => (p, x, y, z, w, h, d, c, o) =>
+    box(p, x * (W || K), y * K, z * (W || K), w * (W || K), h * K, d * (W || K), c, o);
+  const kcyl = (K, W) => (p, x, y, z, r, h, c, o) =>
+    cyl(p, x * (W || K), y * K, z * (W || K), r * (W || K), h * K, c, o);
+  const ksph = (K, W) => (p, x, y, z, r, c, o) =>
+    sph(p, x * (W || K), y * K, z * (W || K), r * K, c, o);
+
+  function anim(p, attr, a, b, ms, pingpong) {
+    const n = document.createElement("m-attr-anim");
+    n.setAttribute("attr", attr);
+    n.setAttribute("start", String(a));
+    n.setAttribute("end", String(b));
+    n.setAttribute("duration", String(Math.round(ms)));
+    n.setAttribute("loop", "true");
+    if (pingpong !== false) n.setAttribute("ping-pong", "true");
+    p.append(n);
+    return n;
+  }
+  function lerp(p, attrs, ms, easing) {
+    const n = document.createElement("m-attr-lerp");
+    n.setAttribute("attr", attrs);
+    n.setAttribute("duration", String(ms));
+    n.setAttribute("easing", easing || "easeInOutQuad");
+    p.append(n);
+    return n;
+  }
+  // one piece of j3ff, already cut to sit at the origin of the joint
+  // it hangs on - no offsets, no scale
+  function skinPart(p, key) {
+    const src = J3FF_URL.replace(/\/$/, "") + "/" + J3FF_PREFIX + key + ".glb";
+    return el("m-model", { src: src, collide: "false" }, p);
+  }
+  function joint(p, x, y, z, o) {
+    const g = group(withO({ x: x, y: y, z: z }, o), p);
+    lerp(g, "rx,ry,rz", JOINT_LERP_MS, "linear");
+    return g;
+  }
+  // ==========================================================
+  // ANIMATION - the script moves everything itself
+  // ==========================================================
+  // v4. The world glides POSITIONS smoothly but snaps ROTATIONS,
+  // so a joint told "swing to -88" jumped there. Now every moving
+  // number is stepped from here, ANIM_MS apart, eased. The lerp on
+  // each joint still smooths between steps where it works.
+  const EASE = {
+    linear: (t) => t,
+    inOut: (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2),
+    out: (t) => 1 - (1 - t) * (1 - t),
+    in: (t) => t * t,
+  };
+  const tweens = new Map();
+  let tweenIds = 0;
+  function cur(node, k) {
+    if (!node._v) node._v = {};
+    if (node._v[k] === undefined) {
+      const v = parseFloat(node.getAttribute(k));
+      node._v[k] = isNaN(v) ? 0 : v;
+    }
+    return node._v[k];
+  }
+  function put(node, k, v) {
+    if (!node._v) node._v = {};
+    node._v[k] = v;
+    const out = String(Math.round(v * 100) / 100);
+    if (!node._w) node._w = {};
+    if (node._w[k] === out) return;
+    node._w[k] = out;
+    node.setAttribute(k, out);
+  }
+  // move attrs of node to the given values over ms
+  function tween(node, attrs, ms, ease) {
+    const now = Date.now();
+    if (!node._tid) node._tid = ++tweenIds;
+    for (const k in attrs) {
+      tweens.set(node._tid + ":" + k, {
+        node: node, k: k, from: cur(node, k), to: attrs[k],
+        t0: now, ms: Math.max(1, ms), ease: EASE[ease || "inOut"],
+      });
+    }
+  }
+  function stopTween(node, k) { if (node._tid) tweens.delete(node._tid + ":" + k); }
+  setInterval(() => {
+    const now = Date.now();
+    tweens.forEach((tw, key) => {
+      const t = Math.min(1, (now - tw.t0) / tw.ms);
+      const v = tw.from + (tw.to - tw.from) * tw.ease(t);
+      // skip steps too small to see; always land the last one
+      const eps = tw.k.charAt(0) === "r" && tw.k.length === 2 ? MIN_DEG : MIN_M;
+      const last = tw.node._v ? tw.node._v[tw.k] : undefined;
+      if (t < 1 && last !== undefined && Math.abs(v - last) < eps) return;
+      put(tw.node, tw.k, v);
+      if (t >= 1) tweens.delete(key);
+    });
+  }, ANIM_MS);
+
+  function set(node, attrs) {
+    for (const k in attrs) {
+      if (typeof attrs[k] === "number") { stopTween(node, k); put(node, k, attrs[k]); }
+      else node.setAttribute(k, attrs[k]);
+    }
+  }
+  // only write text and colours that changed
+  function setText(node, t) {
+    if (node._txt === t) return;
+    node._txt = t;
+    node.setAttribute("content", t);
+  }
+  function setColor(node, c) {
+    if (node._col === c) return;
+    node._col = c;
+    node.setAttribute("color", c);
+  }
+
+  function mix(a, b, t) {
+    const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+    const ch = (sh) => Math.round(((pa >> sh) & 255) + ((((pb >> sh) & 255) - ((pa >> sh) & 255)) * t));
+    return "#" + ((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1);
+  }
+
+  const FS_SAFE = 0.9;
+  function fitFS(w, h, chars, cap) {
+    const byHeight = h * 80;
+    const byWidth = ((w * 100) / (chars * 0.55)) * FS_SAFE;
+    return Math.round(Math.min(cap === undefined ? Infinity : cap, byHeight, byWidth));
+  }
+  function label(p, text, o, chars) {
+    return el("m-label", withO({
+      "font-size": fitFS(o.width, o.height, chars || Math.max(4, text.length)),
+      alignment: "center", color: PANEL, "font-color": INK, content: text,
+    }, o), p);
+  }
+
+  // ==========================================================
+  // WALLS WITH HOLES
+  // ==========================================================
+  // A flat slab split round rectangular holes. axis is the slab's
+  // normal: "z" (u = x, v = y), "x" (u = z, v = y), "y" (u = x,
+  // v = z). holes are [u0, u1, v0, v1]. The pieces are merged
+  // along each row so a wall with a window is a handful of boxes,
+  // not a grid.
+  function holed(p, axis, pos, u0, u1, v0, v1, t, color, holes, o) {
+    const us = [u0, u1], vs = [v0, v1];
+    (holes || []).forEach((h) => {
+      us.push(Math.max(u0, Math.min(u1, h[0])), Math.max(u0, Math.min(u1, h[1])));
+      vs.push(Math.max(v0, Math.min(v1, h[2])), Math.max(v0, Math.min(v1, h[3])));
+    });
+    const uniq = (a) => Array.from(new Set(a.map(r3))).sort((m, n) => m - n);
+    const U = uniq(us), V = uniq(vs);
+    const inHole = (u, v) => (holes || []).some((h) => u > h[0] && u < h[1] && v > h[2] && v < h[3]);
+    const emit = (a, b, c, d) => {
+      const cu = (a + b) / 2, cv = (c + d) / 2, du = b - a, dv = d - c;
+      if (du < 0.01 || dv < 0.01) return;
+      if (axis === "z") box(p, cu, cv, pos, du, dv, t, color, o);
+      else if (axis === "x") box(p, pos, cv, cu, t, dv, du, color, o);
+      else box(p, cu, pos, cv, du, t, dv, color, o);
+    };
+    for (let j = 0; j < V.length - 1; j++) {
+      let start = null;
+      for (let i = 0; i < U.length - 1; i++) {
+        const solid = !inHole((U[i] + U[i + 1]) / 2, (V[j] + V[j + 1]) / 2);
+        if (solid && start === null) start = U[i];
+        if (!solid && start !== null) { emit(start, U[i], V[j], V[j + 1]); start = null; }
+      }
+      if (start !== null) emit(start, U[U.length - 1], V[j], V[j + 1]);
+    }
+  }
+
+  // a glass pane, walkable into but not through
+  function pane(p, x, y, z, w, h, d, color, op) {
+    return box(p, x, y, z, w, h, d, color || GLASS, { opacity: op === undefined ? 0.22 : op, collide: "true" });
+  }
+
+  // A status screen: a stack of text lines in a frame. Returns the
+  // labels, top line first.
+  // v5: every screen built inside a robot also gets a warning bar
+  // along its top edge (see alarmSink), for the coiling warning.
+  let alarmSink = null;
+  const ALARM_OFF = "#2a2230";
+  function screen(p, o, lines, chars, frame, fc) {
+    const g = group({ x: o.x || 0, y: o.y || 0, z: o.z || 0, ry: o.ry || 0 }, p);
+    box(g, 0, 0, -0.13, o.width + 0.3, o.height + 0.3, 0.1, frame);
+    if (alarmSink) alarmSink.push(box(g, 0, o.height / 2 + 0.08, 0.02, o.width + 0.3, 0.16, 0.06, ALARM_OFF));
+    const lh = o.height / lines;
+    const out = [];
+    for (let i = 0; i < lines; i++) {
+      out.push(label(g, "", {
+        y: o.height / 2 - lh * (i + 0.5), width: o.width, height: lh * 0.92,
+        color: PANEL, "font-color": (fc && fc[i]) || INK,
+      }, chars));
+    }
+    return out;
+  }
+
+  // A station plate: lights up while anybody is standing on it.
+  // v5: who is on a plate comes from two places, merged per person:
+  //   "probe"  - the robot's position probe says you are inside the
+  //              plate's rectangle (works on the whole plate)
+  //   "c0..c2" - a collision with any visible part of the plate
+  // You count as off only when every source says so, and only
+  // after PLATE_GRACE_MS, so crossing between parts never re-fires.
+  const stationPlates = [];
+  const crewMaps = [];
+  let plateSink = null;         // buildRobot points this at R.plates
+  function plate(p, x, y, z, w, d, name, color, base0, chars) {
+    const dim = mix(base0, color, 0.3);
+    const sense = { collide: "true", "collision-interval": 100 };
+    const base = box(p, x, y + 0.06, z, w, 0.12, d, dim, sense);
+    const face = box(p, x, y + 0.13, z, w - 0.5, 0.02, d - 0.5, mix(base0, color, 0.55), sense);
+    const lab = label(p, name, withO({
+      x: x, y: y + 0.15, z: z, rx: -90, width: w - 0.8, height: Math.min(d - 0.8, 1.2),
+      color: mix(base0, color, 0.55), "font-color": "#ffffff",
+    }, sense), chars || Math.max(6, name.length));
+    // onEnter fires when somebody arrives on the plate - that is what
+    // a step or a punch is. Occupancy is for everything you hold.
+    const P = {
+      base: base, lab: lab, name: name, on: new Set(), onEnter: null,
+      x: x, y: y, z: z, hw: w / 2 + PLATE_PAD, hd: d / 2 + PLATE_PAD,
+      src: new Map(), leave: new Map(),
+    };
+    const paint = () => setColor(base, P.on.size ? color : dim);
+    P.mark = (key, src) => {
+      let set_ = P.src.get(key);
+      if (!set_) { set_ = new Set(); P.src.set(key, set_); }
+      set_.add(src);
+      const t = P.leave.get(key);
+      if (t) { clearTimeout(t); P.leave.delete(key); }
+      if (!P.on.has(key)) {
+        P.on.add(key);
+        paint();
+        if (P.onEnter) P.onEnter(key);
+      }
+    };
+    P.unmark = (key, src) => {
+      const set_ = P.src.get(key);
+      if (!set_ || !set_.has(src)) return;
+      set_.delete(src);
+      if (set_.size || P.leave.has(key)) return;
+      P.leave.set(key, setTimeout(() => {
+        P.leave.delete(key);
+        const again = P.src.get(key);
+        if (again && again.size) return;
+        P.src.delete(key);
+        P.on.delete(key);
+        paint();
+      }, PLATE_GRACE_MS));
+    };
+    P.forget = (key) => {
+      const t = P.leave.get(key);
+      if (t) clearTimeout(t);
+      P.leave.delete(key);
+      P.src.delete(key);
+      if (P.on.delete(key)) paint();
+    };
+    P.contains = (ux, uy, uz) =>
+      Math.abs(ux - P.x) <= P.hw && Math.abs(uz - P.z) <= P.hd && uy > P.y - 1 && uy < P.y + 2.6;
+    [base, face, lab].forEach((n, i) => {
+      const src = "c" + i;
+      const keyOf = (e) => {
+        const id = e && e.detail ? e.detail.connectionId : undefined;
+        return id === undefined ? "anon" : id;
+      };
+      n.addEventListener("collisionstart", (e) => P.mark(keyOf(e), src));
+      n.addEventListener("collisionmove", (e) => P.mark(keyOf(e), src));
+      n.addEventListener("collisionend", (e) => P.unmark(keyOf(e), src));
+    });
+    stationPlates.push(P);
+    if (plateSink) plateSink.push(P);
+    return P;
+  }
+
+  // One probe per robot, inside its body, so the positions it
+  // reports are already in the robot's own frame - the same frame
+  // the plates were placed in - however the robot has moved.
+  function plateProbe(body, plates, crew, py, pz) {
+    const PY = py === undefined ? PROBE_Y : py, PZ = pz === undefined ? PROBE_Z : pz;
+    const probe = el("m-position-probe", {
+      x: 0, y: PY, z: PZ, range: PROBE_RANGE, interval: PROBE_MS,
+    }, body);
+    probe.removeAttribute("collide");
+    const onPos = (e) => {
+      const d = e && e.detail;
+      if (!d || d.connectionId === undefined) return;
+      const rel = d.elementRelative && d.elementRelative.position;
+      if (!rel) return;
+      const ux = rel.x, uy = rel.y + PY, uz = rel.z + PZ;
+      if (crew) crew.set(d.connectionId, { x: ux, y: uy, z: uz });
+      plates.forEach((P) => {
+        if (P.contains(ux, uy, uz)) P.mark(d.connectionId, "probe");
+        else P.unmark(d.connectionId, "probe");
+      });
+    };
+    probe.addEventListener("positionenter", onPos);
+    probe.addEventListener("positionmove", onPos);
+    probe.addEventListener("positionleave", (e) => {
+      const d = e && e.detail;
+      if (!d) return;
+      plates.forEach((P) => P.unmark(d.connectionId, "probe"));
+      if (crew) crew.delete(d.connectionId);
+    });
+    crewMaps.push(crew);
+    return probe;
+  }
+  // somebody left the world: take them off every plate at once
+  if (typeof window !== "undefined" && window.addEventListener) {
+    window.addEventListener("disconnected", (e) => {
+      const id = e && e.detail ? e.detail.connectionId : undefined;
+      if (id === undefined) return;
+      stationPlates.forEach((P) => P.forget(id));
+      crewMaps.forEach((m) => m && m.delete(id));
+    });
+  }
+
+  // A sign on the inside of a wall. n is the wall's inward normal
+  // ("+x", "-x", "+z", "-z"), at is the lining's face along that
+  // axis. The sign stands SIGN_GAP in front of it so it never
+  // flickers into the wall.
+  function wallSign(p, text, n, at, o, chars) {
+    const q = withO({}, o);
+    const s = n.charAt(0) === "+" ? 1 : -1;
+    const axis = n.charAt(1);
+    q[axis] = at + s * SIGN_GAP;
+    q.ry = axis === "z" ? (s > 0 ? 0 : 180) : (s > 0 ? 90 : -90);
+    return label(p, text, q, chars);
+  }
+  // a floor sign whose text reads toward the given heading
+  // (degrees, 0 = toward +z of the parent, 90 = toward +x)
+  function floorSign(p, text, x, y, z, heading, o, chars) {
+    const g = group({ x: x, y: y, z: z, ry: heading + 180 }, p);
+    return label(g, text, withO({ rx: -90 }, o), chars);
+  }
+
+  // ==========================================================
+  // KEYPADS (v5) - the ring console and one on each bridge
+  // ==========================================================
+  // A keypad faces its own +z, with its feet at y 0. Each keypad
+  // keeps its own entry, so two people typing on two keypads never
+  // mix digits. onCode(K) runs when the whole code is in.
+  const keypads = [];
+  function keypad(p, o, onCode) {
+    const g = group({ x: o.x || 0, y: o.y || 0, z: o.z || 0, ry: o.ry || 0 }, p);
+    const K = { entry: [], expires: 0, flashTok: 0 };
+    box(g, 0, 2.2, 0, 3.4, 3.3, 0.25, "#15151f", { collide: "true" });
+    K.display = label(g, "- - - -", { y: 3.4, z: 0.15, width: 3.0, height: 0.5,
+      color: "#05050a", "font-color": "#7dffcf" }, 7);
+    if (o.title) label(g, o.title, { y: 4.3, z: 0.05, width: 3.6, height: 0.6,
+      color: PANEL, "font-color": GOLD }, 12);
+    K.show = () => {
+      if (K.flashing) return;
+      const dots = [];
+      for (let i = 0; i < CODE.length; i++) dots.push(i < K.entry.length ? "*" : "-");
+      setText(K.display, dots.join(" "));
+    };
+    K.flash = (t) => {
+      const tok = ++K.flashTok;
+      K.flashing = true;
+      setText(K.display, t);
+      setTimeout(() => { if (tok !== K.flashTok) return; K.flashing = false; K.show(); }, 1600);
+    };
+    const isPrefix = (seq) => seq.every((d, i) => d === CODE[i]);
+    K.enter = (digit) => {
+      const now = Date.now();
+      if (now > K.expires) K.entry = [];
+      K.expires = now + CODE_TIMEOUT * 1000;
+      K.entry.push(digit);
+      while (K.entry.length && !isPrefix(K.entry)) K.entry.shift();
+      K.show();
+      if (K.entry.length === CODE.length) { K.entry = []; K.show(); onCode(K); }
+    };
+    K.typed = (str) => {
+      const digits = String(str || "").replace(/[^0-9]/g, "");
+      K.entry = [];
+      for (let i = 0; i < digits.length; i++) K.enter(Number(digits[i]));
+      if (digits.length && digits.length !== CODE.length) K.flash("NO");
+    };
+    [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["C", "0", ""]].forEach((row, r) => {
+      row.forEach((key, c) => {
+        if (key === "") return;
+        const clear = key === "C";
+        const capC = clear ? "#3d0c27" : "#181134";
+        const cap = box(g, (c - 1) * 0.92, 2.42 - r * 0.62, 0.22, 0.78, 0.5, 0.26, capC, { collide: "true" });
+        const face = el("m-label", {
+          z: 0.14, width: 0.74, height: 0.42,
+          "font-size": fitFS(0.74, 0.42, 1), alignment: "center",
+          color: capC, "font-color": clear ? "#ff8fd8" : "#fff0b8", content: key, collide: "true",
+        }, cap);
+        let last = 0;
+        const hit = () => {
+          const now = Date.now();
+          if (now - last < 180) return;
+          last = now;
+          cap.setAttribute("color", clear ? "#ff5ec8" : GOLD);
+          setTimeout(() => cap.setAttribute("color", capC), 150);
+          if (clear) { K.entry = []; K.show(); } else K.enter(Number(key));
+        };
+        cap.addEventListener("click", hit);
+        face.addEventListener("click", hit);
+      });
+    });
+    // a TYPE button beside the pad opens a text box
+    if (o.promptX !== undefined) {
+      const pw = document.createElement("m-prompt");
+      pw.setAttribute("message", "Match code");
+      pw.setAttribute("placeholder", "4 digits");
+      g.append(pw);
+      const btn = box(pw, o.promptX, 1.6, 0.1, 1.4, 1.1, 0.2, "#15151f", { collide: "true" });
+      el("m-label", {
+        z: 0.11, width: 1.3, height: 1.0,
+        "font-size": fitFS(1.3, 1.0, 5), alignment: "center",
+        color: "#15151f", "font-color": GOLD, content: "TYPE", collide: "true",
+      }, btn);
+      pw.addEventListener("prompt", (event) => K.typed(event.detail && event.detail.value));
+    }
+    K.show();
+    keypads.push(K);
+    return K;
+  }
+
+  // ==========================================================
+  // THE CAPTAIN'S DESK - clickable buttons under the visor
+  // ==========================================================
+  // Rows are listed farthest from the captain first, so the drive
+  // row is the one nearest your hands. Column 0 is on your left.
+  const DESK = [
+    ["HOVER", "SLAM", "BLAST", "BARRAGE"],
+    ["WAVE", "FLEX", "SALUTE", "DANCE"],
+    ["FLOSS", "BREAK", "L HOP", "RUN MAN"],
+    ["TURN L", "RISE", "LOWER", "TURN R"],
+    ["L PUNCH", "SHIELD", "R PUNCH", "LIGHTS"],
+    ["BACK", "STOP", "WALK", "SPRINT"],
+  ];
+  const DESK_KIND = {
+    BACK: "drive", STOP: "drive", WALK: "drive", SPRINT: "drive",
+    "TURN L": "turn", "TURN R": "turn", RISE: "alt", LOWER: "alt",
+    "L PUNCH": "fight", "R PUNCH": "fight", SHIELD: "guard", LIGHTS: "light",
+  };
+  const DESK_COLOR = { drive: "#14553d", turn: "#15465c", alt: "#3a2d5c", move: "#5c1f40",
+    fight: "#6b2414", guard: "#1d4a6b", light: "#5a4a14" };
+  const DESK_LIT = "#2fd08a";
+  function desk(body, def, R, zc, floorY) {
+    const BW0 = 1.2, BH = 0.55, G = 0.1;
+    const W = 4 * BW0 + 5 * G, H = DESK.length * BH + (DESK.length + 1) * G;
+    // v6.2: the panel lies flat on the floor, buttons facing up, set
+    // back from the glass. The whole thing is only ~0.15m tall.
+    box(body, 0, floorY + 0.05, zc, W + 0.6, 0.1, H + 0.6, def.frame, { collide: "true" });  // rim
+    // flat on the floor; the far rows point at the window
+    const d = group({ y: floorY + 0.15, z: zc, ry: 180 }, body);
+    const tilt = group({ rx: -90 }, d);
+    box(tilt, 0, 0, -0.08, W + 0.2, H + 0.2, 0.12, "#101018", { collide: "true" });
+    const out = {};
+    DESK.forEach((row, r) => row.forEach((name, c) => {
+      const kind = DESK_KIND[name] || "move";
+      const base = DESK_COLOR[kind];
+      const BW = (W - (row.length + 1) * G) / row.length;
+      const x = -W / 2 + G + BW / 2 + c * (BW + G);
+      const y = H / 2 - G - BH / 2 - r * (BH + G);
+      const cap = box(tilt, x, y, 0.06, BW, BH, 0.16, base, { collide: "true" });
+      const face = el("m-label", {
+        z: 0.085, width: BW - 0.06, height: BH - 0.08,
+        "font-size": fitFS(BW - 0.06, BH - 0.08, 7), alignment: "center",
+        color: base, "font-color": "#ffffff", content: name, collide: "true",
+      }, cap);
+      // v6.7: stable ids so the browser remote can find each button
+      face.setAttribute("id", "j3ff-btn-" + name.replace(/ /g, "_"));
+      const B = { cap: cap, face: face, base: base, lit: false };
+      const paint = (c) => { setColor(cap, c); face.setAttribute("color", c); };
+      B.setLit = (on) => { B.lit = on; paint(on ? DESK_LIT : base); };
+      let last = 0;
+      const hit = () => {
+        const now = Date.now();
+        if (now - last < 250) return;
+        last = now;
+        paint("#ffffff");
+        setTimeout(() => paint(B.lit ? DESK_LIT : base), 160);
+        deskPress(R, name);
+      };
+      cap.addEventListener("click", hit);
+      face.addEventListener("click", hit);
+      out[name] = B;
+    }));
+    return out;
+  }
+
+  // ==========================================================
+  // THE LIFT - from the ground straight to the captain's room
+  // ==========================================================
+  // A glass shaft behind j3ff's jetpack. At the top a walkway runs
+  // forward, between the two jet cans, into the back of the helmet.
+  // v6.17: THE WAY INTO THE LIFT IS FULL SIZE. The ground doorway is
+  // sized in real metres - 5.2m wide, 3.8m tall, exactly the doorway of
+  // the full-size (80m) build - whatever ROBOT_SCALE is. The shaft
+  // itself is only 7 x ROBOT_SCALE metres across, so the big doorway
+  // is the front of a glass entry lobby built onto the shaft; the
+  // shaft's own opening is as wide as the shaft and just as tall.
+  const LK = 1 / ROBOT_SCALE;                      // real metres -> robot metres
+  const LIFT_DOOR_W = 5.2 * LK, LIFT_DOOR_H = 3.8 * LK;
+  const LOBBY_W = 6.4 * LK, LOBBY_D = 3 * LK, LOBBY_H = 4.6 * LK;
+  function buildLift(root, def) {
+    const SH = 7, TX = 0, TZ = BACK_Z - 1.7 - SH / 2;   // clear of the jetpack
+    const TOP = BRIDGE.floor;
+    const g = group({}, root);
+    const T = {};
+    const ty0 = 0, ty1 = TOP + Math.max(5, LIFT_DOOR_H + 1);   // v6.18: head room at the top
+    const sx0 = TX - SH / 2, sx1 = TX + SH / 2, sz0 = TZ - SH / 2, sz1 = TZ + SH / 2;
+    const glassO = { opacity: 0.1, collide: "true" };
+    const TOP_DOOR_W = Math.max(3.8, SH - 0.8), TOP_DOOR_H = Math.max(3.6, LIFT_DOOR_H);   // v6.18
+    holed(g, "z", sz1, sx0, sx1, ty0, ty1, 0.2, GLASS, [[TX - TOP_DOOR_W / 2, TX + TOP_DOOR_W / 2, TOP, TOP + TOP_DOOR_H]], glassO);
+    const SHAFT_DOOR_W = Math.min(LIFT_DOOR_W, SH - 0.8);
+    holed(g, "z", sz0, sx0, sx1, ty0, ty1, 0.2, GLASS, [[TX - SHAFT_DOOR_W / 2, TX + SHAFT_DOOR_W / 2, 0, LIFT_DOOR_H]], glassO);
+    // v6.17: the entry lobby (only when the shaft is too narrow for the full-size doorway)
+    const lz0 = sz0 - LOBBY_D, lzc = sz0 - LOBBY_D / 2;
+    if (LIFT_DOOR_W > SHAFT_DOOR_W) {
+      holed(g, "z", lz0, TX - LOBBY_W / 2, TX + LOBBY_W / 2, 0, LOBBY_H, 0.2, GLASS,
+        [[TX - LIFT_DOOR_W / 2, TX + LIFT_DOOR_W / 2, 0, LIFT_DOOR_H]], glassO);            // front, the big doorway
+      [-1, 1].forEach((s) => box(g, TX + s * LOBBY_W / 2, LOBBY_H / 2, lzc, 0.2, LOBBY_H, LOBBY_D, GLASS, glassO));   // sides
+      [-1, 1].forEach((s) => {                                                              // back, either side of the shaft
+        const a = s < 0 ? TX - LOBBY_W / 2 : sx1, b = s < 0 ? sx0 : TX + LOBBY_W / 2;
+        box(g, (a + b) / 2, LOBBY_H / 2, sz0, b - a, LOBBY_H, 0.2, GLASS, glassO);
+      });
+      box(g, TX, LOBBY_H + 0.2, lzc, LOBBY_W + 0.4, 0.4, LOBBY_D + 0.4, def.frame, { collide: "true" });   // roof
+      box(g, TX, 0.25, lzc, LOBBY_W, 0.5, LOBBY_D, def.frame, { collide: "true" });                        // floor, level with the car
+    }
+    const frontZ = LIFT_DOOR_W > SHAFT_DOOR_W ? lz0 : sz0;
+    holed(g, "x", sx0, sz0, sz1, ty0, ty1, 0.2, GLASS, [], glassO);
+    holed(g, "x", sx1, sz0, sz1, ty0, ty1, 0.2, GLASS, [], glassO);
+    box(g, TX, ty1 + 0.2, TZ, SH + 0.6, 0.4, SH + 0.6, def.frame, { collide: "true" });
+    [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([a, b]) =>
+      box(g, TX + a * SH / 2, ty1 / 2, TZ + b * SH / 2, 0.4, ty1, 0.4, def.frame));
+    label(g, "LIFT TO THE BRIDGE", { x: TX, y: LIFT_DOOR_H + 0.4 * LK, z: frontZ - 0.2, ry: 180, width: 6.5, height: 0.9, "font-color": GOLD }, 18);
+    el("m-light", { x: TX, y: TOP + 3, z: TZ, type: "point", intensity: 10, distance: 14, color: def.team_lit }, g);
+
+    T.car = box(g, TX, 0.25, TZ, SH - 0.6, 0.5, SH - 0.6, def.frame, { collide: "true" });
+    box(T.car, 0, 0.26, 0, SH - 1.2, 0.02, SH - 1.2, def.team_lit);
+    lerp(T.car, "y", LIFT_MS, "easeInOutQuad");
+    T.botDoor = box(g, TX, LIFT_DOOR_H / 2, sz0, SHAFT_DOOR_W + 0.2, LIFT_DOOR_H, 0.25, def.team_lit, { opacity: 0.35, collide: "true" });
+    T.topDoor = box(g, TX, TOP + TOP_DOOR_H / 2, sz1, TOP_DOOR_W + 0.2, TOP_DOOR_H, 0.25, def.team_lit, { opacity: 0.35, collide: "true" });
+
+    // the walkway: top of the shaft -> back wall of the bridge.
+    // Glass floor with a lit centre line, so from outside it is a
+    // faint strip between the jet cans, not a new piece of robot.
+    const wz0 = sz1, wz1 = BRIDGE_BACK + 0.3;
+    const BZ = (wz0 + wz1) / 2, BL = wz1 - wz0 + 0.4;
+    const keep = new Set();
+    const RAIL_H = Math.max(1.2, 1.1 / ROBOT_SCALE);
+    keep.add(box(g, TX, TOP - 0.15, BZ, WALK_W, 0.3, BL, GLASS, { opacity: 0.3, collide: "true" }));
+    [-1, 1].forEach((s) => keep.add(box(g, TX + s * (WALK_W / 2 - 0.05), TOP + RAIL_H / 2, BZ, 0.1, RAIL_H, BL, GLASS, { opacity: 0.15, collide: "true" })));
+    box(g, TX, TOP + 0.02, BZ, 0.25, 0.04, BL, def.team_lit);
+
+    // The whole lift vanishes while the robot moves. If nobody is in
+    // the shaft its walls, doors and car stop being solid too. With
+    // riders inside it stays solid (just unseen) so they are carried
+    // safely. The walkway always stays solid.
+    T.solids = [];
+    Array.from(g.children).forEach((n) => {
+      if (!keep.has(n) && n.getAttribute && n.getAttribute("collide") === "true") T.solids.push(n);
+    });
+    T.hidden = false;
+    T.solidOn = true;
+    T.update = (hide, riders) => {
+      if (hide !== T.hidden) {
+        T.hidden = hide;
+        g.setAttribute("visible", hide ? "false" : "true");
+      }
+      const solid = !hide || riders;
+      if (solid !== T.solidOn) {
+        T.solidOn = solid;
+        T.solids.forEach((n) => n.setAttribute("collide", solid ? "true" : "false"));
+      }
+    };
+
+    T.riders = () => 0;
+    T.crew = () => [];
+    T.box = { x0: sx0 - 0.5, x1: sx1 + 0.5, z0: sz0 - 0.5, z1: sz1 + 0.5, y1: ty1 + 1 };
+    const CAR = { x0: sx0 + 0.3, x1: sx1 - 0.3, z0: sz0 + 0.3, z1: sz1 - 0.3 };
+    T.inCar = (p, top) => {
+      const fy = top ? TOP : 0.5;
+      return p.x > CAR.x0 && p.x < CAR.x1 && p.z > CAR.z0 && p.z < CAR.z1 && p.y > fy - 1.5 && p.y < fy + 4;
+    };
+    const inDoor = (p, top) => top
+      ? Math.abs(p.x - TX) < 2.5 && p.z > sz1 - 1.2 && p.z < sz1 + 2 && p.y > TOP - 1.5 && p.y < TOP + 4
+      : Math.abs(p.x - TX) < 3.2 && p.z > sz0 - 2 && p.z < sz0 + 1.2 && p.y > -1.5 && p.y < 4;
+    const doorBusy = (top) => T.crew().some((p) => inDoor(p, top));
+    const signO = (o) => label(g, "", withO({ width: 5.4, height: 0.7, color: "#07070c", "font-color": GOLD }, o), 18);
+    T.signs = {
+      bot: [signO({ x: TX, y: Math.min(LIFT_DOOR_H + 0.5, ty1 - 1), z: sz0 + 0.2 }),
+            signO({ x: TX, y: LIFT_DOOR_H + 0.15 * LK, z: frontZ - 0.2, ry: 180 })],
+      top: [signO({ x: TX, y: TOP + TOP_DOOR_H + 0.5, z: sz1 - 0.2, ry: 180 }), signO({ x: TX, y: TOP + TOP_DOOR_H + 0.5, z: sz1 + 0.2 })],
+    };
+    const show = (which, t) => { T.signs.bot.concat(T.signs.top).forEach((n) => setText(n, "")); T.signs[which].forEach((n) => setText(n, t)); };
+    const POLL = 250;
+    const goUp = () => {
+      T.botDoor.setAttribute("y", String(LIFT_DOOR_H / 2));
+      set(T.car, { y: TOP - 0.25 });
+      show("top", "LIFT COMING UP");
+      T.signs.bot.forEach((n) => setText(n, "GOING UP"));
+      setTimeout(() => { T.topDoor.setAttribute("y", "-50"); waitTop(Date.now(), 0); }, LIFT_MS);
+    };
+    const goDown = () => {
+      T.topDoor.setAttribute("y", String(TOP + TOP_DOOR_H / 2));
+      set(T.car, { y: 0.25 });
+      show("bot", "LIFT COMING DOWN");
+      T.signs.top.forEach((n) => setText(n, "GOING DOWN"));
+      setTimeout(() => { T.botDoor.setAttribute("y", "-50"); waitBottom(Date.now(), 0); }, LIFT_MS);
+    };
+    const secsLeft = (ms) => Math.max(1, Math.ceil(ms / 1000));
+    const waitBottom = (opened, boardedAt) => {
+      const now = Date.now(), t = now - opened;
+      if (T.riders(false) > 0) { if (!boardedAt) boardedAt = now; }
+      else boardedAt = 0;
+      const busy = doorBusy(false);
+      let left;
+      if (t < LIFT_MIN_OPEN_MS) left = LIFT_MIN_OPEN_MS - t;
+      else if (busy && t < LIFT_HOLD_MS) left = -1;
+      else if (boardedAt && now - boardedAt >= LIFT_GO_MS) return goUp();
+      else if (t >= LIFT_WAIT_MS) return goUp();
+      else left = boardedAt ? LIFT_GO_MS - (now - boardedAt) : LIFT_WAIT_MS - t;
+      show("bot", left < 0 ? "STEP CLEAR OF THE DOOR" : "GOING UP IN " + secsLeft(left));
+      setTimeout(() => waitBottom(opened, boardedAt), POLL);
+    };
+    const waitTop = (opened, emptyAt) => {
+      const now = Date.now(), t = now - opened;
+      if (T.riders(true) === 0) { if (!emptyAt) emptyAt = now; }
+      else emptyAt = 0;
+      const busy = doorBusy(true);
+      let left;
+      if (t < LIFT_MIN_OPEN_MS) left = LIFT_MIN_OPEN_MS - t;
+      else if (busy && t < LIFT_HOLD_MS) left = -1;
+      else if (emptyAt && now - emptyAt >= LIFT_GO_MS) return goDown();
+      else if (t >= LIFT_TOP_MS) return goDown();
+      else left = emptyAt ? LIFT_GO_MS - (now - emptyAt) : LIFT_TOP_MS - t;
+      show("top", left < 0 ? "STEP CLEAR OF THE DOOR" : "GOING DOWN IN " + secsLeft(left));
+      setTimeout(() => waitTop(opened, emptyAt), POLL);
+    };
+    T.botDoor.setAttribute("y", "-50");
+    waitBottom(Date.now(), 0);
+    return T;
+  }
+
+  // ==========================================================
+  // THE ROBOT - j3ff, with the bridge inside its helmet
+  // ==========================================================
+  function buildRobot(side, def) {
+    const R = { def: def, side: side, st: {}, scr: {}, plates: [], jets: [], crew: new Map() };
+    plateSink = R.plates;
+    alarmSink = null;
+
+    const root = group({}, side);
+    lerp(root, "x,y,z,ry", ROOT_LERP_MS, "linear");
+    R.root = root;
+    let body = group({}, root);
+    skinPart(body, "body");
+    lerp(body, "x,rz", JOINT_LERP_MS, "linear");   // v6.6: the floss sways the body
+    R.body = body;
+
+    // ------------------------------------------------------
+    // THE CAPTAIN'S ROOM (inside the helmet)
+    // ------------------------------------------------------
+    // Everything here stays inside the helmet, so from outside you
+    // only ever see j3ff. From inside, the helmet is see-through.
+    const B = BRIDGE, F = B.floor, hw = B.hw;
+    const zc = (B.z0 + B.z1) / 2, dz = B.z1 - B.z0, wallH = B.top - F;
+    // v6.18: the room is built as before inside this group, which
+    // scales it by BRIDGE_S around the middle of its floor
+    const body0 = body;
+    body = group({ y: F * (1 - BRIDGE_S), z: zc * (1 - BRIDGE_S), sx: BRIDGE_S, sy: BRIDGE_S, sz: BRIDGE_S }, body0);
+    R.bridgeG = body;
+    const solid = { collide: "true" };
+    box(body, 0, F - 0.15, zc, hw * 2, 0.3, dz, def.innerFloor, solid);            // floor
+    // clear walls, so nobody walks out of the helmet
+    pane(body, hw, F + wallH / 2, zc, 0.1, wallH, dz, GLASS, 0.05);
+    pane(body, -hw, F + wallH / 2, zc, 0.1, wallH, dz, GLASS, 0.05);
+    pane(body, 0, F + wallH / 2, B.z1, hw * 2, wallH, 0.1, GLASS, 0.05);
+    holed(body, "z", B.z0, -hw, hw, F, B.top, 0.1, GLASS,
+      [[-ROOM_DOOR_W / 2, ROOM_DOOR_W / 2, F, F + ROOM_DOOR_H]], { opacity: 0.05, collide: "true" });  // back, with the door
+    // v6.15/v6.19: a glass window overhead. Solid when the room is tall
+    // enough on its own; if not, see-through and not solid, with the
+    // invisible head room above it
+    const tallEnough = F + ROOM_CLEAR <= B.top;
+    // v6.26: the visible glass ceiling is gone - it was catching clicks
+    // meant for the desk. (Only if the room is tall enough on its own is
+    // there still a lid here, and then it's invisible.)
+    if (tallEnough) box(body, 0, B.top, zc, hw * 2, 0.1, dz, GLASS, { collide: "true", visible: "false" });
+    if (F + ROOM_CLEAR > B.top) {
+      // v6.19: invisible head room above the room, walls and a lid
+      const top2 = F + ROOM_CLEAR, h2 = top2 - B.top, y2 = B.top + h2 / 2;
+      const inv = { collide: "true", visible: "false" };
+      [-1, 1].forEach((s) => box(body, s * hw, y2, zc, 0.1, h2, dz, GLASS, inv));
+      box(body, 0, y2, B.z1, hw * 2, h2, 0.1, GLASS, inv);
+      holed(body, "z", B.z0, -hw, hw, B.top, top2, 0.1, GLASS,
+        [[-ROOM_DOOR_W / 2, ROOM_DOOR_W / 2, B.top, F + ROOM_DOOR_H]], inv);
+      box(body, 0, top2, zc, hw * 2, 0.1, dz, GLASS, inv);
+    }
+    // glowing edge round the floor so you can see where it ends
+    [-1, 1].forEach((s) => box(body, s * (hw - 0.15), F + 0.02, zc, 0.2, 0.04, dz, def.glow));
+    box(body, 0, F + 0.02, B.z1 - 0.15, hw * 2, 0.04, 0.2, def.glow);
+    [-1, 1].forEach((s) => box(body, s * (hw + ROOM_DOOR_W / 2) / 2, F + 0.02, B.z0 + 0.15, hw - ROOM_DOOR_W / 2, 0.04, 0.2, def.glow));
+    // the desk, and the turn pads either side of it
+    R.desk = desk(body, def, R, 2.6, F);
+    R.st.bturnL = plate(body, 3.9, F, 1.8, 2.2, 2.4, "TURN L", GLASS, def.innerFloor);
+    R.st.bturnR = plate(body, -3.9, F, 1.8, 2.2, 2.4, "TURN R", GLASS, def.innerFloor);
+    // status screen, high up at the front, above your line of sight
+    R.scr.bridge = screen(body, { y: F + 4.55, z: B.z1 - 0.45, ry: 180, width: 6, height: 1.4 },  // v6.3: smaller, up against the ceiling
+      4, 40, def.frame, [GOLD, def.glow, "#ff5ec8", INK]);
+    R.scr.bridge[0].parentNode.setAttribute("id", "j3ff-status");   // v6.7: for the browser remote
+    wallSign(body, "J3FF BRIDGE", "+z", B.z0, { y: Math.min(F + DOOR_H + 0.9, B.top - 0.6), width: 6, height: 1.0,
+      color: def.inner, "font-color": def.glow }, 11);
+    el("m-light", { y: F + 4.5, z: 0.5, type: "point", intensity: 10, distance: 10, color: "#fff0dc" }, body);
+    R.bridgeProbe = plateProbe(body, R.plates, new Map(), F + 2, zc);   // v6.18: the turn pads, in the room's frame
+    body = body0;
+    // headlights (lights only - j3ff has no lamps to add)
+    R.headlights = [
+      el("m-light", { y: F + 1, z: 22, type: "point", intensity: 0, distance: 70, color: "#fff4dc" }, body),
+      el("m-light", { y: 12, z: 45, type: "point", intensity: 0, distance: 60, color: "#fff4dc" }, body),
+    ];
+    // a flash for the big moves
+    R.flashLight = el("m-light", { y: CHEST.y, z: CHEST.z + 10, type: "point", intensity: 0, distance: 60, color: def.glow }, body);
+
+    // (v6.10: the old yellow jet cylinders are gone - the jets are now
+    // real fire, built on demand by jetFire())
+
+    // ------------------------------------------------------
+    // LEGS - hip and knee on j3ff's own pivots
+    // ------------------------------------------------------
+    R.hip = {}; R.knee = {};
+    ["L", "R"].forEach((k) => {
+      const L = LEG[k], sd = k.toLowerCase();
+      const hip = joint(body, L.hip[0], L.hip[1], L.hip[2]);
+      const knee = joint(hip, L.knee[0], L.knee[1], L.knee[2]);
+      skinPart(hip, "thigh_" + sd);
+      skinPart(knee, "shin_" + sd);
+      R.hip[k] = hip; R.knee[k] = knee;
+    });
+
+    // ------------------------------------------------------
+    // ARMS - shoulder and elbow on j3ff's own pivots
+    // ------------------------------------------------------
+    R.shoulder = {}; R.elbow = {};
+    ["L", "R"].forEach((k) => {
+      const A = ARM[k], s = k === "L" ? 1 : -1, sd = k.toLowerCase();
+      const shoulder = joint(body, A.shoulder[0], A.shoulder[1], A.shoulder[2],
+        { rx: A.rest.rx, rz: s * A.rest.rz });
+      const elbow = joint(shoulder, 0, -A.upper, 0, { rx: A.rest.erx, rz: s * A.rest.erz });
+      skinPart(shoulder, "upperarm_" + sd);
+      skinPart(elbow, "forearm_" + sd);
+      R.shoulder[k] = shoulder; R.elbow[k] = elbow;
+    });
+
+    // the shield: a glowing hexagon outline projected in front of
+    // j3ff while SHIELD is on (an effect, not armour)
+    const shield = group({ y: CHEST.y, z: CHEST.z + 14, visible: "false" }, body);
+    [[22, 0.7, 0.85], [12, 0.35, 0.35]].forEach(([rad, th, op]) => {
+      const apo = rad * Math.cos(Math.PI / 6);
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+        box(shield, apo * Math.cos(a), apo * Math.sin(a), 0, th, rad, th, def.glow,
+          { rz: (a * 180) / Math.PI, opacity: op });
+      }
+    });
+    R.shield = shield;
+
+    R.probe = plateProbe(body, [], R.crew);   // v6.18: crew positions for the lift and CALL
+    plateSink = null;
+    return R;
+  }
+
+  // ==========================================================
+  // BUILD
+  // ==========================================================
+  const BOT = buildRobot(world, LOOK);
+  BOT.lift = buildLift(BOT.root, LOOK);
+  BOT.lift.riders = (top) => {
+    let n = 0;
+    BOT.crew.forEach((p) => { if (BOT.lift.inCar(p, top)) n++; });
+    return n;
+  };
+  BOT.lift.crew = () => Array.from(BOT.crew.values());
+
+  // ==========================================================
+  // STATE
+  // ==========================================================
+  const D2R = Math.PI / 180;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const occupied = (P) => !!P && P.on.size > 0;
+  function normDeg(a) { return ((a + 180) % 360 + 360) % 360 - 180; }
+  function say(R, t) { R.msg = t; R.msgUntil = Date.now() + 2500; }
+
+  function initState(R) {
+    R.lx = 0; R.lz = 0; R.lh = 0; R.alt = 0;
+    R.v = 0; R.w = 0;
+    R.mode = "stop";
+    R.turnQueue = 0;
+    R.cycleLeg = "L"; R.nextStepAt = 0;
+    R.emoteTok = 0; R.armEmoteUntil = 0; R.legEmoteUntil = 0; R.emoteName = "";
+    R.jumping = false; R.jetUntil = 0;
+    R.blastReadyAt = 0;
+    R.lightsOn = false;
+    R.stillSince = 1;
+    R.shieldUp = false;
+    R.auto = null;
+    R.msg = ""; R.msgUntil = 0;
+    R.flashUntil = 0; R.flashOn = false;
+    R.pose = { L: withO({}, ARM.L.rest), R: withO({}, ARM.R.rest) };
+    R.arm = {
+      L: { coolUntil: 0, throwing: false, shown: null },
+      R: { coolUntil: 0, throwing: false, shown: null },
+    };
+  }
+  initState(BOT);
+
+  // ==========================================================
+  // POSES
+  // ==========================================================
+  // Arm angles are for a straight arm hanging down: rx swings it
+  // forward (-) / back (+), rz lifts it out to its own side, erx and
+  // erz bend the elbow the same way. Anything left out is j3ff's own
+  // standing pose, so armTo(R, k, {}) puts the arm back as modelled.
+  function armTo(R, k, o, ms, ease) {
+    const s = k === "L" ? 1 : -1;
+    const q = withO(withO({}, ARM[k].rest), o || {});
+    tween(R.shoulder[k], { rx: q.rx, rz: s * q.rz }, ms, ease || "inOut");
+    tween(R.elbow[k], { rx: q.erx, rz: s * q.erz }, ms, ease || "inOut");
+    R.pose[k] = q;
+    R.arm[k].shown = null;
+  }
+  function legsTo(R, p, ms, ease) {
+    ["L", "R"].forEach((k) => {
+      const q = p[k] || {};
+      tween(R.hip[k], { rx: q.hip || 0 }, ms, ease || "inOut");
+      tween(R.knee[k], { rx: q.knee || 0 }, ms, ease || "inOut");
+    });
+  }
+  const LEGS_ZERO = {};
+  function stride(R, leg, dir, ms, amp) {
+    const other = leg === "L" ? "R" : "L";
+    const a = amp || 1;
+    const up = ms * 0.45;
+    const p = {};
+    p[leg] = { hip: (dir > 0 ? -24 : 15) * a, knee: (dir > 0 ? 36 : 26) * a };
+    p[other] = { hip: (dir > 0 ? 8 : -6) * a, knee: 4 * a };
+    legsTo(R, p, up, "out");
+    setTimeout(() => { if (Date.now() >= R.legEmoteUntil) legsTo(R, LEGS_ZERO, ms - up, "in"); }, up);
+  }
+
+  // where the tip of a forearm cannon is, and which way it points,
+  // for the arm's current pose (robot frame; Euler order x, y, z)
+  function rot(rx, rz) {
+    const a = rx * D2R, b = rz * D2R;
+    const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
+    return [[cb, -sb, 0], [ca * sb, ca * cb, -sa], [sa * sb, sa * cb, ca]];
+  }
+  function mm(A, B) { return A.map((r) => [0, 1, 2].map((j) => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j])); }
+  function mv(A, v) { return A.map((r) => r[0] * v[0] + r[1] * v[1] + r[2] * v[2]); }
+  function cannon(R, k) {
+    const A = ARM[k], q = R.pose[k], s = k === "L" ? 1 : -1;
+    const Ms = rot(q.rx, s * q.rz), Me = mm(Ms, rot(q.erx, s * q.erz));
+    const e = mv(Ms, [0, -A.upper, 0]), d = mv(Me, [0, -1, 0]);
+    return {
+      x: A.shoulder[0] + e[0] + d[0] * A.reach, y: A.shoulder[1] + e[1] + d[1] * A.reach,
+      z: A.shoulder[2] + e[2] + d[2] * A.reach, dx: d[0], dy: d[1], dz: d[2],
+    };
+  }
+
+  // ==========================================================
+  // EFFECTS
+  // ==========================================================
+  function pop(parent, x, y, z, r0, r1, color, ms) {
+    const f = sph(parent, x, y, z, r0, color, { opacity: 0.9 });
+    tween(f, { radius: r1, opacity: 0 }, ms, "out");
+    setTimeout(() => { if (f.parentNode) f.parentNode.removeChild(f); }, ms + 150);
+  }
+  function ring(R, x, z, r0, r1, color, ms) {
+    const d = cyl(R.root, x, 0.5, z, r0, 0.2, color, { opacity: 0.55 });
+    tween(d, { radius: r1, opacity: 0 }, ms, "out");
+    setTimeout(() => { if (d.parentNode) d.parentNode.removeChild(d); }, ms + 150);
+  }
+  function dust(R, leg, big) {
+    const x = LEG[leg].hip[0] + LEG[leg].knee[0];
+    ring(R, x, 0, 4, big ? 24 : 14, "#cfc4ff", big ? 1100 : 800);
+  }
+  function flash(R, ms) { R.flashUntil = Date.now() + (ms || 600); }
+  // ==========================================================
+  // FIRE AND EXPLOSIONS (v6.9) - same fire as the Kingdom Clash dragons
+  // ==========================================================
+  // Colours are real fire colours. Flicker is done by m-attr-anim (runs
+  // on each player's screen, costs the server nothing); the big one-off
+  // shapes (a fireball swelling, smoke rising, embers flying) are
+  // stepped from here. Everything is built when it happens and removed
+  // straight after, so a robot that isn't firing costs nothing.
+  const FIRE_RED = "#ff2210", FIRE_HOT = "#ffd23a", FIRE_ORANGE = "#ff5a14";
+  const FIRE_DEEP = "#c41200", FIRE_WHITE = "#fff4c8", SMOKE = "#3b3130";
+  const SHOT_MAX = 170;         // v6.9: a shot aimed down lands on the ground if it's this close
+  function kill(n, ms) { setTimeout(() => { if (n.parentNode) n.parentNode.removeChild(n); }, ms); }
+  // An explosion at x,y,z in the robot's frame. S = size (1 = BLAST).
+  // ground: it hit the ground - shock ring, a column of fire, a burning
+  // scorch mark. lite: fewer pieces, for BARRAGE's rain of shells.
+  function boom(R, x, y, z, S, ground, lite) {
+    const g = group({ x: x, y: y, z: z }, R.root);
+    kill(g, ground ? 2800 : 1700);
+    const lt = fireLight({ type: "point", color: "#ff8a2a", intensity: 320 * S, distance: 110 * S }, g);
+    tween(lt, { intensity: 0 }, 900, "in");
+    // the fireball: white-hot heart, orange body, red skin - swells, rolls up, collapses
+    const fb = group({ sx: 0.2, sy: 0.2, sz: 0.2 }, g);
+    const core = box(fb, 0, 0, 0, 7 * S, 7 * S, 7 * S, FIRE_WHITE, { opacity: 0.95, ry: 45 });
+    const mid = sph(fb, 0, 0, 0, 7 * S, FIRE_HOT, { opacity: 0.8 });
+    const body = box(fb, 0, 0, 0, 13 * S, 12 * S, 13 * S, FIRE_ORANGE, { opacity: 0.65 });
+    const skin = box(fb, 0, 0.5 * S, 0, 17 * S, 15 * S, 17 * S, FIRE_RED, { opacity: 0.38, ry: 45 });
+    anim(core, "sy", 0.7, 1.3, 110); anim(core, "sx", 1.25, 0.8, 130);
+    anim(body, "sx", 0.8, 1.2, 140); anim(body, "ry", 0, 45, 320);
+    anim(skin, "sz", 0.8, 1.25, 170); anim(skin, "sy", 1.2, 0.85, 190);
+    void mid;
+    tween(fb, { sx: 1, sy: 1, sz: 1 }, 240, "out");
+    setTimeout(() => tween(fb, { sx: 1.3, sy: 1.4, sz: 1.3, y: 5 * S }, 320, "linear"), 250);
+    setTimeout(() => tween(fb, { sx: 0.05, sy: 0.05, sz: 0.05, y: 11 * S }, 450, "in"), 580);
+    kill(fb, 1100);
+    // smoke rolling up out of it
+    const nS = lite ? 2 : 4;
+    for (let i = 0; i < nS; i++) {
+      const a = i * 1.9 + x;
+      const sm = sph(g, Math.cos(a) * 3 * S, 2 * S, Math.sin(a) * 3 * S, 3 * S, SMOKE, { opacity: 0.75 });
+      tween(sm, { y: (16 + i * 5) * S, radius: (8 + i * 1.5) * S, x: Math.cos(a) * 9 * S, z: Math.sin(a) * 9 * S, opacity: 0 },
+        1500 + i * 150, "out");
+      kill(sm, 1700 + i * 150);
+    }
+    // embers flying out
+    const nE = lite ? 5 : 9;
+    for (let i = 0; i < nE; i++) {
+      const a = (Math.PI * 2 * i) / nE + y, r = (18 + (i % 3) * 5) * S;
+      const e = box(g, 0, 0, 0, 1.1 * S, 1.1 * S, 1.1 * S, i % 2 ? FIRE_HOT : FIRE_WHITE, { ry: 45 });
+      tween(e, { x: Math.cos(a) * r, z: Math.sin(a) * r, y: (ground ? 12 : 0) * S + ((i % 4) - 1) * 6 * S }, 700, "out");
+      kill(e, 720);
+    }
+    if (!ground) return;
+    // shock ring racing out across the ground
+    const ring = cyl(g, 0, 0.4, 0, 3 * S, 0.3, "#ffd8a0", { opacity: 0.75 });
+    tween(ring, { radius: 48 * S, opacity: 0 }, 900, "out");
+    kill(ring, 950);
+    // a scorch mark that keeps burning for a couple of seconds
+    const scorch = cyl(g, 0, 0.15, 0, 11 * S, 0.1, "#1a0c06", { opacity: 0.85 });
+    const burn = cyl(scorch, 0, 0.1, 0, 8 * S, 0.12, FIRE_DEEP, { opacity: 0.7 });
+    anim(burn, "opacity", 0.35, 0.8, 260);
+    for (let i = 0; i < (lite ? 3 : 6); i++) {
+      const a = i * 2.2, r = 6 * S * (0.4 + (i % 3) * 0.3), t = (3 + (i % 3) * 2) * S;
+      const f = box(scorch, Math.cos(a) * r, t / 2, Math.sin(a) * r, 1.8 * S, t, 1.8 * S,
+        i % 2 ? FIRE_ORANGE : FIRE_HOT, { opacity: 0.85, ry: (i * 37) % 90 });
+      anim(f, "sy", 0.4, 1.3, 150 + i * 37);
+    }
+    if (lite) return;
+    // BLAST only: a column of fire punching up, with a cap of smoke
+    const col = box(g, 0, 1, 0, 6 * S, 2, 6 * S, FIRE_ORANGE, { opacity: 0.85, ry: 45 });
+    anim(col, "sx", 0.8, 1.2, 120);
+    tween(col, { y: 16 * S, height: 32 * S }, 450, "out");
+    setTimeout(() => tween(col, { y: 26 * S, height: 4, width: 1, depth: 1 }, 500, "in"), 500);
+    kill(col, 1050);
+    const cap = sph(g, 0, 8 * S, 0, 5 * S, SMOKE, { opacity: 0.8 });
+    tween(cap, { y: 36 * S, radius: 14 * S }, 1100, "out");
+    setTimeout(() => tween(cap, { opacity: 0, y: 44 * S }, 900, "in"), 1100);
+  }
+  // the kick of the cannon firing: flash, a lick of fire, a puff of smoke
+  function muzzle(R, c, big) {
+    const S = big ? 0.5 : 0.3;
+    const f = box(R.root, c.x + c.dx * 3, c.y + c.dy * 3, c.z + c.dz * 3, 8 * S, 8 * S, 8 * S, FIRE_HOT, { opacity: 0.9, ry: 45 });
+    anim(f, "sy", 0.6, 1.4, 70);
+    tween(f, { x: c.x + c.dx * 10, y: c.y + c.dy * 10, z: c.z + c.dz * 10, width: 1, height: 1, depth: 1 }, 260, "out");
+    kill(f, 280);
+    const sm = sph(R.root, c.x + c.dx * 4, c.y + c.dy * 4, c.z + c.dz * 4, 2.5 * S * 2, SMOKE, { opacity: 0.6 });
+    tween(sm, { x: c.x + c.dx * 14, y: c.y + c.dy * 14 + 4, z: c.z + c.dz * 14, radius: 9 * S * 2, opacity: 0 }, 900, "out");
+    kill(sm, 950);
+  }
+  // one cannon shot from the tip of forearm k, straight out along it.
+  // v6.9: a flaming shell with a trail; aimed down, it flies until it
+  // hits the ground and blows up there. Otherwise it bursts in the air.
+  function shoot(R, k, big) {
+    const c = cannon(R, k);
+    const r = big ? 2.6 : 1.5;
+    pop(R.root, c.x, c.y, c.z, 1, big ? 7 : 4, "#ffffff", 250);
+    muzzle(R, c, big);
+    const gy = -R.alt + 0.3;                     // the ground, in the robot's frame
+    let dist = SHOT_RANGE, hitGround = false;
+    if (c.dy < -0.05) {
+      const t = (c.y - gy) / -c.dy;
+      if (t <= SHOT_MAX) { dist = t; hitGround = true; }
+    }
+    const ms = Math.max(200, Math.round((dist / SHOT_RANGE) * SHOT_MS));
+    const to = { x: c.x + c.dx * dist, y: hitGround ? gy : Math.max(gy + 1, c.y + c.dy * dist), z: c.z + c.dz * dist };
+    const bolt = sph(R.root, c.x, c.y, c.z, r, FIRE_HOT, { opacity: 0.95 });
+    sph(bolt, 0, 0, 0, r * 0.55, "#ffffff");
+    const skin = box(bolt, 0, 0, 0, r * 2.6, r * 2.6, r * 2.6, FIRE_ORANGE, { opacity: 0.55, ry: 45 });
+    anim(skin, "sx", 0.7, 1.3, 90); anim(skin, "ry", 0, 90, 200);
+    tween(bolt, to, ms, "linear");
+    kill(bolt, ms);
+    // the trail: two fading blobs that set off a moment later
+    [[45, 0.8, FIRE_ORANGE, 0.7], [95, 0.6, FIRE_RED, 0.45]].forEach(([lag, k2, col, op]) => {
+      setTimeout(() => {
+        const t = sph(R.root, c.x, c.y, c.z, r * k2, col, { opacity: op });
+        tween(t, to, ms, "linear");
+        kill(t, ms);
+      }, lag);
+    });
+    setTimeout(() => boom(R, to.x, to.y, to.z, big ? 1 : 0.55, hitGround, !big), ms);
+    // a little kick back
+    const q = R.pose[k];
+    armTo(R, k, withO(withO({}, q), { rx: q.rx + 10, erx: q.erx - 8 }), 90, "out");
+    setTimeout(() => armTo(R, k, q, 160, "inOut"), 100);
+  }
+  // ----------------------------------------------------------
+  // JET FIRE (v6.9, v6.10) - two roaring streams of fire from the
+  // jetpack cans all the way down to the ground, and the ground under
+  // them on fire. v6.10: this IS the jets now (the old yellow cylinders
+  // are gone). It burns whenever the jets are on - HOVER, SLAM, RISE,
+  // LOWER, and the whole time the robot is up in the air - and follows
+  // it: the streams stretch to reach the ground at any height, and the
+  // fire on the ground moves along under it. Built when the jets light,
+  // removed when they go out.
+  // ----------------------------------------------------------
+  function endJetFire(R) {
+    if (R.jf) R.jf.parts.forEach((n) => { if (n.parentNode) n.parentNode.removeChild(n); });
+    R.jf = null;
+  }
+  function jetFire(R) {
+    endJetFire(R);
+    const JF = { parts: [] };
+    R.jf = JF;
+    // Built at length L (nozzle to ground right now) hanging down from
+    // the nozzle; stretched with sy every tick so it always reaches the
+    // ground (see jetFireTick).
+    const L = jetLen(R);
+    JF.L0 = L;
+    JF.streams = [];
+    JETS.forEach(([x, y, z], j) => {
+      const noz0 = group({ x: x, y: y, z: z }, R.body);
+      lerp(noz0, "sy", TICK_MS + 40, "linear");
+      JF.parts.push(noz0);
+      JF.streams.push(noz0);
+      const st = group({ y: -L / 2 }, noz0);
+      const N = 8;
+      for (let i = 0; i < N; i++) {
+        const yy = L / 2 - (i + 0.5) * (L / N);
+        const w = 2.6 + i * 0.75;                     // it fans out as it falls
+        const seg = L / N + 0.8;
+        const core = box(st, 0, yy, 0, w * 0.45, seg, w * 0.45, FIRE_WHITE, { opacity: 0.95, ry: 45 });
+        const mid = box(st, 0, yy, 0, w * 0.85, seg, w * 0.85, FIRE_ORANGE, { opacity: 0.8 });
+        const out = box(st, 0, yy, 0, w * 1.35, seg * 0.9, w * 1.35, FIRE_RED, { opacity: 0.45, ry: 45 });
+        anim(core, "sx", 0.7, 1.3, 130 + i * 17 + j * 11);
+        anim(mid, "sx", 0.75, 1.25, 170 + i * 23);
+        anim(mid, "sz", 1.25, 0.75, 150 + i * 19 + j * 13);
+        anim(out, "sz", 0.8, 1.3, 210 + i * 29);
+        anim(out, "ry", 30, 60, 400 + i * 41);
+      }
+      // gouts of white fire racing down the stream
+      [480, 570, 660, 750].forEach((t, k) => {
+        const gt = box(st, 0, 0, 0, 2.6 + k * 0.4, 3.6, 2.6 + k * 0.4, k % 2 ? FIRE_WHITE : FIRE_HOT, { opacity: 0.85, ry: 45 });
+        anim(gt, "y", L / 2, -L / 2, t + j * 40, false);
+        anim(gt, "sx", 0.6, 1.6, t / 2);
+      });
+      // white-hot at the nozzle
+      const noz = box(st, 0, L / 2 - 1, 0, 5, 3, 5, FIRE_WHITE, { opacity: 0.8, ry: 45 });
+      anim(noz, "sy", 0.7, 1.5, 120 + j * 30);
+      fireLight({ type: "point", y: L / 2 - 6, intensity: 140, distance: 70, color: "#ff7a2a" }, st);
+    });
+    // the ground under the jets, burning - in the world, so it stays
+    // put while the robot rises and comes back down onto it
+    const h = R.lh * D2R, zc = JETS[0][2];
+    const G = group({ x: R.lx + Math.sin(h) * zc, y: 0.05, z: R.lz + Math.cos(h) * zc, ry: R.lh }, R.root.parentNode);
+    lerp(G, "x,z,ry", TICK_MS + 40, "linear");
+    JF.parts.push(G);
+    JF.ground = G;
+    const GR = 16;
+    const bed = cyl(G, 0, 0.1, 0, GR, 0.2, FIRE_DEEP, { opacity: 0.85 });
+    anim(bed, "opacity", 0.6, 0.9, 300);
+    const glow = cyl(G, 0, 0.3, 0, GR * 0.8, 0.3, FIRE_ORANGE, { opacity: 0.6 });
+    anim(glow, "opacity", 0.35, 0.75, 220);
+    JETS.forEach(([x], j) => {
+      const heart = box(G, x, 2.5, 0, 5, 5, 5, FIRE_WHITE, { opacity: 0.85, ry: 45 });
+      anim(heart, "sy", 0.6, 1.5, 160 + j * 20); anim(heart, "sx", 1.2, 0.8, 190);
+      const heart2 = box(G, x, 4, 0, 8, 8, 8, FIRE_HOT, { opacity: 0.5 });
+      anim(heart2, "sy", 0.7, 1.4, 240); anim(heart2, "ry", 0, 90, 900 + j * 100);
+    });
+    for (let i = 0; i < 12; i++) {
+      const a = (Math.PI * 2 * i) / 12;
+      const rr = GR * (i % 2 ? 0.85 : 0.7);
+      const tall = 7 + ((i * 5) % 7);
+      const f = box(G, Math.cos(a) * rr, tall / 2, Math.sin(a) * rr, 2.8, tall, 2.8,
+        i % 3 === 0 ? FIRE_ORANGE : i % 3 === 1 ? FIRE_RED : FIRE_HOT, { opacity: 0.8, ry: (i * 37) % 90 });
+      anim(f, "sy", 0.45, 1.35, 170 + i * 31);
+      anim(f, "sx", 1.2, 0.75, 210 + i * 17);
+    }
+    const ring = cyl(G, 0, 0.5, 0, GR * 1.2, 0.6, FIRE_ORANGE, { opacity: 0.5 });
+    anim(ring, "sx", 0.15, 1, 700, false); anim(ring, "sz", 0.15, 1, 700, false);
+    for (let i = 0; i < 10; i++) {
+      const a = i * 2.39, rr = GR * (0.2 + (i % 5) * 0.15);
+      const e = box(G, Math.cos(a) * rr, 0, Math.sin(a) * rr, 0.7, 0.7, 0.7, i % 2 ? FIRE_HOT : FIRE_WHITE, { ry: 45 });
+      anim(e, "y", 0.5, 18 + (i % 4) * 4, 900 + i * 110, false);
+    }
+    for (let i = 0; i < 4; i++) {
+      const a = i * 1.6;
+      const sm = sph(G, Math.cos(a) * 8, 4, Math.sin(a) * 8, 4, SMOKE, { opacity: 0.55 });
+      anim(sm, "y", 4, 34, 1800 + i * 250, false);
+      anim(sm, "radius", 3, 10, 1800 + i * 250, false);
+    }
+    fireLight({ type: "point", y: 6, intensity: 200, distance: 80, color: "#ff6a1a" }, G);
+  }
+  // nozzle to the ground, for the robot's height right now (+3 so the
+  // fire digs into the ground rather than stopping short of it)
+  function jetLen(R) { return Math.max(6, JETS[0][1] + cur(R.root, "y") + 3); }
+  // every tick while it burns: stretch the streams, move the ground fire
+  function jetFireTick(R) {
+    const JF = R.jf;
+    if (!JF) return;
+    const k = Math.round((jetLen(R) / JF.L0) * 100) / 100;
+    JF.streams.forEach((n) => put(n, "sy", k));
+    const h = R.lh * D2R, zc = JETS[0][2];
+    put(JF.ground, "x", R.lx + Math.sin(h) * zc);
+    put(JF.ground, "z", R.lz + Math.cos(h) * zc);
+    put(JF.ground, "ry", R.lh);
+  }
+  function jetsFor(R, ms) { R.jetUntil = Math.max(R.jetUntil, Date.now() + ms); }
+
+  // ==========================================================
+  // THE MOVES - made for j3ff
+  // ==========================================================
+  const LEG_MOVES = { HOVER: 1, SLAM: 1, DANCE: 1, FLOSS: 1, BREAK: 1, "L HOP": 1, "RUN MAN": 1 };
+  function relaxArms(R) { armTo(R, "L", {}, 800); armTo(R, "R", {}, 800); }
+  // HIP SWAY (v6.6, for the floss). h = -1 / 0 / +1 in x (x+ is j3ff's
+  // left). The body slides FLOSS_HIP metres at hip height but only
+  // FLOSS_TOP metres at the bridge: it slides and leans back over at
+  // once. Each hip joint swings the other way so the feet stay put.
+  const FLOSS_HIP = 3, FLOSS_TOP = 1, HIP_Y = 41.8, TOP_Y = 66;
+  const SWAY_TH = (FLOSS_HIP - FLOSS_TOP) / (TOP_Y - HIP_Y);        // lean, radians
+  const SWAY_X = FLOSS_HIP + HIP_Y * SWAY_TH;                        // slide at the soles
+  const SWAY_LEG = Math.asin(FLOSS_HIP / HIP_Y) + SWAY_TH;          // hip counter-swing
+  function swayHips(R, h, ms) {
+    tween(R.body, { x: h * SWAY_X, rz: h * SWAY_TH / D2R }, ms, "inOut");
+    ["L", "R"].forEach((k) => tween(R.hip[k], { rz: -h * SWAY_LEG / D2R }, ms, "inOut"));
+  }
+  function stopMoves(R) {
+    if (!R.armEmoteUntil && !R.legEmoteUntil) return;
+    R.emoteTok++;
+    const hadLegs = Date.now() < R.legEmoteUntil;
+    R.armEmoteUntil = 0; R.legEmoteUntil = 0; R.emoteName = "";
+    relaxArms(R);
+    if (hadLegs) {
+      legsTo(R, LEGS_ZERO, 600); swayHips(R, 0, 600);
+      // v6.8: stand back up with the legs (BREAK crouches ~15m low)
+      if (!R.jumping) tween(R.root, { y: R.alt }, 600, "inOut");
+    }
+    if (R.jumping) { R.jumping = false; tween(R.root, { y: R.alt }, 900, "inOut"); }
+  }
+  function emote(R, name) {
+    const now = Date.now();
+    if ((name === "BLAST" || name === "BARRAGE") && now < R.blastReadyAt) return say(R, "CANNONS COOLING");
+    if (R.jumping) return;
+    stopMoves(R);
+    const tok = ++R.emoteTok;
+    const at = (ms, f) => setTimeout(() => { if (tok === R.emoteTok) f(); }, ms);
+    const arms = (ms) => { R.armEmoteUntil = now + ms; R.emoteName = name; at(ms, () => relaxArms(R)); };
+    const legs = (ms) => {
+      R.legEmoteUntil = now + ms;
+      R.mode = "stop"; R.auto = null; R.turnQueue = 0;
+      at(ms, () => legsTo(R, LEGS_ZERO, 500));
+    };
+    say(R, name + "!");
+    const both = (q, ms, e) => ["L", "R"].forEach((k) => armTo(R, k, q, ms, e));
+
+    if (name === "HOVER") {
+      // crouch, jets on, lift off, hang there with the wings spread, land
+      legs(6200); arms(6200);
+      R.jumping = true;
+      const base = R.alt;
+      legsTo(R, { L: { hip: -25, knee: 50 }, R: { hip: -25, knee: 50 } }, 500);
+      tween(R.root, { y: base - 1.5 }, 500, "inOut");
+      at(550, () => {
+        jetsFor(R, 4600);   // v6.10: the jets are the fire now
+        tween(R.root, { y: base + HOVER_H }, 1600, "out");
+        legsTo(R, { L: { hip: -20, knee: 40 }, R: { hip: -8, knee: 22 } }, 900, "out");
+        both({ rx: 10, rz: 75, erz: 10, erx: -10 }, 900, "out");
+      });
+      at(2200, () => tween(R.root, { y: base + HOVER_H - 1.5 }, 900, "inOut"));
+      at(3100, () => tween(R.root, { y: base + HOVER_H }, 900, "inOut"));
+      at(4000, () => {
+        tween(R.root, { y: base }, 1300, "inOut");
+        legsTo(R, LEGS_ZERO, 1100);
+        both({}, 1100);
+      });
+      at(5300, () => { dust(R, "L", true); dust(R, "R", true); });
+      at(6000, () => { R.jumping = false; set(R.root, { y: R.alt }); });
+    } else if (name === "SLAM") {
+      // jet up, then drive both fists into the ground - shockwave
+      legs(3600); arms(3600);
+      R.jumping = true;
+      const base = R.alt;
+      legsTo(R, { L: { hip: -30, knee: 60 }, R: { hip: -30, knee: 60 } }, 450);
+      tween(R.root, { y: base - 2 }, 450, "inOut");
+      at(500, () => {
+        jetsFor(R, 900);
+        tween(R.root, { y: base + SLAM_H }, 800, "out");
+        both({ rx: -160, rz: 20, erx: -30 }, 700, "out");
+        legsTo(R, { L: { hip: -40, knee: 70 }, R: { hip: -40, knee: 70 } }, 600, "out");
+      });
+      at(1350, () => {
+        tween(R.root, { y: base - 2 }, 350, "in");
+        both({ rx: -70, rz: 15, erx: -10 }, 350, "in");
+      });
+      at(1700, () => {
+        ring(R, 0, 22, 6, 55, "#ffffff", 1200);
+        ring(R, 0, 22, 4, 36, R.def.glow, 1000);
+        pop(R.root, 0, 6, 22, 3, 18, R.def.glow, 700);
+        dust(R, "L", true); dust(R, "R", true);
+        flash(R, 500);
+      });
+      at(2300, () => { tween(R.root, { y: base }, 800, "inOut"); legsTo(R, LEGS_ZERO, 800); both({}, 900); });
+      at(3300, () => { R.jumping = false; set(R.root, { y: R.alt }); });
+    } else if (name === "BLAST") {
+      R.blastReadyAt = now + BLAST_COOL_MS;
+      // v6.9: aimed down at the ground ~100m ahead - two volleys of big
+      // shells that land in huge fireballs with columns of fire
+      arms(3000);
+      both({ rx: -62, rz: 6, erx: 0, erz: 0 }, 500);
+      at(650, () => { shoot(R, "L", true); shoot(R, "R", true); flash(R, 300); });
+      at(1400, () => { shoot(R, "L", true); shoot(R, "R", true); flash(R, 300); });
+    } else if (name === "BARRAGE") {
+      // v6.9: ten shells, arms sweeping a little between shots, raining
+      // explosions across the ground in front of it
+      R.blastReadyAt = now + BLAST_COOL_MS + 1500;
+      arms(3900);
+      both({ rx: -64, rz: 10, erx: -2, erz: 0 }, 450);
+      for (let i = 0; i < 10; i++) {
+        const k = i % 2 ? "R" : "L";
+        at(400 + i * 240, () => armTo(R, k, { rx: -58 - (i % 3) * 6, rz: 4 + ((i * 7) % 4) * 7, erx: -2, erz: 0 }, 140, "out"));
+        at(560 + i * 240, () => shoot(R, k, false));
+      }
+    } else if (name === "WAVE") {
+      arms(4400);
+      armTo(R, "R", { rx: 0, rz: 150, erx: 0, erz: 0 }, 700);
+      for (let i = 0; i < 6; i++) at(800 + i * 500, () => armTo(R, "R", { rx: 0, rz: 150, erx: 0, erz: i % 2 ? -30 : 30 }, 460));
+    } else if (name === "FLEX") {
+      arms(3800);
+      both({ rx: 0, rz: 85, erz: 95, erx: 0 }, 800);
+      at(1300, () => { both({ rx: 0, rz: 80, erz: 115, erx: 0 }, 350); flash(R, 400); });
+      at(1750, () => both({ rx: 0, rz: 85, erz: 95, erx: 0 }, 350));
+      at(2300, () => { both({ rx: 0, rz: 80, erz: 115, erx: 0 }, 350); flash(R, 400); });
+      at(2750, () => both({ rx: 0, rz: 85, erz: 95, erx: 0 }, 350));
+    } else if (name === "SALUTE") {
+      arms(3400);
+      armTo(R, "R", { rx: -20, rz: 105, erx: -10, erz: 115 }, 700);
+      at(700, () => flash(R, 300));
+      at(2400, () => armTo(R, "R", {}, 800));
+    } else if (name === "DANCE") {
+      // a robot bop: knees pump, arms swap up and down
+      legs(6400); arms(6400);
+      for (let i = 0; i < 8; i++) {
+        at(i * 750, () => {
+          const up = i % 2 ? "R" : "L", down = i % 2 ? "L" : "R";
+          armTo(R, up, { rx: -10, rz: 140, erx: 0, erz: -20 }, 350);
+          armTo(R, down, { rx: -40, rz: 25, erx: -80, erz: 0 }, 350);
+          legsTo(R, { L: { hip: -14, knee: 28 }, R: { hip: -14, knee: 28 } }, 300, "out");
+          tween(R.root, { y: R.alt - 1.2 }, 300, "out");
+          setTimeout(() => {
+            if (tok !== R.emoteTok) return;
+            legsTo(R, LEGS_ZERO, 350, "in");
+            tween(R.root, { y: R.alt }, 350, "in");
+          }, 350);
+          if (i % 2) flash(R, 250);
+        });
+      }
+    } else if (name === "FLOSS") {
+      // v6.6: a real floss. The HIPS do the work: the whole body slides
+      // one way while the shoulders lag behind (it leans), and the legs
+      // swing under it so the feet stay planted. Meanwhile both straight
+      // arms whip the other way - the outside arm behind the back, the
+      // other one crossing in front of the belly.
+      const BEAT = 380, N = 16;
+      legs(BEAT * N + 600); arms(BEAT * N + 600);
+      for (let i = 0; i < N; i++) {
+        at(i * BEAT, () => {
+          const out = i % 2 ? "R" : "L";          // arms swing to this side
+          const cross = out === "L" ? "R" : "L";
+          const h = out === "L" ? -1 : 1;         // hips go the other way (x+ is j3ff's left)
+          armTo(R, out, { rx: 38, rz: 48, erx: 0, erz: 0 }, BEAT - 30, "inOut");
+          armTo(R, cross, { rx: -34, rz: -20, erx: 0, erz: 0 }, BEAT - 30, "inOut");
+          swayHips(R, h, BEAT - 30);
+          // a little knee bounce on every beat
+          legsTo(R, { L: { hip: -6, knee: 12 }, R: { hip: -6, knee: 12 } }, (BEAT - 30) / 2, "out");
+          at((BEAT - 30) / 2, () => legsTo(R, { L: { hip: -2, knee: 4 }, R: { hip: -2, knee: 4 } }, (BEAT - 30) / 2, "in"));
+          if (i % 4 === 3) flash(R, 200);
+        });
+      }
+      at(BEAT * N, () => swayHips(R, 0, 500));
+    } else if (name === "BREAK") {
+      // v6.8 breakdance, ~7s:
+      //   toprock  0.0-1.8s  crossing steps on the spot, arms swinging
+      //   drop     1.8-2.6s  down into a deep crouch
+      //   spin     2.6-5.0s  one full turn on the planted leg, the other
+      //                      leg swept out, arms wide
+      //   freeze   5.0-6.4s  low pose, one arm punched at the sky
+      //   stand    6.4-7.1s
+      // The body never tips, so the bridge stays level - it just
+      // drops and turns with the robot.
+      const T = 7100;
+      legs(T); arms(T);
+      R.v = 0; R.w = 0;
+      // crouch: hip -55, knee 100 folds the legs ~14.7m shorter, so the
+      // whole robot comes down that much to keep the feet on the ground
+      const DROP = 14.7;
+      const CROUCH = { hip: -55, knee: 100 };
+      // toprock
+      for (let i = 0; i < 4; i++) {
+        at(i * 450, () => {
+          const step = i % 2 ? "R" : "L", other = step === "L" ? "R" : "L";
+          const p = {};
+          p[step] = { hip: -28, knee: 26 };
+          p[other] = { hip: 4, knee: 8 };
+          legsTo(R, p, 400, "inOut");
+          armTo(R, other, { rx: -45, rz: 35, erx: -65, erz: 0 }, 400, "inOut");
+          armTo(R, step, { rx: 25, rz: 45, erx: -20, erz: 0 }, 400, "inOut");
+          tween(R.root, { y: R.alt - 0.9 }, 200, "out");
+          at(200, () => tween(R.root, { y: R.alt }, 200, "in"));
+        });
+      }
+      // drop
+      at(1800, () => {
+        legsTo(R, { L: CROUCH, R: CROUCH }, 800, "inOut");
+        tween(R.root, { y: R.alt - DROP }, 800, "inOut");
+        ["L", "R"].forEach((k) => armTo(R, k, { rx: -30, rz: 55, erx: -40, erz: 0 }, 800, "inOut"));
+        at(750, () => flash(R, 200));
+      });
+      // spin: 8 steps of 45 degrees. The robot's heading is moved with
+      // it, so nothing snaps back if you interrupt it half way round.
+      at(2600, () => {
+        legsTo(R, { L: { hip: -82, knee: 4 }, R: CROUCH }, 350, "out");
+        ["L", "R"].forEach((k) => armTo(R, k, { rx: 0, rz: 88, erx: 0, erz: 0 }, 350, "out"));
+      });
+      for (let i = 0; i < 8; i++) {
+        at(2600 + i * 300, () => {
+          R.v = 0; R.w = 0;
+          R.lh += 45;
+          tween(R.root, { ry: R.lh }, 310, "linear");
+          if (i % 2) flash(R, 120);
+        });
+      }
+      // freeze
+      at(5000, () => {
+        legsTo(R, { L: { hip: -85, knee: 118 }, R: CROUCH }, 300, "out");
+        armTo(R, "L", { rx: -10, rz: 160, erx: 0, erz: 0 }, 300, "out");
+        armTo(R, "R", { rx: -40, rz: 30, erx: -65, erz: 0 }, 300, "out");
+        at(320, () => flash(R, 400));
+      });
+      // stand back up
+      at(6400, () => {
+        legsTo(R, LEGS_ZERO, 700, "inOut");
+        tween(R.root, { y: R.alt }, 700, "inOut");
+        ["L", "R"].forEach((k) => armTo(R, k, {}, 700, "inOut"));
+      });
+    } else if (name === "L HOP") {
+      // left hand makes an L on the forehead, right fist on the hip,
+      // and it hops from foot to foot kicking the free leg forward
+      const BEAT = 450, N = 12;
+      legs(BEAT * N + 300); arms(BEAT * N + 300);
+      armTo(R, "L", { rx: -20, rz: 105, erx: -10, erz: 115 }, 350);
+      armTo(R, "R", { rx: 10, rz: 45, erx: -60, erz: 40 }, 350);
+      for (let i = 0; i < N; i++) {
+        at(200 + i * BEAT, () => {
+          const kick = i % 2 ? "R" : "L", stand = kick === "L" ? "R" : "L";
+          const p = {};
+          p[kick] = { hip: -32, knee: 18 };
+          p[stand] = { hip: 0, knee: 12 };
+          legsTo(R, p, BEAT * 0.45, "out");
+          tween(R.root, { y: R.alt + 1.2 }, BEAT * 0.45, "out");
+          at(BEAT * 0.5, () => {
+            legsTo(R, { L: { hip: -4, knee: 14 }, R: { hip: -4, knee: 14 } }, BEAT * 0.45, "in");
+            tween(R.root, { y: R.alt - 0.4 }, BEAT * 0.45, "in");
+          });
+          if (i % 4 === 3) flash(R, 200);
+        });
+      }
+      at(200 + BEAT * N, () => tween(R.root, { y: R.alt }, 300, "inOut"));
+    } else if (name === "RUN MAN") {
+      // the running man: one knee comes up while the other foot slides
+      // back, arms pumping, then swap - it stays on the spot
+      const BEAT = 420, N = 14;
+      legs(BEAT * N + 300); arms(BEAT * N + 300);
+      for (let i = 0; i < N; i++) {
+        at(i * BEAT, () => {
+          const up = i % 2 ? "R" : "L", back = up === "L" ? "R" : "L";
+          const p = {};
+          p[up] = { hip: -48, knee: 72 };
+          p[back] = { hip: 16, knee: 14 };
+          legsTo(R, p, BEAT * 0.5, "out");
+          tween(R.root, { y: R.alt + 0.5 }, BEAT * 0.5, "out");
+          // arms pump: the arm on the knee-up side drives down
+          armTo(R, up, { rx: -20, rz: 30, erx: -40, erz: 0 }, BEAT * 0.5, "out");
+          armTo(R, back, { rx: -60, rz: 30, erx: -80, erz: 0 }, BEAT * 0.5, "out");
+          at(BEAT * 0.5, () => {
+            legsTo(R, { L: { hip: -6, knee: 16 }, R: { hip: -6, knee: 16 } }, BEAT * 0.45, "in");
+            tween(R.root, { y: R.alt - 0.5 }, BEAT * 0.45, "in");
+          });
+          if (i % 4 === 3) flash(R, 200);
+        });
+      }
+      at(BEAT * N, () => tween(R.root, { y: R.alt }, 300, "inOut"));
+    }
+  }
+
+  // ==========================================================
+  // CONTROLS
+  // ==========================================================
+  function setMode(R, m) {
+    if (m !== "stop" && Date.now() < R.legEmoteUntil) stopMoves(R);
+    R.auto = null;
+    R.mode = m;
+  }
+  function setAlt(R, a) {
+    if (R.jumping) return;
+    const to = clamp(a, ALT_MIN, ALT_MAX);
+    const ms = Math.max(400, (Math.abs(to - cur(R.root, "y")) / ALT_SPEED) * 1000);
+    R.alt = to;
+    jetsFor(R, ms);
+    tween(R.root, { y: to }, ms, "inOut");
+  }
+  function deskPress(R, name) {
+    if (name === "STOP") return setMode(R, "stop");
+    if (name === "WALK") return setMode(R, "walk");
+    if (name === "SPRINT") return setMode(R, "sprint");
+    if (name === "BACK") return setMode(R, "back");
+    if (name === "TURN L" || name === "TURN R") {
+      if (Date.now() < R.legEmoteUntil) stopMoves(R);
+      R.auto = null;
+      R.turnQueue = clamp(R.turnQueue + (name === "TURN L" ? CLICK_TURN : -CLICK_TURN), -180, 180);
+      return;
+    }
+    if (name === "L PUNCH") return tryPunch(R, "L");
+    if (name === "R PUNCH") return tryPunch(R, "R");
+    if (name === "SHIELD") {
+      R.shieldWant = !R.shieldWant;
+      return say(R, R.shieldWant ? "SHIELD UP" : "SHIELD DOWN");
+    }
+    if (name === "LIGHTS") return setLights(R, !R.lightsOn);
+    if (name === "RISE") return setAlt(R, R.alt + ALT_STEP);
+    if (name === "LOWER") return setAlt(R, R.alt - ALT_STEP);
+    emote(R, name);
+  }
+
+  function tryPunch(R, k) {
+    const A = R.arm[k];
+    const now = Date.now();
+    if (now < R.armEmoteUntil) return say(R, "WAIT - DOING " + R.emoteName);
+    if (A.throwing || now < A.coolUntil) return;
+    A.throwing = true;
+    armTo(R, k, { rx: -88, rz: 8, erx: -4, erz: 0 }, THROW_MS, "in");
+    setTimeout(() => {
+      const c = cannon(R, k);
+      pop(R.root, c.x, c.y, c.z, 1, 12, "#ffffff", 450);
+      say(R, (k === "L" ? "LEFT" : "RIGHT") + " PUNCH");
+    }, THROW_MS);
+    setTimeout(() => { A.throwing = false; A.coolUntil = Date.now() + PUNCH_COOL_MS; A.shown = null; }, THROW_MS + 650);
+  }
+
+  function setLights(R, on) {
+    R.lightsOn = on;
+    const hi = LIGHTS_ON ? Math.round(HEADLIGHT_I * LIGHT * 10) / 10 : HEADLIGHT_DIM;
+    R.headlights.forEach((n) => n.setAttribute("intensity", String(on ? hi : 0)));
+    say(R, on ? "LIGHTS ON" : "LIGHTS OFF");
+  }
+
+  // ==========================================================
+  // CALLING IT BACK
+  // ==========================================================
+  // aboard = in the captain's room, on the walkway, or in the lift
+  function inShaft(R, p) {
+    const b = R.lift.box;
+    return p.x > b.x0 && p.x < b.x1 && p.z > b.z0 && p.z < b.z1 && p.y > -1 && p.y < b.y1;
+  }
+  function crewAboard(R) {
+    let n = 0;
+    R.crew.forEach((p) => {
+      const q = toBridge(p);
+      const inRoom = Math.abs(q.x) < BRIDGE.hw + 0.5 && q.y > BRIDGE.floor - 2 && q.y < BRIDGE.top + 2
+        && q.z > BRIDGE.z0 - 0.5 && q.z < BRIDGE.z1 + 0.5;
+      const onWalk = Math.abs(p.x) < WALK_W && p.y > BRIDGE.floor - 2 && p.y < BRIDGE.floor + 5 * BRIDGE_S
+        && p.z > R.lift.box.z1 - 1 && p.z < BRIDGE_BACK + 1;
+      if (inRoom || onWalk || inShaft(R, p)) n++;
+    });
+    return n;
+  }
+  function liftRiders(R) {
+    let n = 0;
+    R.crew.forEach((p) => { if (inShaft(R, p)) n++; });
+    return n;
+  }
+  function recall(R) {
+    stopMoves(R);
+    R.turnQueue = 0;
+    if (crewAboard(R) === 0) {
+      R.lx = HOME.x; R.lz = HOME.z;
+      R.lh = Math.round(R.lh / 360) * 360;
+      R.alt = 0; R.v = 0; R.w = 0; R.mode = "stop"; R.auto = null;
+      set(R.root, { x: R.lx, z: R.lz, y: 0, ry: R.lh });
+      return "HOME";
+    }
+    R.mode = "stop";
+    R.auto = { speed: 0, turn: 0 };
+    setAlt(R, 0);
+    say(R, "CALLED HOME - WALKING BACK");
+    return "WALK";
+  }
+  function autopilot(R) {
+    const dx = HOME.x - R.lx, dz = HOME.z - R.lz;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 1.5) {
+      const err = normDeg(0 - R.lh);
+      R.auto.speed = 0;
+      R.auto.turn = clamp(err / 8, -1, 1);
+      if (Math.abs(err) < 1 && Math.abs(R.v) < 0.05 && Math.abs(R.w) < 0.5) {
+        R.auto = null;
+        R.lx = HOME.x; R.lz = HOME.z;
+        tween(R.root, { x: R.lx, z: R.lz }, 1500, "inOut");
+        say(R, "HOME");
+      }
+      return;
+    }
+    const err = normDeg(Math.atan2(dx, dz) / D2R - R.lh);
+    R.auto.turn = clamp(err / 8, -1, 1);
+    R.auto.speed = Math.abs(err) > 30 ? 0 : Math.min(SPRINT_SPEED, Math.max(0.4, dist * 0.5));
+  }
+
+  // the keypad at home
+  (function callConsole() {
+    // v6.16: the keypad is not part of the robot - it undoes ROBOT_SCALE,
+    // so it is its full old size, in its old place
+    const ks = 1 / ROBOT_SCALE;
+    const g = group({ x: 24 * ks, z: -40 * ks, sx: ks, sy: ks, sz: ks });
+    box(g, 0, 0.35, 0, 7, 0.7, 4, STONE, { collide: "true" });
+    box(g, 0, 0.75, 0, 7.4, 0.14, 4.4, GOLD);
+    label(g, "CALL " + LOOK.name, { y: 6.2, z: 0.3, ry: 180, width: 10, height: 1.4, "font-color": GOLD }, 14);
+    keypad(g, { y: 0.7, ry: 180, title: "TYPE THE CODE", promptX: 2.6 }, (K) => K.flash(recall(BOT)));
+  })();
+
+  // ==========================================================
+  // THE TICK
+  // ==========================================================
+  let lastTick = Date.now();
+  setInterval(() => {
+    const now = Date.now();
+    const dt = Math.min(0.3, (now - lastTick) / 1000);
+    lastTick = now;
+    tick(BOT, now, dt);
+  }, TICK_MS);
+
+  function armFree(R, k, now) {
+    const A = R.arm[k];
+    return now >= R.armEmoteUntil && !A.throwing && !R.shieldUp;
+  }
+
+  function tick(R, now, dt) {
+    const S = R.st;
+    const legBusy = now < R.legEmoteUntil;
+
+    // ---- speed ----
+    if (R.auto) autopilot(R);
+    let target = 0;
+    if (!legBusy) {
+      if (R.auto) target = R.auto.speed;
+      else if (R.mode === "walk") target = WALK_SPEED;
+      else if (R.mode === "sprint") target = SPRINT_SPEED;
+      else if (R.mode === "back") target = -BACK_SPEED;
+    }
+    target = clamp(target, -MAX_SPEED, MAX_SPEED);
+    const slowing = Math.abs(target) < Math.abs(R.v);
+    const acc = ACCEL * dt * (slowing ? 1.5 : 1);
+    R.v += clamp(target - R.v, -acc, acc);
+    if (target === 0 && Math.abs(R.v) < 0.03) R.v = 0;
+
+    // ---- turning ----
+    let tdir = (occupied(S.bturnL) ? 1 : 0) - (occupied(S.bturnR) ? 1 : 0);
+    if (R.auto) tdir = R.auto.turn;
+    else if (!tdir && R.turnQueue) tdir = clamp(R.turnQueue / 6, -1, 1);
+    if (legBusy) tdir = 0;
+    const wAcc = TURN_ACCEL * dt;
+    R.w += clamp(tdir * TURN_RATE - R.w, -wAcc, wAcc);
+    if (!tdir && Math.abs(R.w) < 0.1) R.w = 0;
+    const dh = R.w * dt;
+    if (R.turnQueue) {
+      const before = R.turnQueue;
+      R.turnQueue -= dh;
+      if (Math.sign(R.turnQueue) !== Math.sign(before) || Math.abs(R.turnQueue) < 0.2) R.turnQueue = 0;
+    }
+
+    // ---- move ----
+    if (R.v || dh) {
+      const h = R.lh * D2R;
+      R.lx += Math.sin(h) * R.v * dt;
+      R.lz += Math.cos(h) * R.v * dt;
+      R.lh += dh;
+      tween(R.root, { x: R.lx, z: R.lz, ry: R.lh }, TICK_MS + 30, "linear");
+    }
+
+    // ---- legs: walk cycle, arms swing with them ----
+    const driving = R.auto || R.mode !== "stop";
+    const moving = driving && Math.abs(R.v) > 0.4 && !legBusy;
+    if (moving && now >= R.nextStepAt) {
+      const fast = Math.abs(R.v) > WALK_SPEED * 1.3;
+      const period = fast ? SPRINT_STEP_MS : WALK_STEP_MS;
+      R.cycleLeg = R.cycleLeg === "L" ? "R" : "L";
+      const leg = R.cycleLeg;
+      stride(R, leg, Math.sign(R.v), period, fast ? 1.4 : 1);
+      setTimeout(() => dust(R, leg, fast), period * 0.85);
+      R.nextStepAt = now + period;
+      ["L", "R"].forEach((k) => {
+        if (!armFree(R, k, now)) return;
+        const fwd = k !== leg;
+        armTo(R, k, fast ? { rx: fwd ? -45 : 30, erx: -70 } : { rx: fwd ? -14 : 12 }, period * 0.9);
+        R.arm[k].shown = "cycle";
+      });
+    }
+    if (!moving) R.nextStepAt = 0;
+
+    // ---- shield: hexagon up, forearms up in a guard ----
+    const wantShield = !!R.shieldWant;
+    if (wantShield !== R.shieldUp) {
+      R.shieldUp = wantShield;
+      R.shield.setAttribute("visible", wantShield ? "true" : "false");
+      R.arm.L.shown = null; R.arm.R.shown = null;
+    }
+    ["L", "R"].forEach((k) => {
+      const A = R.arm[k];
+      if (now < R.armEmoteUntil || A.throwing) return;
+      let want, p;
+      if (R.shieldUp) { want = "guard"; p = { rx: -55, rz: 25, erx: -60, erz: -10 }; }
+      else if (moving) return;
+      else { want = "rest"; p = {}; }
+      if (A.shown !== want) { armTo(R, k, p, want === "rest" ? 700 : 300); A.shown = want; }
+    });
+
+    // ---- the lift hides while the robot moves ----
+    const movingNow = Math.abs(R.v) > 0.05 || Math.abs(R.w) > 0.2 || R.jumping || now < R.jetUntil;
+    if (movingNow) R.stillSince = 0;
+    else if (!R.stillSince) R.stillSince = now;
+    R.lift.update(movingNow || now - R.stillSince < LIFT_SHOW_DELAY_MS, liftRiders(R) > 0);
+
+    // ---- jets and flash ----
+    const jets = now < R.jetUntil || R.alt > 0.5;
+    if (jets !== R.jetsShown) {
+      R.jetsShown = jets;
+    }
+    // v6.10: the jets are the fire
+    if (jets && !R.jf) jetFire(R);
+    else if (!jets && R.jf) endJetFire(R);
+    jetFireTick(R);
+    const fl = now < R.flashUntil;
+    if (fl !== R.flashOn) {
+      R.flashOn = fl;
+      R.flashLight.setAttribute("intensity", String(fl && LIGHTS_ON ? Math.round(160 * LIGHT * 10) / 10 : 0));
+    }
+  }
+
+  // ==========================================================
+  // THE SCREEN
+  // ==========================================================
+  const MODE_NAME = { stop: "STOPPED", walk: "WALKING", sprint: "SPRINTING", back: "BACKING UP" };
+  function refreshBoards() {
+    const R = BOT, now = Date.now();
+    const msg = now < R.msgUntil ? R.msg : "";
+    const mode = R.auto ? "CALLED HOME" : now < Math.max(R.legEmoteUntil, R.armEmoteUntil) ? R.emoteName : MODE_NAME[R.mode];
+    const speed = Math.abs(R.v).toFixed(1) + " M/S";
+    const heading = Math.round(((R.lh % 360) + 360) % 360);
+    const home = Math.round(Math.hypot(R.lx - HOME.x, R.lz - HOME.z));
+    const alt = Math.round(R.alt);
+    const altTxt = (alt >= 0 ? "+" : "") + alt + "M";
+
+    Object.keys(R.desk).forEach((name) => {
+      const B = R.desk[name];
+      const lit = (name === "SHIELD" && R.shieldUp) || (name === "LIGHTS" && R.lightsOn)
+        || (!R.auto && ((name === "STOP" && R.mode === "stop") || (name === "WALK" && R.mode === "walk")
+        || (name === "SPRINT" && R.mode === "sprint") || (name === "BACK" && R.mode === "back")));
+      if (lit !== B.lit) B.setLit(lit);
+    });
+    const scr = R.scr.bridge;
+    setText(scr[0], R.def.name + "  " + mode + "  " + speed);
+    setText(scr[1], msg || ("HEADING " + heading + "   HEIGHT " + altTxt + "   HOME " + home + "M"));
+    setText(scr[2], R.shieldUp ? "SHIELD UP - CLICK SHIELD TO LOWER IT"
+      : now < R.blastReadyAt ? "CANNONS COOLING" : "CANNONS READY");
+    setText(scr[3], alt > 0 ? "LOWER TO 0M SO THE LIFT CAN REACH"
+      : "OR HOLD THE TURN PADS BESIDE THE DESK");
+  }
+  setInterval(refreshBoards, 250);
+
+  armTo(BOT, "L", {}, 1);
+  armTo(BOT, "R", {}, 1);
+  refreshBoards();
+</script>

@@ -1,0 +1,1599 @@
+<!--
+  TERRITORY  -  three levels, v12
+
+  v12 - THE TEAM NAMES ON THE BOARDS ARE BIG TOO.
+
+  Dinopawnz: "the words yellow red and blue on the screens on the
+  side walls of the map are tiny!! can you make them bigger. the
+  percentages are big but the team names are not"
+
+  v11 ran the caption over each percentage through fitFS() like
+  everything else, but its ceiling was still the old v10 number:
+  SCORE_CAP_FS = 48. fitFS never lifts text over its ceiling, so
+  the name sat at 48 on a board where the box would have taken
+  more, and its box was only 8% of the panel tall anyway.
+
+  The caption box now fills the gap between the timer and the
+  percentage (8% -> 16% of the panel, same centre, nothing else
+  on the board moved) and the ceiling is out of the way:
+
+    the team name on a wall board    48  ->  128
+    the team name on the hang        53  ->  141
+
+  Every full board shares this code, so the far wall, the door
+  wall, the lobby boards and the hang all got it too. The
+  percentage underneath is untouched.
+
+  ------------------------------------------------------------
+
+  v11 - AND EVERYTHING ELSE IS READABLE TOO.
+
+  Dinopawnz: "the font for the percentages is beautiful now but
+  the font for the other things like the timer and any words
+  under the timer are still so tiny. make sure EVERY THING is
+  readable please."
+
+  v10 fixed one line by hand. This stops anything in the
+  document being sized by hand at all.
+
+  Every font-size in here was a number typed once, and a typed
+  number errs small: the timer was using two thirds of the box
+  it sat in, the line under it a third, STAND HERE on the bay
+  floor under a third of what would fit. Nothing was WRONG with
+  any of them. They were guesses.
+
+  fitFS() replaces all of them. It works out the largest text
+  that still clears the box twice over - by height, keeping a
+  fifth back for ascenders and descenders, and by width across
+  the longest thing that line will ever have to say - and holds
+  a further tenth back for the fact that a line of capitals full
+  of M and W runs wider than the average it was sized on.
+
+  Every piece of text in the world went through it:
+
+    the timer                       120  ->  192 / 211
+    the line under the timer         36  ->   96 /  99
+    STAND HERE on the bay floor      44  ->  150
+    PICK A TEAM over the bays        58  ->  136
+    CONTROL over the console         76  ->  160
+    the head count in each pen       76  ->  144
+    TERRITORY over the arches       150  ->  240
+    the team name on each arch       92  ->  176
+    UP on the ramp markers           64  ->  128
+    TYPE CODE on the console         30  ->   62
+
+  Nothing got smaller. The console keypad barely moved, which is
+  right - it is read from an arm's length away and it was
+  already sized for that.
+
+  BANNER_CHARS and MODE_CHARS are what set the two board lines:
+  the longest message either will ever carry. One string was
+  shortened to make room - "LANE MODE - NO TEAM IDS. PAINT YOUR
+  OWN LANE" was forty-three characters and was holding that line
+  down for the whole round to describe a fallback that rarely
+  fires. If you add a longer message than the budget, raise the
+  number or it will run off the panel.
+
+  ------------------------------------------------------------
+  v10 - YOU CAN READ THE SCORE NOW. Screens only; nothing about
+  how the game plays has moved.
+
+  Dinopawnz: "the font is too small its hard to read a little."
+
+  All three scores shared one line of text, and thirty-four
+  characters of "RED 100%   YELLOW 100%   BLUE 100%" is what was
+  holding the letters down - not the space above and below them,
+  which was going spare. On the ring ribbons that line came out
+  a third the size of the same line on the wall boards.
+
+  So it is three chunks now, one per team, each in its own
+  colour. On the eighteen full faces the team NAME drops to a
+  small caption and the PERCENTAGE takes the column: four
+  characters where there used to be thirty-four, which is what
+  pays for the size. 74 to 200. The columns sit over the three
+  bar segments, so a colour reads straight down the board.
+
+  The eight ring ribbons are two metres tall and cannot take two
+  rows, so they keep one line per team - 33 to 78, and in colour
+  rather than all in white.
+
+  SCORE_FS, SCORE_CAP_FS and SCORE_FS_RIB are the three numbers
+  to turn if it is still not big enough. They are set to what
+  fits with room to spare, not to what fits exactly.
+
+
+  v7 - the lamp over the operator keypad is off. It was four
+  metres straight above the panel and it washed the key faces out
+  until the digits were unreadable. A pad you type on wants
+  contrast on its faces, not light on them, so the caps are darker
+  and the digits brighter and the lamp is gone. CONSOLE_GLOW, in
+  the code lock block, puts a dim one back if the lobby turns out
+  too dark to find the console at all - it sits low and in front
+  so it grazes the plinth instead of pointing at the keys.
+
+  v6 - CLEAR SIGHTLINES. Two things taken out and nothing put
+  back.
+
+  The hang floats. v4 held it up on four masts and a square truss,
+  which is how a real one works and was the wrong answer here: the
+  masts ran the full height of the arena through the airspace
+  between the ring and the crown, so every sightline across the
+  open middle had a pole in it. There is no gravity to answer to
+  in this building. It hangs on nothing now.
+
+  The ring has corner legs only. There used to be a leg at the
+  middle of each side as well, and every one of them stood four
+  metres directly behind a ring sign - straight through the line
+  of sight of anybody on the floor reading the outward face. The
+  ring is not carrying any load either, so those legs were scenery
+  standing in front of a scoreboard.
+
+  v5 - the ring signs stand plumb instead of tilted, and carry the
+  score on the front AND the back.
+
+  v4 - THE BUILDING. No change to how the game plays: same three
+  levels, same ramps, same code, same squares. What changed is
+  what it looks like and how easily you can read the score.
+
+  SCREENS. There are now fourteen display surfaces and they all
+  show the same thing at the same time, because every one of them
+  registers its labels in the same arrays the game already drove.
+  Nothing in the round logic knows or cares how many there are.
+    - a four-sided board hung over the centre. See THE HANG.
+    - a full board on each of the four arena walls (two were
+      already there; west and east are new)
+    - the two lobby-facing boards, unchanged
+    - four signs slung under the inner lip of the ring, for people
+      down on the floor with the crown over their heads. Plumb,
+      not tilted, and live on BOTH faces: one side serves the open
+      middle, the other serves the band of floor the ring roofs,
+      which could not read a score at all before. That makes
+      eighteen lit faces on fourteen signs.
+
+  THE HANG. A four-sided board floating over the middle, well
+  above the top of the wall, with nothing holding it up. From out
+  on the floor, from the ring and from the crown you are looking
+  up at a face of it. Stand directly under the crown and you
+  cannot see it - the crown is in the way - which is what the ring
+  signs are for. It throws light down onto the crown, so the
+  highest deck is lit from above rather than just glowing.
+
+  THE WALL. Sixty metres of flat dark cube per side, before. Now
+  every side is built as spans with a plinth at the foot, a lit
+  ribbon at eye level, a cornice and a coping on top, and vertical
+  ribs breaking it into bays. All of that dressing hangs off the
+  same spans the wall itself does, so a doorway takes a bite out
+  of every course at once and no line ever runs across an opening.
+  The doorway heads carry the ribbon and the cornice across in the
+  team's own colour. The four corners now meet in a pier instead
+  of just stopping beside each other.
+
+  THE BOWL. There were six metres of flat black between the last
+  painted square and the wall. Two shallow terraces now turn it
+  into the lip of a bowl - the court reads as sunk into the
+  building instead of painted onto its floor - with a gap cut at
+  each team door so nobody walks out into the side of a step. A
+  gold line runs round the court itself, so from the crown you can
+  see where the playing area ends.
+
+  LIGHTS. Eleven more than v3, not fifty. Two washes a side rather
+  than one per rib: most runtimes only light from the nearest
+  handful anyway, and the rest is frames spent on nothing.
+
+  TUNING THE LOOK
+    JUMBO_Y        how high the hang floats
+    JUMBO_BODY, JUMBO_W, JUMBO_H   how big
+    PILASTER_STEP  spacing of the wall ribs
+    TIERS          the two terrace steps - drop one for a flatter
+                   margin, or set both to y 0 for the old look
+
+  ------------------------------------------------------------
+  v3
+
+  Three teams, three levels, three minutes. Every square you stand
+  on turns your colour and stays yours until somebody takes it
+  back. Most squares at the horn wins.
+
+  THE LEVELS - nothing is stacked directly on anything else, so
+  from any level you can see the other two.
+    FLOOR   y 0    120 x 120 of 4m squares. The brawl.
+    RING    y 6    a square loop, 12m wide, out at radius 34.
+                   Roofs a band of the floor and nothing else -
+                   the middle stays open, sky to floor.
+    CROWN   y 12   a 32 x 32 platform dead centre, hanging over
+                   the open middle of the ring. Smallest, highest,
+                   hardest to hold.
+
+  GETTING UP AND DOWN
+    floor -> ring   four ramps in a pinwheel, one tucked in each
+                    corner, so every part of the floor is near one
+                    and none of them sit in the middle of the run
+    ring -> crown   four ramps on the diagonals, an X rising to
+                    the centre
+    down            step off any edge. No railings anywhere, only
+                    ankle kerbs. Crown to floor is a 12m drop.
+
+  GETTING IN
+    Three arches in the back of the lobby, one per colour, always
+    open - this is how anybody outside the build walks in. They
+    feed a shared corridor, so you can still cross to another bay
+    once you are inside. Then your bay, then your team's door onto
+    the floor, which stays shut until the operator starts a round.
+
+  A ROUND
+    operator types 1 7 1 8 at the console in the corridor
+      -> team doors stay SHUT, 10 second countdown
+      -> doors drop, 3 minute clock
+      -> at 0:00 squares freeze, most squares wins
+    Same code during a round aborts it.
+
+  TUNING
+    CELL      4. Raise to 5 or 6 if a full house makes it chug.
+    ROUND_S   180.    ARM_DELAY  10.
+-->
+
+<m-group id="arena"></m-group>
+<m-group id="floor"></m-group>
+
+<script>
+  // ==========================================================
+  // TUNING
+  // ==========================================================
+  const ROUND_S = 180;
+  const ARM_DELAY = 10;
+  const CODE = [1, 7, 1, 8];
+  const CODE_TIMEOUT = 15;
+
+  const FIELD = 120;
+  const CELL = 4;
+  const PAD_MS = 90;
+
+  const OUT = 68;             // outer wall half-extent
+  const WALL_H = 24;
+
+  const L2_Y = 6;             // the ring
+  const L3_Y = 12;            // the crown
+  const RING_IN = 28;         // ring occupies max-norm 28..40
+  const RING_OUT = 40;
+  const CROWN_HALF = 16;
+
+  const RAMP_W = 12;          // floor -> ring
+  const RAMP_RUN = 20;
+  const XRAMP_W = 10;         // ring -> crown
+  const RAMP_T = 0.7;
+
+  const LOBBY_D = 40;
+  const CORRIDOR_D = 12;      // shared strip across the back of the lobby
+  const DOOR_W = 14;
+  const DOOR_H = 12;
+  const GATE_H = DOOR_H;
+  const ARCH_W = 14;          // the always-open ways in from outside
+  const ARCH_H = 12;
+
+  const IDENTITY_GRACE_MS = 6000;
+
+  const LIGHT = 0.05;
+  const WALL = "#150d2e";
+  const STONE = "#241a4d";
+  const DARK = "#0e0922";
+  const GOLD = "#e8c547";
+  const INK = "#e8e2ff";
+  const GLASS = "#9fe8ff";
+
+  // unpainted tile colour, one shade per level, so a glance tells
+  // you which deck you are looking at
+  const BARE = ["#2b2154", "#342a63", "#3d3372"];
+
+  const TEAMS = [
+    { name: "RED",    lit: "#ff3b52", dim: "#5c1220" },
+    { name: "YELLOW", lit: "#ffd23b", dim: "#5c4a10" },
+    { name: "BLUE",   lit: "#3ba8ff", dim: "#10344c" },
+  ];
+
+  // ==========================================================
+  // PLUMBING
+  // ==========================================================
+  const arena = document.getElementById("arena") || (() => {
+    const g = document.createElement("m-group");
+    g.setAttribute("id", "arena");
+    (document.body || document.documentElement).appendChild(g);
+    return g;
+  })();
+  const floorRoot = document.getElementById("floor") || (() => {
+    const g = document.createElement("m-group");
+    g.setAttribute("id", "floor");
+    (document.body || document.documentElement).appendChild(g);
+    return g;
+  })();
+
+  function el(tag, attrs, parent) {
+    const node = document.createElement(tag);
+    node.setAttribute("collide", "false");
+    for (const key in attrs) {
+      let v = attrs[key];
+      if (tag === "m-light" && key === "intensity") v = Math.round(v * LIGHT * 10) / 10;
+      node.setAttribute(key, v);
+    }
+    (parent || arena).append(node);
+    return node;
+  }
+  function group(attrs, parent) {
+    const g = document.createElement("m-group");
+    for (const k in attrs) g.setAttribute(k, attrs[k]);
+    (parent || arena).append(g);
+    return g;
+  }
+
+  // ==========================================================
+  // TYPE SIZE  -  the biggest this text can be and still fit
+  // ==========================================================
+  // Dinopawnz: "the font for the other things like the timer and any
+  // words under the timer are still so tiny. make sure EVERY THING is
+  // readable please."
+  //
+  // Every font-size in this document used to be a number somebody
+  // typed once, and almost all of them were far under what the label
+  // they sat in could actually hold - the timer was using two thirds
+  // of its box, the line under it a third, the sign over the lobby
+  // doors well under half. Nothing was wrong with any of them; they
+  // were just guesses, and a guess errs small.
+  //
+  // So nothing guesses any more. A label's glyphs run about
+  // font-size/100 metres tall and a character advances about 0.55 of
+  // that, so a box w by h metres holding n characters is bounded
+  // twice: by its HEIGHT, keeping a fifth back for the ascenders and
+  // descenders that sit outside the letter body, and by its WIDTH
+  // across the longest thing it will ever have to say. This returns
+  // the larger text that still clears both.
+  //
+  // Pass the WORST CASE for chars, not what the label says now. The
+  // timer reads "2:59" most of the round and "YELLOW WINS" at the
+  // end of it, and a size that fits the first would run off the panel
+  // on the second.
+  //
+  // cap is optional and is a ceiling, not a size - it is there for
+  // the few places where the box is enormous and the text would look
+  // silly filling it.
+  // FS_SAFE is the margin. 0.55 is an average advance across a
+  // mixed string and the real figure moves with the glyphs - a line
+  // of capitals full of M and W runs wider than one full of I and T -
+  // so the width bound is held back a tenth. A line that came out at
+  // 96% of its box on paper is one unlucky typeface from wrapping,
+  // and a wrapped line on a scoreboard is worse than a smaller one.
+  const FS_SAFE = 0.9;
+  function fitFS(w, h, chars, cap) {
+    const byHeight = h * 80;
+    const byWidth = ((w * 100) / (chars * 0.55)) * FS_SAFE;
+    return Math.round(Math.min(cap === undefined ? Infinity : cap, byHeight, byWidth));
+  }
+
+  const HALF = FIELD / 2;
+  const COLS = Math.round(FIELD / CELL);
+  const CW = FIELD / COLS;
+  const mx = (x, z) => Math.max(Math.abs(x), Math.abs(z));
+
+  const BAY_W = FIELD / TEAMS.length;
+  const bayX = (i) => -HALF + BAY_W / 2 + i * BAY_W;
+  const LOBBY_BACK = -(OUT + LOBBY_D);
+  const BAY_FRONT = -OUT;
+  const BAY_REAR = LOBBY_BACK + CORRIDOR_D;
+  const BAY_Z = (BAY_FRONT + BAY_REAR) / 2;
+  const BAY_DEPTH = BAY_FRONT - BAY_REAR;
+
+  // ==========================================================
+  // BASE SLABS
+  // ==========================================================
+  // A tile stands 0.36 proud of what it sits on, so every base sits
+  // 0.36 high too. Bare margin, lobby, apron and ramp feet then all
+  // read as one ground plane with no lip to trip on.
+  el("m-cube", {
+    y: -1.82, width: OUT * 2 + 16, height: 4, depth: OUT * 2 + 16,
+    color: DARK, collide: "true",
+  });
+  el("m-cube", {
+    z: -(OUT + LOBBY_D / 2), y: -1.82, width: FIELD + 24, height: 4, depth: LOBBY_D + 8,
+    color: DARK, collide: "true",
+  });
+  // apron outside the back arches, so arriving players land on
+  // something and can see which way in they are looking at
+  el("m-cube", {
+    z: LOBBY_BACK - 15, y: -1.82, width: FIELD + 40, height: 4, depth: 30,
+    color: "#0b0720", collide: "true",
+  });
+
+  // ==========================================================
+  // OUTER WALL
+  // ==========================================================
+  // Each side is built as a run of solid spans with the doorways cut
+  // out of it. All the dressing - plinth, ribbon, cornice - is hung
+  // off the same spans, so a doorway takes a bite out of every course
+  // at once and nothing ever runs across an opening.
+  //
+  // In a side's local frame, +x runs along the wall and +z points
+  // INWARD, into the arena. Every side is rotated so that holds.
+  const PILASTER_STEP = 13.6;   // spacing of the vertical ribs
+  const BASE_H = 3.4;           // dark plinth course at the bottom
+  const RIBBON_Y = 9.6;         // the lit band that runs the whole way round
+  const CORNICE_Y = WALL_H - 2.6;
+
+  function wallSide(sx, sz, ry, openings) {
+    const g = group({ x: sx * OUT, z: sz * OUT, ry: ry });
+    const list = (openings || []).slice().sort((a, b) => a.c - b.c);
+    const spans = [];
+    let cursor = -OUT;
+
+    const solid = (a, b) => {
+      if (b - a < 0.05) return;
+      spans.push([a, b]);
+      const w = b - a, cx = (a + b) / 2;
+      // the wall proper
+      el("m-cube", {
+        x: cx, y: WALL_H / 2, width: w,
+        height: WALL_H, depth: 2.4, color: WALL, collide: "true",
+      }, g);
+      // plinth - a heavier course at the foot, so the wall sits on
+      // something instead of growing straight out of the ground
+      el("m-cube", {
+        x: cx, z: 1.55, y: BASE_H / 2, width: w,
+        height: BASE_H, depth: 1.1, color: STONE, collide: "true",
+      }, g);
+      el("m-cube", {
+        x: cx, z: 1.62, y: BASE_H + 0.14, width: w,
+        height: 0.28, depth: 1.3, color: GOLD, opacity: 0.75,
+      }, g);
+      // the ribbon: one thin lit line at eye level all the way round
+      el("m-cube", {
+        x: cx, z: 1.35, y: RIBBON_Y, width: w,
+        height: 0.5, depth: 0.35, color: "#6f5ac4", opacity: 0.9,
+      }, g);
+      // cornice, and the coping that caps the wall
+      el("m-cube", {
+        x: cx, z: 1.5, y: CORNICE_Y, width: w,
+        height: 0.85, depth: 1.0, color: GOLD, opacity: 0.55,
+      }, g);
+      el("m-cube", {
+        x: cx, z: 0.3, y: WALL_H + 0.45, width: w,
+        height: 0.9, depth: 3.4, color: STONE,
+      }, g);
+    };
+
+    list.forEach((o) => {
+      solid(cursor, o.c - o.w / 2);
+      el("m-cube", {
+        x: o.c, y: (DOOR_H + WALL_H) / 2, width: o.w,
+        height: WALL_H - DOOR_H, depth: 2.4, color: WALL, collide: "true",
+      }, g);
+      [-1, 1].forEach((e) => {
+        el("m-cylinder", {
+          x: o.c + e * (o.w / 2 + 0.7), y: DOOR_H / 2,
+          radius: 0.62, height: DOOR_H + 1.4, color: o.color || GOLD,
+        }, g);
+      });
+      el("m-cube", {
+        x: o.c, y: DOOR_H + 0.9, width: o.w + 3, height: 1.5, depth: 3,
+        color: o.color || GOLD,
+      }, g);
+      // the doorway carries the courses it interrupts across its head,
+      // so the lines still read as continuous from a distance
+      el("m-cube", {
+        x: o.c, z: 1.35, y: RIBBON_Y + DOOR_H - 1.2, width: o.w + 3,
+        height: 0.5, depth: 0.35, color: o.color || GOLD, opacity: 0.9,
+      }, g);
+      el("m-cube", {
+        x: o.c, z: 1.5, y: CORNICE_Y, width: o.w + 3,
+        height: 0.85, depth: 1.0, color: GOLD, opacity: 0.55,
+      }, g);
+      el("m-cube", {
+        x: o.c, z: 0.3, y: WALL_H + 0.45, width: o.w + 3,
+        height: 0.9, depth: 3.4, color: STONE,
+      }, g);
+      el("m-light", {
+        x: o.c, y: DOOR_H + 3.4, type: "point", intensity: 16, color: o.color || GOLD,
+      }, g);
+      cursor = o.c + o.w / 2;
+    });
+
+    solid(cursor, OUT);
+
+    const inSpan = (x, pad) => spans.some(([a, b]) => x > a + pad && x < b - pad);
+
+    // vertical ribs. They break up sixty metres of flat wall into
+    // bays, and they are what the wall lights are mounted on.
+    for (let x = -OUT + PILASTER_STEP / 2; x < OUT; x += PILASTER_STEP) {
+      if (!inSpan(x, 1.6)) continue;
+      el("m-cube", {
+        x: x, z: 1.75, y: WALL_H / 2, width: 1.9,
+        height: WALL_H, depth: 1.5, color: STONE, collide: "true",
+      }, g);
+      el("m-cube", {
+        x: x, z: 1.85, y: WALL_H - 1.1, width: 2.3,
+        height: 0.5, depth: 1.8, color: GOLD, opacity: 0.7,
+      }, g);
+    }
+    // Two washes a side, not one per rib. Ten more point lights on
+    // each wall would look no better and would cost real frames -
+    // most runtimes only light from the nearest handful anyway.
+    [-34, 34].forEach((x) => {
+      if (!inSpan(x, 1.6)) return;
+      el("m-light", {
+        x: x, z: 4.5, y: WALL_H - 5, type: "point",
+        intensity: 16, color: "#8f7bd8",
+      }, g);
+    });
+
+    // the big translucent team panels, now framed instead of floating
+    for (let i = -2; i <= 2; i++) {
+      const px = i * 27;
+      if (!inSpan(px, 8)) continue;
+      const col = TEAMS[(i + 3) % 3].lit;
+      el("m-cube", {
+        x: px, z: 1.15, y: 16.5, width: 15.4, height: 13.4, depth: 0.3,
+        color: DARK,
+      }, g);
+      el("m-cube", {
+        x: px, z: 1.34, y: 16.5, width: 14, height: 12, depth: 0.3,
+        color: col, opacity: 0.35,
+      }, g);
+      [[-1, 0], [1, 0]].forEach(([ex]) => el("m-cube", {
+        x: px + ex * 7.5, z: 1.4, y: 16.5, width: 0.45,
+        height: 13.4, depth: 0.5, color: col, opacity: 0.8,
+      }, g));
+      [[0, -1], [0, 1]].forEach(([, ey]) => el("m-cube", {
+        x: px, z: 1.4, y: 16.5 + ey * 6.7, width: 15.4,
+        height: 0.45, depth: 0.5, color: col, opacity: 0.8,
+      }, g));
+    }
+  }
+
+  const DOOR_LIST = TEAMS.map((t, i) => ({ c: bayX(i), w: DOOR_W, color: t.lit }));
+  wallSide(0, -1, 0, DOOR_LIST);
+  wallSide(0, 1, 180, []);
+  wallSide(-1, 0, 90, []);
+  wallSide(1, 0, -90, []);
+
+  // corner piers, so the four walls meet in something rather than
+  // just stopping next to each other
+  [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([sx, sz]) => {
+    el("m-cube", {
+      x: sx * OUT, z: sz * OUT, y: WALL_H / 2,
+      width: 5.2, height: WALL_H, depth: 5.2, color: STONE, collide: "true",
+    });
+    el("m-cube", {
+      x: sx * OUT, z: sz * OUT, y: WALL_H + 0.8,
+      width: 6.4, height: 1.6, depth: 6.4, color: WALL,
+    });
+    el("m-cube", {
+      x: sx * OUT, z: sz * OUT, y: CORNICE_Y,
+      width: 5.8, height: 0.85, depth: 5.8, color: GOLD, opacity: 0.55,
+    });
+  });
+
+  // ==========================================================
+  // THE BOWL  -  the margin between the court and the wall
+  // ==========================================================
+  // Six metres of flat black used to sit between the last painted
+  // square and the wall. Two shallow terraces turn it into the lip of
+  // a bowl: the court reads as sunk into the building instead of
+  // painted onto its floor, and there is somewhere to stand and watch
+  // that is plainly not the pitch.
+  const COURT = HALF + 0.9;       // where the painted floor ends
+  const WALL_FACE = OUT - 1.2;    // inner face of the wall
+  const TIERS = [
+    { from: COURT + 0.6, to: COURT + 3.4, y: 1.05 },
+    { from: COURT + 3.4, to: WALL_FACE,   y: 2.15 },
+  ];
+
+  // A gap wherever a door lands, plus clearance, so nobody comes
+  // through a doorway into the side of a step.
+  const bowlGaps = DOOR_LIST.map((o) => [o.c - o.w / 2 - 1.6, o.c + o.w / 2 + 1.6]);
+
+  // Same local frame as the walls: +x along the side, +z inward. The
+  // two axes are lifted a few millimetres apart so their tops do not
+  // fight for the same plane where they cross at a corner.
+  function tierRun(ry, lift, gaps) {
+    const g = group({ ry: ry });
+    TIERS.forEach((t, ti) => {
+      const mid = (t.from + t.to) / 2, depth = t.to - t.from;
+      const y = t.y + lift;
+      const cuts = (gaps || []).slice().sort((a, b) => a[0] - b[0]);
+      let cursor = -t.to;
+      const run = (a, b) => {
+        if (b - a < 0.4) return;
+        el("m-cube", {
+          x: (a + b) / 2, z: -mid, y: y / 2, width: b - a,
+          height: y, depth: depth, color: ti ? STONE : "#1c1440", collide: "true",
+        }, g);
+        if (b - a > 4) el("m-cube", {
+          x: (a + b) / 2, z: -(t.from + 0.14), y: y - 0.07,
+          width: Math.min(b - a, t.from * 2 - 3), height: 0.14, depth: 0.28,
+          color: GOLD, opacity: 0.5,
+        }, g);
+      };
+      cuts.forEach((c) => { run(cursor, c[0]); cursor = c[1]; });
+      run(cursor, t.to);
+    });
+  }
+  tierRun(0, 0, bowlGaps);
+  tierRun(180, 0, []);
+  tierRun(90, 0.03, []);
+  tierRun(-90, 0.03, []);
+
+  // a gold line round the court itself, so the playing area has an
+  // edge you can see from the crown
+  [-1, 1].forEach((s) => {
+    el("m-cube", { z: s * COURT, y: 0.25, width: COURT * 2 + 0.6,
+      height: 0.14, depth: 0.6, color: GOLD, opacity: 0.85 });
+    el("m-cube", { x: s * COURT, y: 0.25, width: 0.6,
+      height: 0.14, depth: COURT * 2 + 0.6, color: GOLD, opacity: 0.85 });
+  });
+
+  // ==========================================================
+  // PAINTABLE SQUARES
+  // ==========================================================
+  const cells = [];
+
+  function square(x, y, z, size, lane, level) {
+    const bare = BARE[level];
+    const pad = el("m-cube", {
+      x: x, y: y + 0.18, z: z,
+      width: size - 0.25, height: 0.36, depth: size - 0.25,
+      color: bare, collide: "true", "collision-interval": PAD_MS,
+    }, floorRoot);
+    const idx = cells.length;
+    cells.push({ el: pad, owner: -1, bare: bare, lane: lane });
+    const onHit = (e) => paint(idx, e);
+    pad.addEventListener("collisionstart", onHit);
+    pad.addEventListener("collisionmove", onHit);
+    return pad;
+  }
+
+  const laneOf = (x) => Math.min(TEAMS.length - 1,
+    Math.max(0, Math.floor(((x + HALF) / FIELD) * TEAMS.length)));
+
+  const onRing = (x, z) => mx(x, z) >= RING_IN && mx(x, z) <= RING_OUT;
+  const onCrown = (x, z) => Math.abs(x) <= CROWN_HALF && Math.abs(z) <= CROWN_HALF;
+
+  // The first stretch of each floor ramp lies flat on the floor with
+  // no headroom under it. Those squares would be unreachable, so they
+  // are never created and never counted. Further up the ramp there is
+  // 3m+ of clearance and those squares stay in play - painting under
+  // a ramp while somebody runs over your head is worth having.
+  const RAMP_BLOCK = [
+    { x0: -40, x1: -28, z0: -60, z1: -48 },
+    { x0:  48, x1:  60, z0: -40, z1: -28 },
+    { x0:  28, x1:  40, z0:  48, z1:  60 },
+    { x0: -60, x1: -48, z0:  28, z1:  40 },
+  ];
+  const blocked = (x, z) =>
+    RAMP_BLOCK.some((b) => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1);
+
+  for (let r = 0; r < COLS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const x = -HALF + CW / 2 + c * CW;
+      const z = -HALF + CW / 2 + r * CW;
+      if (!blocked(x, z)) square(x, 0, z, CW, laneOf(x), 0);
+      if (onRing(x, z)) square(x, L2_Y, z, CW, laneOf(x), 1);
+      if (onCrown(x, z)) square(x, L3_Y, z, CW, laneOf(x), 2);
+    }
+  }
+
+  // ==========================================================
+  // RING AND CROWN
+  // ==========================================================
+  // The ring is a closed loop with an open middle. It roofs a band of
+  // the floor and leaves the centre clear, so from the floor you look
+  // straight up past it to the crown, and from the crown straight
+  // down past it to the floor.
+  const RING_MID = (RING_IN + RING_OUT) / 2;
+  const RING_T = RING_OUT - RING_IN;
+
+  function deckSlab(x, z, w, d, y) {
+    el("m-cube", {
+      x: x, z: z, y: y - 0.3, width: w, height: 0.6, depth: d,
+      color: "#1b1440", opacity: 0.55, collide: "true",
+    });
+  }
+  [-1, 1].forEach((s) => {
+    deckSlab(0, s * RING_MID, RING_OUT * 2, RING_T, L2_Y);
+    deckSlab(s * RING_MID, 0, RING_T, RING_IN * 2, L2_Y);
+  });
+  deckSlab(0, 0, CROWN_HALF * 2, CROWN_HALF * 2, L3_Y);
+
+  // kerbs - ankle high, no collision. The edge reads, but nothing
+  // stops you stepping off it.
+  function kerb(x, z, w, d, y) {
+    el("m-cube", { x: x, z: z, y: y + 0.44, width: w, height: 0.16, depth: d, color: GOLD });
+  }
+  [-1, 1].forEach((s) => {
+    kerb(0, s * RING_OUT, RING_OUT * 2, 0.5, L2_Y);
+    kerb(s * RING_OUT, 0, 0.5, RING_OUT * 2, L2_Y);
+    kerb(0, s * RING_IN, RING_IN * 2, 0.5, L2_Y);
+    kerb(s * RING_IN, 0, 0.5, RING_IN * 2, L2_Y);
+    kerb(0, s * CROWN_HALF, CROWN_HALF * 2, 0.5, L3_Y);
+    kerb(s * CROWN_HALF, 0, 0.5, CROWN_HALF * 2, L3_Y);
+  });
+
+  // columns. Ring legs sit on grid corners so they never poke up
+  // through a paintable square.
+  //
+  // Corners only. There used to be a leg at the middle of each side
+  // too - (0, +-32) and (+-32, 0) - and every one of them stood four
+  // metres directly behind a ring sign, straight through the line of
+  // sight of anybody on the floor trying to read the outward face.
+  // The ring is not holding anything up, so the legs are scenery, and
+  // scenery that stands in front of a scoreboard loses.
+  [[-32, -32], [32, -32], [-32, 32], [32, 32]].forEach(([px, pz]) => {
+    el("m-cylinder", {
+      x: px, z: pz, y: (L2_Y - 0.6) / 2, radius: 0.7,
+      height: L2_Y - 0.6, color: "#2a1f5c", collide: "true",
+    });
+  });
+  // crown legs run the full 12m up through the open middle
+  [[-12, -12], [12, -12], [-12, 12], [12, 12]].forEach(([px, pz]) => {
+    el("m-cylinder", {
+      x: px, z: pz, y: (L3_Y - 0.6) / 2, radius: 0.85,
+      height: L3_Y - 0.6, color: "#2a1f5c", collide: "true",
+    });
+  });
+
+  // underlights so both decks read from below
+  for (let a = -36; a <= 36; a += 24) {
+    [-1, 1].forEach((s) => {
+      el("m-light", { x: a, z: s * RING_MID, y: L2_Y - 1.2, type: "point",
+        intensity: 8, color: "#7f6bd0" });
+      el("m-light", { x: s * RING_MID, z: a, y: L2_Y - 1.2, type: "point",
+        intensity: 8, color: "#7f6bd0" });
+    });
+  }
+  el("m-light", { y: L3_Y - 1.4, type: "point", intensity: 18, color: "#a76bff" });
+
+  // ==========================================================
+  // RAMPS
+  // ==========================================================
+  // One tilted slab each, never a stack of steps. Each runs tile-top
+  // to tile-top so there is no lip at either end.
+  function ramp(cx, cz, ry, fromY, toY, run, width) {
+    const rise = toY - fromY;
+    const deg = Math.atan2(rise, run) * 180 / Math.PI;
+    const len = Math.hypot(run, rise);
+    const sink = (RAMP_T / 2) / Math.cos(deg * Math.PI / 180);
+    const g = group({ x: cx, z: cz, y: (fromY + toY) / 2 + 0.36 - sink, ry: ry });
+    el("m-cube", {
+      rz: deg, width: len, height: RAMP_T, depth: width,
+      color: STONE, collide: "true",
+    }, g);
+    [-1, 1].forEach((e) => {
+      el("m-cube", {
+        rz: deg, y: 0.45, z: e * (width / 2 - 0.25),
+        width: len, height: 0.16, depth: 0.5, color: GOLD, opacity: 0.85,
+      }, g);
+    });
+    return g;
+  }
+
+  // FLOOR -> RING. A pinwheel: each ramp tucks into a corner and
+  // climbs along the ring's own line, so none of them cut across the
+  // middle of the floor and every corner of the map has one nearby.
+  // ry is picked so that local +x points uphill.
+  ramp(-34, -50, -90, 0, L2_Y, RAMP_RUN, RAMP_W);   // uphill toward +z
+  ramp( 50, -34, 180, 0, L2_Y, RAMP_RUN, RAMP_W);   // uphill toward -x
+  ramp( 34,  50,  90, 0, L2_Y, RAMP_RUN, RAMP_W);   // uphill toward -z
+  ramp(-50,  34,   0, 0, L2_Y, RAMP_RUN, RAMP_W);   // uphill toward +x
+
+  // Markers stand just clear of each slab edge, not on the slab itself,
+  // and turn to face the middle of the floor.
+  [[-25.5, -57, 0], [57, -25.5, -90],
+   [25.5, 57, 180], [-57, 25.5, 90]].forEach(([px, pz, lry]) => {
+    el("m-cylinder", { x: px, z: pz, y: 3, radius: 0.4, height: 6, color: "#2a1f5c" });
+    el("m-sphere", { x: px, z: pz, y: 6.4, radius: 0.7, color: "#a76bff" });
+    el("m-light", { x: px, z: pz, y: 6.4, type: "point", intensity: 14, color: "#a76bff" });
+    el("m-label", {
+      x: px, z: pz, y: 8.6, ry: lry, width: 10, height: 1.6,
+      "font-size": fitFS(10, 1.6, 2),
+      alignment: "center", color: WALL, "font-color": GOLD, content: "UP",
+    });
+  });
+
+  // RING -> CROWN. Four diagonals from the inner corners of the ring
+  // to the corners of the crown, an X over the open middle. Keeping
+  // them on the diagonals leaves all four cardinal sightlines through
+  // the ring completely clear.
+  const XRUN = Math.hypot(RING_IN - CROWN_HALF, RING_IN - CROWN_HALF);
+  const XMID = (RING_IN + CROWN_HALF) / 2;
+  [[-XMID, -XMID, -45], [XMID, -XMID, -135],
+   [ XMID,  XMID, 135], [-XMID,  XMID,  45]].forEach(([px, pz, ry]) => {
+    ramp(px, pz, ry, L2_Y, L3_Y, XRUN, XRAMP_W);
+  });
+
+  // ==========================================================
+  // LOBBY
+  // ==========================================================
+  // Three arches at the back, always open, one per colour - this is
+  // how anyone outside walks in. They feed a corridor running the
+  // full width, so you can still cross to another bay before you
+  // commit. Then your bay, then your gated door onto the floor.
+  const gates = [];
+  const penLabels = [];
+
+  (function backWall() {
+    const g = group({ z: LOBBY_BACK });
+    const H = WALL_H - 6;
+    const edge = FIELD / 2 + 12;
+    let cursor = -edge;
+
+    const solid = (a, b) => {
+      if (b - a < 0.05) return;
+      el("m-cube", {
+        x: (a + b) / 2, y: H / 2, width: b - a, height: H, depth: 2,
+        color: WALL, collide: "true",
+      }, g);
+    };
+
+    TEAMS.forEach((t, i) => {
+      const c = bayX(i);
+      solid(cursor, c - ARCH_W / 2);
+      el("m-cube", {
+        x: c, y: (ARCH_H + H) / 2, width: ARCH_W, height: H - ARCH_H, depth: 2,
+        color: WALL, collide: "true",
+      }, g);
+      [-1, 1].forEach((e) => el("m-cylinder", {
+        x: c + e * (ARCH_W / 2 + 0.7), y: ARCH_H / 2,
+        radius: 0.62, height: ARCH_H + 1.4, color: t.lit,
+      }, g));
+      el("m-cube", {
+        x: c, y: ARCH_H + 0.9, width: ARCH_W + 3, height: 1.5, depth: 2.6, color: t.lit,
+      }, g);
+      // named on both faces, so you know which way in you are looking
+      // at from outside and which bay you came from once inside
+      [[-1.6, 180], [1.6, 0]].forEach(([lz, lry]) => el("m-label", {
+        x: c, z: lz, y: ARCH_H + 3.6, ry: lry,
+        width: ARCH_W + 2, height: 2.2,
+        "font-size": fitFS(ARCH_W + 2, 2.2, 6), alignment: "center",
+        color: "#0d0d14", "font-color": t.lit, content: t.name,
+      }, g));
+      el("m-light", {
+        x: c, z: -3, y: ARCH_H + 2, type: "point", intensity: 18, color: t.lit,
+      }, g);
+      cursor = c + ARCH_W / 2;
+    });
+    solid(cursor, edge);
+
+    el("m-label", {
+      z: -1.6, y: H - 2.6, ry: 180, width: 40, height: 3,
+      "font-size": fitFS(40, 3, 9),
+      alignment: "center", color: "#0d0d14", "font-color": GOLD, content: "TERRITORY",
+    }, g);
+  })();
+
+  // lobby side walls
+  [-1, 1].forEach((s) => {
+    el("m-cube", {
+      x: s * (FIELD / 2 + 11), z: -(OUT + LOBBY_D / 2), y: (WALL_H - 6) / 2,
+      width: 2, height: WALL_H - 6, depth: LOBBY_D + 2, color: WALL, collide: "true",
+    });
+  });
+
+  TEAMS.forEach((team, ti) => {
+    const cx = bayX(ti);
+
+    // THE BAY WASH, LAID ON THE FLOOR INSTEAD OF FLOATING OVER IT.
+    // It was a 16cm plate at y 0.36-0.52, and the ground you actually
+    // walk on in here is 0.18 - so it hung eighteen centimetres up in
+    // the air at shin height with daylight under it, and anything put
+    // at real floor level was hidden behind it. Now it is 4cm of
+    // paint sitting on the floor, which is what it always looked like
+    // it was meant to be.
+    el("m-cube", {
+      x: cx, z: BAY_Z, y: 0.20, width: BAY_W - 1, height: 0.04,
+      depth: BAY_DEPTH, color: team.dim,
+    });
+    el("m-light", { x: cx, z: BAY_Z, y: 9, type: "point", intensity: 20, color: team.lit });
+
+    // Glass between bays covers the bay depth only and stops short of
+    // the corridor. Three lines form at the doors without trapping
+    // anyone in whichever colour's arch they happened to use.
+    [-1, 1].forEach((s) => {
+      el("m-cube", {
+        x: cx + s * (BAY_W / 2), z: BAY_Z, y: 3.5,
+        width: 0.3, height: 7, depth: BAY_DEPTH,
+        color: GLASS, opacity: 0.13, collide: "true",
+      });
+      el("m-cube", {
+        x: cx + s * (BAY_W / 2), z: BAY_Z, y: 7.1,
+        width: 0.55, height: 0.2, depth: BAY_DEPTH, color: GOLD,
+      });
+    });
+
+    // the plinth, set toward the corridor end so you meet it on the
+    // way in. The click carries a connectionId, which is the whole
+    // team mechanism - and so does a collision, which is why the
+    // slab below can share it without changing anything.
+    const pz = BAY_REAR + 7;
+    el("m-cube", { x: cx, z: pz, y: 0.68, width: 8, height: 1, depth: 4.5,
+      color: STONE, collide: "true" });
+    const cap = el("m-cube", { x: cx, z: pz, y: 1.98, width: 6.6, height: 1.6, depth: 3.2,
+      color: team.lit, collide: "true" });
+    const capLabel = el("m-label", {
+      z: 1.65, width: 6, height: 1.1,
+      "font-size": fitFS(6, 1.1, 6), alignment: "center",
+      color: team.lit, "font-color": "#0d0d14", content: team.name, collide: "true",
+    }, cap);
+    let last = 0;
+    const join = (event) => {
+      const now = Date.now();
+      if (now - last < 250) return;
+      last = now;
+      enrol(ti, event);
+      cap.setAttribute("color", "#ffffff");
+      setTimeout(() => cap.setAttribute("color", team.lit), 160);
+    };
+    cap.addEventListener("click", join);
+    capLabel.addEventListener("click", join);
+
+    // ======================================================
+    // AND THE SAME THING, WITHOUT THE CLICK
+    // ======================================================
+    // A slab of the team's colour across the mouth of the bay, just
+    // in front of the plinth. Stand on it and you are on that team.
+    // The click still works and is unchanged - this is a second way
+    // in, not a replacement.
+    //
+    // WHY A SEPARATE SLAB AND NOT THE CAP ITSELF. The cap is a
+    // button at chest height on a metre-high plinth; there is
+    // nothing to stand on. The slab is floor. It spans nearly the
+    // full width of the bay and sits between the plinth and the
+    // gate, so it is not somewhere you have to find - it is the
+    // ground on the way out.
+    //
+    // NO DEBOUNCE, AND THAT IS DELIBERATE. The click has a 250ms
+    // guard because a click is one person. A pad is thirty: a timer
+    // shared by everybody standing on it would drop the second
+    // person to arrive inside a quarter second of the first. Instead
+    // the handler asks whether THIS connection is already on this
+    // team and returns if it is, so enrolling is per-player, the
+    // repeat events every PAD_MS cost nothing, and the slab only
+    // flashes when somebody actually changed sides.
+    // AND IT IS FLAT. The first version of this slab stood 0.36 tall
+    // with its top at 0.72, which - because the bay floor is 0.18,
+    // not 0.36 - was a fifty-four centimetre step in the middle of
+    // the walkway. You had to climb onto your own team.
+    //
+    // It is now 6cm proud and you walk straight over it. Not zero:
+    // a collider whose top face is exactly level with the floor is
+    // tangent to the soles of your feet, and tangent is not a
+    // collision as far as anything here is concerned. Six
+    // centimetres guarantees the overlap that fires the event and is
+    // still nothing to walk over.
+    const standZ = pz + 5.4;
+    const stand = el("m-cube", {
+      x: cx, z: standZ, y: 0.17, width: BAY_W - 3.5, height: 0.14,
+      depth: 5.2, color: team.dim, collide: "true", "collision-interval": PAD_MS,
+    });
+    el("m-cube", {
+      x: cx, z: standZ, y: 0.255, width: BAY_W - 5, height: 0.03,
+      depth: 3.8, color: team.lit,
+    });
+    el("m-label", {
+      x: cx, z: standZ, y: 0.28, rx: -90,
+      width: BAY_W - 6, height: 2.4,
+      "font-size": fitFS(BAY_W - 6, 2.4, 10, 150), alignment: "center",
+      color: team.lit, "font-color": "#0d0d14", content: "STAND HERE",
+    });
+    const step = (event) => {
+      const d = event && event.detail;
+      const id = d ? d.connectionId : undefined;
+      if (typeof id !== "number") return;   // lane mode will cover it
+      if (roster.get(id) === ti) return;    // already ours, say nothing
+      enrol(ti, event);
+      stand.setAttribute("color", "#ffffff");
+      setTimeout(() => stand.setAttribute("color", team.dim), 220);
+    };
+    stand.addEventListener("collisionstart", step);
+    stand.addEventListener("collisionmove", step);
+    // and the cap too, for anybody who climbs onto it
+    cap.setAttribute("collision-interval", PAD_MS);
+    cap.addEventListener("collisionstart", step);
+
+    penLabels.push(el("m-label", {
+      x: cx, z: pz + 4, y: 8.6, width: BAY_W - 6, height: 1.8,
+      "font-size": fitFS(BAY_W - 6, 1.8, 11),
+      alignment: "center", color: "#0d0d14", "font-color": team.lit,
+      content: team.name + " - 0",
+    }));
+
+    // the gated door onto the floor
+    const g = group({ x: cx, z: -(OUT + 1), y: 0 });
+    el("m-cube", {
+      y: GATE_H / 2, width: DOOR_W - 0.6, height: GATE_H, depth: 0.4,
+      color: team.lit, opacity: 0.2, collide: "true",
+    }, g);
+    for (let b = 0; b <= 6; b++) {
+      el("m-cylinder", {
+        x: -(DOOR_W - 0.6) / 2 + b * (DOOR_W - 0.6) / 6, y: GATE_H / 2,
+        radius: 0.14, height: GATE_H, color: GOLD, opacity: 0.85,
+      }, g);
+    }
+    gates.push(g);
+  });
+
+  function setGates(open) {
+    gates.forEach((g) => g.setAttribute("y", open ? -(GATE_H + 6) : 0));
+  }
+
+  // ==========================================================
+  // BOARDS
+  // ==========================================================
+  const bannerLabels = [], modeLabels = [], barSegs = [], pctRows = [];
+
+  // HOW BIG THE PERCENTAGES ARE.
+  //
+  // Dinopawnz: "can you make the font on the screens bigger so
+  // people can actually see whos winning? red percentage, yellow
+  // percentage, blue percentage. the font is too small its hard to
+  // read a little."
+  //
+  // It was, and the reason is that all three scores shared one line
+  // of text. "RED 100%   YELLOW 100%   BLUE 100%" is thirty-four
+  // characters, and thirty-four characters across a board only leave
+  // room for so tall a letter no matter how much blank space is
+  // above and below them - on the ring ribbons it came out at a
+  // third the size of the same line on the wall boards.
+  //
+  // So the line is split into three, one per team, each in its own
+  // colour. The number is what you are actually reading, so on the
+  // big boards the team NAME becomes a small caption and the
+  // PERCENTAGE gets a column to itself: four characters instead of
+  // thirty-four, which is what pays for the size. The ribbons under
+  // the ring are two metres tall and have no room for two rows, so
+  // they keep one line per team - still three chunks, still in
+  // colour, still a good deal bigger than they were.
+  //
+  // On the wall boards the percentage goes from 74 to 200. Turn
+  // these two if it still is not enough: the numbers below are what
+  // fits with room to spare, not what fits exactly.
+  // These are CEILINGS, not sizes. fitFS() below drops whichever of
+  // them would not fit the box it is going into, so the same numbers
+  // serve a thirty-two metre wall board, a narrower hang face and a
+  // two-metre ribbon without any of them being typed out by hand.
+  // THE LONGEST THING EACH LINE WILL EVER HAVE TO SAY.
+  // fitFS sizes to the worst case, not to what is on screen now, so
+  // these are what actually decide how big the timer and the line
+  // under it come out. If you add a longer message, raise the number
+  // here or the new message will run off the panel.
+  //
+  //   banner  "STANDBY" 7, a clock 4, "DRAWN" 5, "YELLOW WINS" 11
+  //   mode    the longest is "TEAM MODE - ANY SQUARE, ANY LEVEL" 33
+  const BANNER_CHARS = 11;
+  const MODE_CHARS = 33;
+
+  const SCORE_FS = 200;         // the percentage on a full board
+  const SCORE_CAP_FS = 160;     // and the team name over it (v12: was 48)
+  const SCORE_FS_RIB = 90;      // one line per team on a ring ribbon
+
+
+  // One display surface. Everything on it is a fraction of the panel,
+  // so the same code draws a thirty-metre wall board and a six-metre
+  // ribbon under the ring and both come out in proportion. Each face
+  // registers its labels in the shared arrays, so setBanner, setMode
+  // and refresh drive every screen in the building without knowing
+  // how many there are.
+  //
+  // full: banner, score, mode line and the share bar.
+  // ribbon: banner and score only - a strip has no room for prose.
+  function boardFace(parent, W, H, opts) {
+    const o = opts || {};
+    const ribbon = !!o.ribbon;
+    const k = H / 10;                       // everything scales off height
+    const g = group({
+      x: o.x || 0, y: o.y || 0, z: o.z || 0,
+      ry: o.ry || 0, rx: o.rx || 0,
+    }, parent);
+
+    // bezel, then the black panel just proud of it
+    el("m-cube", { width: W + 1.1, height: H + 1.1, depth: 0.45, color: STONE }, g);
+    el("m-cube", { z: 0.12, width: W + 0.5, height: H + 0.5, depth: 0.4, color: GOLD, opacity: 0.5 }, g);
+    el("m-cube", { z: 0.26, width: W, height: H, depth: 0.35, color: "#0d0d14" }, g);
+
+    if (ribbon) {
+      // Two lines and nothing else. Fonts are sized off the line
+      // height at the same ratio the big boards use, so a strip reads
+      // as the same typeface set smaller, not as a squashed board.
+      // Two rows, and the score row gets the larger share of the
+      // strip now - the banner is a clock you glance at, the score is
+      // the thing you are squinting at from the floor.
+      const bh = H * 0.34, sh = H * 0.46;
+      bannerLabels.push(el("m-label", {
+        z: 0.5, y: H * 0.29, width: W * 0.9, height: bh,
+        "font-size": fitFS(W * 0.9, bh, BANNER_CHARS),
+        alignment: "center", color: "#0d0d14", "font-color": "#ff5ec8", content: "STANDBY",
+      }, g));
+      const strip = [];
+      TEAMS.forEach((t, i) => {
+        strip.push(el("m-label", {
+          z: 0.5, x: (i - 1) * W * 0.315, y: -H * 0.23,
+          width: W * 0.305, height: sh,
+          "font-size": fitFS(W * 0.305, sh, 11, SCORE_FS_RIB),
+          alignment: "center", color: "#0d0d14", "font-color": t.lit,
+          content: t.name + " 0%",
+        }, g));
+      });
+      pctRows.push({ labels: strip, withName: true });
+      return g;
+    }
+
+    bannerLabels.push(el("m-label", {
+      z: 0.5, y: H * 0.33, width: W * 0.875, height: H * 0.24,
+      "font-size": fitFS(W * 0.875, H * 0.24, BANNER_CHARS),
+      alignment: "center", color: "#0d0d14", "font-color": "#ff5ec8", content: "STANDBY",
+    }, g));
+    // THREE COLUMNS, NAME OVER NUMBER, EACH IN ITS OWN COLOUR.
+    // The percentage is the thing being read, so it gets the column
+    // to itself and the name shrinks to a caption over it. The
+    // columns sit on the same centres as the three bar segments
+    // underneath, so a colour reads straight down the board.
+    const col = [];
+    TEAMS.forEach((t, i) => {
+      const cx = (i - 1) * W * 0.305;
+      el("m-label", {
+        // v12: the box runs from just under the timer to just over
+        // the percentage (0.195H to 0.035H) instead of 8% of the
+        // panel, so the name can be read from the floor.
+        z: 0.5, x: cx, y: H * 0.115, width: W * 0.29, height: H * 0.16,
+        "font-size": fitFS(W * 0.29, H * 0.16, 7, SCORE_CAP_FS * k), alignment: "center",
+        color: "#0d0d14", "font-color": t.lit, content: t.name,
+      }, g);
+      col.push(el("m-label", {
+        z: 0.5, x: cx, y: -H * 0.09, width: W * 0.29, height: H * 0.22,
+        "font-size": fitFS(W * 0.29, H * 0.22, 4, SCORE_FS * k), alignment: "center",
+        color: "#0d0d14", "font-color": t.lit, content: "0%",
+      }, g));
+    });
+    pctRows.push({ labels: col, withName: false });
+    modeLabels.push(el("m-label", {
+      z: 0.5, y: -H * 0.30, width: W * 0.906, height: H * 0.12,
+      "font-size": fitFS(W * 0.906, H * 0.12, MODE_CHARS),
+      alignment: "center", color: "#0d0d14", "font-color": GOLD,
+      content: "WAITING FOR A ROUND",
+    }, g));
+
+    const span = W * 0.875;
+    const row = { span: span, segs: [] };
+    TEAMS.forEach((t) => row.segs.push(el("m-cube", {
+      z: 0.55, y: -H * 0.43, width: 0.1, height: H * 0.08, depth: 0.25, color: t.lit,
+    }, g)));
+    barSegs.push(row);
+    return g;
+  }
+
+  // --- boards on the walls ----------------------------------
+  function wallBoard(x, z, ry, base, posts) {
+    const g = group({ x: x, z: z, ry: ry });
+    const y0 = base || 0;
+    if (posts !== false) [-1, 1].forEach((s) => el("m-cylinder", {
+      x: s * 13, y: y0 + 9, radius: 0.6, height: 18, color: "#2a1f5c", collide: "true",
+    }, g));
+    boardFace(g, 32, 10, { y: y0 + 20 });
+    // a wash on the wall behind it - only on the boards inside the
+    // arena, where there is a wall to wash
+    if (posts !== false) {
+      el("m-light", { y: y0 + 20, z: -1.4, type: "point", intensity: 12, color: "#8f7bd8" }, g);
+    }
+  }
+
+  wallBoard(0, OUT - 3, 180);                    // far wall
+  wallBoard(0, -(OUT - 3), 0);                   // door wall, posts clear the middle door
+  wallBoard(0, -(OUT + 2.2), 180, 0, false);     // outside face, for the lobby queue
+  wallBoard(0, LOBBY_BACK - 1.6, 180, 3, false); // outside face, over the arches
+  wallBoard(-(OUT - 3), 0, 90);                  // west wall
+  wallBoard(OUT - 3, 0, -90);                    // east wall
+
+  // ==========================================================
+  // THE HANG  -  centre-hung four-sided board
+  // ==========================================================
+  // A four-sided board floating over the middle of the arena, above
+  // the top of the wall. From anywhere out on the floor, from the ring
+  // and from the crown you are looking up at a face of it. Directly
+  // underneath the crown you cannot see it - that is what the ring
+  // signs below are for.
+  //
+  // Nothing holds it up. v4 hung it off four masts and a square truss,
+  // which was honest about how a real one works and wrong for this
+  // build: the masts ran the full height of the arena through the
+  // airspace between the ring and the crown, and every sightline
+  // across the open middle had a pole in it. There is no gravity to
+  // answer to here. It floats.
+  const JUMBO_Y = 31;             // centre of the board
+  const JUMBO_BODY = 24;          // the box the four faces are set into
+  const JUMBO_W = 22;             // and the lit area of each face
+  const JUMBO_H = 11;
+  const JUMBO_OFF = JUMBO_BODY / 2 + 0.1;   // faces sit just proud of the box
+
+  (function theHang() {
+    const g = group({});
+
+    // a capping course on top, so it reads as an object with a top
+    // and a bottom rather than a slab hanging in the air
+    el("m-cube", {
+      y: JUMBO_Y + JUMBO_H / 2 + 1.4, width: JUMBO_BODY - 1.5,
+      height: 1.8, depth: JUMBO_BODY - 1.5, color: STONE,
+    }, g);
+    el("m-cube", {
+      y: JUMBO_Y, width: JUMBO_BODY,
+      height: JUMBO_H + 1.6, depth: JUMBO_BODY, color: DARK,
+    }, g);
+
+    [[0, JUMBO_OFF, 0], [0, -JUMBO_OFF, 180],
+     [JUMBO_OFF, 0, 90], [-JUMBO_OFF, 0, -90]].forEach(([fx, fz, ry]) => {
+      boardFace(g, JUMBO_W, JUMBO_H, { x: fx, z: fz, y: JUMBO_Y, ry: ry });
+    });
+
+    // the halo: a lit skirt under the board, and the light it throws
+    // down onto the crown
+    el("m-cube", {
+      y: JUMBO_Y - JUMBO_H / 2 - 1.2, width: JUMBO_BODY + 1.4,
+      height: 0.6, depth: JUMBO_BODY + 1.4, color: GOLD, opacity: 0.6,
+    }, g);
+    el("m-light", { y: JUMBO_Y - JUMBO_H / 2 - 3, type: "point",
+      intensity: 26, color: "#c9b6ff" }, g);
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz], i) => {
+      el("m-sphere", {
+        x: sx * (JUMBO_BODY / 2 - 0.8), z: sz * (JUMBO_BODY / 2 - 0.8),
+        y: JUMBO_Y - JUMBO_H / 2 - 1.9, radius: 0.62, color: TEAMS[i % 3].lit,
+      }, g);
+    });
+  })();
+
+  // ==========================================================
+  // RING RIBBONS  -  for everybody down on the floor
+  // ==========================================================
+  // Four signs slung under the inner lip of the ring. These are the
+  // ones you read from the floor, where the crown hides the hang.
+  //
+  // They hang dead plumb - no tilt. A tilted face is only worth it
+  // for somebody stood directly beneath it, and nobody is: these sit
+  // at the ring's inner edge, so you are always reading them from
+  // across the open middle or from under the ring band. Vertical also
+  // means the two faces are symmetrical, which matters now that there
+  // are two.
+  //
+  // Both faces are live. The inward face serves the open middle and
+  // everybody out on the floor; the outward face serves the band of
+  // floor roofed by the ring, which could not see a score at all
+  // before. Each registers itself, so both update with everything
+  // else.
+  const RIBBON_W = 26;
+  const RIBBON_H = 2.0;
+  const RIBBON_T = 0.7;           // thickness of the sign body
+  const RIBBON_HANG_Y = L2_Y - 2.25;  // bottom clears head height, top
+                                      // stays under the ring deck
+
+  [[0, -1, 0], [0, 1, 180], [-1, 0, 90], [1, 0, -90]].forEach(([sx, sz, ry]) => {
+    const g = group({
+      x: sx * (RING_IN - 0.4), z: sz * (RING_IN - 0.4), y: RIBBON_HANG_Y, ry: ry,
+    });
+    // the body the two faces are set into, and the bracket holding it
+    // up to the underside of the deck
+    el("m-cube", {
+      width: RIBBON_W + 1.2, height: RIBBON_H + 1.2, depth: RIBBON_T,
+      color: STONE,
+    }, g);
+    [-1, 1].forEach((e) => el("m-cube", {
+      x: e * (RIBBON_W / 2 - 1.5), y: RIBBON_H / 2 + 1.4,
+      width: 0.35, height: 1.8, depth: 0.35, color: "#2a1f5c",
+    }, g));
+    boardFace(g, RIBBON_W, RIBBON_H, { z: RIBBON_T / 2, ribbon: true });
+    boardFace(g, RIBBON_W, RIBBON_H, { z: -RIBBON_T / 2, ry: 180, ribbon: true });
+  });
+
+  function setBanner(t, c) {
+    bannerLabels.forEach((l) => {
+      l.setAttribute("content", t);
+      l.setAttribute("font-color", c);
+    });
+  }
+  function setMode(t) { modeLabels.forEach((l) => l.setAttribute("content", t)); }
+
+  // ==========================================================
+  // TEAMS AND PAINT
+  // ==========================================================
+  const roster = new Map();
+  let identityWorks = false;
+  let identityChecked = false;
+  let laneMode = false;
+  let contacts = 0;
+
+  function enrol(ti, event) {
+    const d = event && event.detail;
+    const id = d ? d.connectionId : undefined;
+    if (typeof id !== "number") return;   // lane mode will cover it
+    identityWorks = true;
+    roster.set(id, ti);
+    headcount();
+  }
+
+  function headcount() {
+    const n = [0, 0, 0];
+    roster.forEach((ti) => { n[ti]++; });
+    TEAMS.forEach((t, i) => penLabels[i].setAttribute("content", t.name + " - " + n[i]));
+  }
+
+  const onGone = (e) => {
+    const id = e && e.detail && e.detail.connectionId;
+    if (typeof id === "number" && roster.delete(id)) headcount();
+  };
+  try { (window.addEventListener ? window : document).addEventListener("disconnected", onGone); }
+  catch (err) { /* older runtime, counts drift, harmless */ }
+
+  function paint(idx, event) {
+    contacts++;
+    if (!running) return;
+    const cell = cells[idx];
+    const d = event && event.detail;
+    const id = d ? d.connectionId : undefined;
+
+    let ti = -1;
+    if (typeof id === "number") {
+      identityWorks = true;
+      if (!roster.has(id)) return;        // on the floor, not on a team
+      ti = roster.get(id);
+    } else if (laneMode) {
+      ti = cell.lane;
+    } else {
+      return;                             // waiting on the identity verdict
+    }
+    if (cell.owner === ti) return;
+    cell.owner = ti;
+    cell.el.setAttribute("color", TEAMS[ti].lit);
+  }
+
+  function wipeFloor() {
+    for (let i = 0; i < cells.length; i++) {
+      cells[i].owner = -1;
+      cells[i].el.setAttribute("color", cells[i].bare);
+    }
+  }
+  function tally() {
+    const n = [0, 0, 0];
+    for (let i = 0; i < cells.length; i++) if (cells[i].owner >= 0) n[cells[i].owner]++;
+    return n;
+  }
+
+  function refresh() {
+    const n = tally(), total = cells.length;
+    const pct = n.map((v) => Math.round((v / total) * 100));
+    // one screen's three numbers at a time. A full board shows the
+    // percentage alone under its caption; a ribbon has no room for a
+    // caption so it carries the name on the same line.
+    pctRows.forEach((row) => {
+      row.labels.forEach((l, i) => l.setAttribute("content",
+        row.withName ? TEAMS[i].name + " " + pct[i] + "%" : pct[i] + "%"));
+    });
+    barSegs.forEach((row) => {
+      let cursor = -row.span / 2;
+      row.segs.forEach((seg, i) => {
+        const w = Math.max(0.1, (n[i] / total) * row.span);
+        seg.setAttribute("width", Math.round(w * 100) / 100);
+        seg.setAttribute("x", Math.round((cursor + w / 2) * 100) / 100);
+        cursor += w;
+      });
+    });
+    return n;
+  }
+
+  // ==========================================================
+  // THE ROUND
+  // ==========================================================
+  let running = false, countdown = 0, clockLeft = 0, roundStart = 0;
+
+  function startRound() {
+    if (running || countdown > 0) return;
+    wipeFloor(); refresh();
+    countdown = ARM_DELAY;
+    identityChecked = false; laneMode = false;
+    setGates(false);
+    setBanner(String(countdown), "#ffb84e");
+    setMode(roster.size > 0
+      ? roster.size + " ENROLLED - DOORS OPEN IN " + ARM_DELAY
+      : "PICK A PLINTH TO JOIN A TEAM");
+  }
+  function beginPlay() {
+    running = true; clockLeft = ROUND_S; roundStart = Date.now();
+    setGates(true);
+    setBanner("GO", "#5ef0b8");
+    setMode(identityWorks ? "TEAM MODE - ANY SQUARE, ANY LEVEL" : "CHECKING TEAM DETECTION");
+  }
+  function endRound() {
+    running = false; countdown = 0;
+    setGates(true);                        // stay open so people can walk out
+    const n = refresh();
+    let w = 0;
+    for (let i = 1; i < n.length; i++) if (n[i] > n[w]) w = i;
+    const drawn = n.filter((v) => v === n[w]).length > 1;
+    if (drawn) setBanner("DRAWN", GOLD);
+    else setBanner(TEAMS[w].name + " WINS", TEAMS[w].lit);
+    setMode("ENTER THE CODE FOR A NEW ROUND");
+  }
+  function stopRound() {
+    running = false; countdown = 0; setGates(true);
+    wipeFloor(); refresh();
+    setBanner("STANDBY", "#ff5ec8");
+    setMode("WAITING FOR A ROUND");
+  }
+  function toggle() { if (running || countdown > 0) stopRound(); else startRound(); }
+
+  function judgeIdentity() {
+    if (identityChecked || !running) return;
+    if (Date.now() - roundStart < IDENTITY_GRACE_MS) return;
+    if (contacts < 5) return;
+    identityChecked = true;
+    if (identityWorks) setMode("TEAM MODE - ANY SQUARE, ANY LEVEL");
+    else {
+      laneMode = true;
+      // Shortened from "LANE MODE - NO TEAM IDS. PAINT YOUR OWN
+      // LANE", which at forty-three characters was the single longest
+      // thing any screen ever had to say - and therefore the thing
+      // setting the size of this line for the whole round, including
+      // the thirty seconds it actually matters. MODE_CHARS below is
+      // sized to the longest of these; keep new ones under it.
+      setMode("LANE MODE - PAINT YOUR OWN LANE");
+    }
+  }
+
+  setInterval(() => {
+    if (countdown > 0) {
+      countdown--;
+      if (countdown > 0) {
+        setBanner(String(countdown), "#ffb84e");
+        setMode("DOORS OPEN IN " + countdown);
+      } else beginPlay();
+      return;
+    }
+    if (!running) return;
+    judgeIdentity();
+    clockLeft--;
+    const m = Math.floor(clockLeft / 60), s = clockLeft % 60;
+    setBanner(m + ":" + (s < 10 ? "0" : "") + s, clockLeft <= 15 ? "#ff2d3d" : "#5ef0b8");
+    refresh();
+    if (clockLeft <= 0) endRound();
+  }, 1000);
+
+  // ==========================================================
+  // CODE LOCK  -  in the corridor, clear of the arches
+  // ==========================================================
+  const keyDisplays = [];
+  let entry = [], entryExpires = 0;
+
+  function setKeyDisplay() {
+    const dots = [];
+    for (let i = 0; i < CODE.length; i++) dots.push(i < entry.length ? "*" : "-");
+    keyDisplays.forEach((l) => l.setAttribute("content", dots.join(" ")));
+  }
+  function isPrefix(seq) {
+    for (let i = 0; i < seq.length; i++) if (seq[i] !== CODE[i]) return false;
+    return true;
+  }
+  function enter(digit) {
+    const now = Date.now();
+    if (now > entryExpires) entry = [];
+    entryExpires = now + CODE_TIMEOUT * 1000;
+    entry.push(digit);
+    while (entry.length && !isPrefix(entry)) entry.shift();
+    setKeyDisplay();
+    if (entry.length === CODE.length) { entry = []; setKeyDisplay(); toggle(); }
+  }
+
+  (function codeLock() {
+    // Stands between two arches rather than in front of one, so the
+    // operator is never in a doorway while thirty people come through
+    // it. Faces the bays: you enter the code with the whole lobby and
+    // the doors in front of you.
+    const LX = 20, LZ = LOBBY_BACK + 8;
+
+    el("m-cube", { x: LX, z: LZ, y: 0.53, width: 7, height: 0.7, depth: 4,
+      color: STONE, collide: "true" });
+    el("m-cube", { x: LX, z: LZ, y: 0.93, width: 7.4, height: 0.14, depth: 4.4, color: GOLD });
+    // No lamp over the keypad. There used to be a point light four
+    // metres straight above it, which lit the operator beautifully and
+    // washed the key faces out to the point where you could not read
+    // the digits. A panel you have to type on wants contrast on its
+    // faces, not light on them - the caps are dark and the digits are
+    // bright, and that works better unlit. CONSOLE_GLOW puts a low
+    // one back if the lobby is too dark to find the console at all;
+    // it sits low and in front, so it grazes the plinth rather than
+    // pointing at the keys.
+    const CONSOLE_GLOW = 0;
+    if (CONSOLE_GLOW) el("m-light", {
+      x: LX, z: LZ - 3.6, y: 1.1, type: "point",
+      intensity: CONSOLE_GLOW, color: "#5ef0b8",
+    });
+    el("m-label", {
+      x: LX, z: LZ - 2.4, y: 7.2, ry: 180, width: 14, height: 2,
+      "font-size": fitFS(14, 2, 7),
+      alignment: "center", color: "#0d0d14", "font-color": GOLD, content: "CONTROL",
+    });
+
+    const cg = group({ x: LX, z: LZ, y: 0.88, ry: 180 });
+    el("m-cube", { y: 2.2, width: 3.4, height: 3.3, depth: 0.25,
+      color: "#15151f", collide: "true" }, cg);
+    keyDisplays.push(el("m-label", { y: 3.4, z: 0.15, width: 3.0, height: 0.5,
+      "font-size": fitFS(3.0, 0.5, 7), alignment: "center", color: "#05050a",
+      "font-color": "#7dffcf", content: "- - - -" }, cg));
+    el("m-label", { y: 4.4, z: 0.15, width: 3.4, height: 0.6,
+      "font-size": fitFS(3.4, 0.6, 5),
+      alignment: "center", color: "#15151f", "font-color": GOLD, content: "START" }, cg);
+
+    [["1","2","3"],["4","5","6"],["7","8","9"],["C","0",""]].forEach((row, r) => {
+      row.forEach((key, c) => {
+        if (key === "") return;
+        const clear = key === "C";
+        const cap = el("m-cube", {
+          x: (c - 1) * 0.92, y: 2.42 - r * 0.62, z: 0.22,
+          width: 0.78, height: 0.5, depth: 0.26,
+          color: clear ? "#3d0c27" : "#181134", collide: "true",
+        }, cg);
+        // label is a CHILD of the cap, so a click cannot land on
+        // something with no listener
+        const face = el("m-label", {
+          z: 0.14, width: 0.74, height: 0.42,
+          "font-size": fitFS(0.74, 0.42, 1), alignment: "center",
+          color: clear ? "#3d0c27" : "#181134",
+          "font-color": clear ? "#ff8fd8" : "#fff0b8", content: key, collide: "true",
+        }, cap);
+        let last = 0;
+        const hit = () => {
+          const now = Date.now();
+          if (now - last < 180) return;
+          last = now;
+          cap.setAttribute("color", clear ? "#ff5ec8" : GOLD);
+          setTimeout(() => cap.setAttribute("color", clear ? "#3d0c27" : "#181134"), 150);
+          if (clear) { entry = []; setKeyDisplay(); } else enter(Number(key));
+        };
+        cap.addEventListener("click", hit);
+        face.addEventListener("click", hit);
+      });
+    });
+
+    // typed fallback, for when clicking small caps in a crowd is a
+    // fight you do not want to have
+    const promptWrap = document.createElement("m-prompt");
+    promptWrap.setAttribute("message", "Operator code");
+    promptWrap.setAttribute("placeholder", "4 digits");
+    arena.append(promptWrap);
+    const pad = el("m-cube", {
+      x: LX, z: LZ - 3.2, y: 0.96, width: 3.6, height: 0.16, depth: 1.6,
+      color: "#15151f", collide: "true",
+    }, promptWrap);
+    el("m-label", {
+      y: 0.1, rx: -90, width: 3.4, height: 1.4,
+      "font-size": fitFS(3.4, 1.4, 9), alignment: "center",
+      color: "#15151f", "font-color": GOLD, content: "TYPE CODE", collide: "true",
+    }, pad);
+    promptWrap.addEventListener("prompt", (event) => {
+      const typed = String((event.detail && event.detail.value) || "").replace(/[^0-9]/g, "");
+      entry = [];
+      for (let i = 0; i < typed.length; i++) enter(Number(typed[i]));
+    });
+
+    el("m-label", {
+      z: BAY_REAR - 0.6, y: 6.4, ry: 180, width: 30, height: 1.7,
+      "font-size": fitFS(30, 1.7, 36),
+      alignment: "center", color: "#0d0d14", "font-color": GOLD,
+      content: "PICK A TEAM, THEN WAIT FOR YOUR DOOR",
+    });
+  })();
+
+  // ==========================================================
+  // LIGHTS
+  // ==========================================================
+  el("m-light", { y: 36, type: "point", intensity: 46, color: "#8f7bd8" });
+  [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([sx, sz], i) => {
+    el("m-cylinder", { x: sx * 72, z: sz * 72, y: WALL_H / 2, radius: 2.2,
+      height: WALL_H, color: "#2a1f5c", collide: "true" });
+    el("m-sphere", { x: sx * 72, z: sz * 72, y: WALL_H + 2, radius: 2.4,
+      color: TEAMS[i % 3].lit });
+    el("m-light", { x: sx * 72, z: sz * 72, y: WALL_H + 2, type: "point",
+      intensity: 20, color: TEAMS[i % 3].lit });
+  });
+
+  headcount(); refresh(); stopRound(); setKeyDisplay();
+</script>

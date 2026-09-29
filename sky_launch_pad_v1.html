@@ -1,0 +1,246 @@
+<!--
+  SKY LAUNCH PAD - v5
+  v5: no walls - just the pad.
+  v4: a launch about every 4-5 seconds - 2 s up, a moment at the top,
+  1.5 s back down, half a second on the ground, go again.
+  v3: quick turnaround - relaunches 2 s after it lands, only waits a
+  few seconds at the top, and drops back down in 6 s.
+  v2: runs on a timer like the j3ff lift, so it can never get stuck
+  waiting: it launches every BOTTOM_WAIT_MS whether or not it sees
+  anyone (sooner, 3 s after it does). Light turned almost to 0.
+
+  Just the pad. Stand on it and it shoots you straight up into the sky
+  (HEIGHT metres - 1280m by default, 20x the Titan Roamer's lift), waits
+  for you to jump off and glide away, then comes back down for the next
+  launch.
+
+  HOW IT GOES
+    ready      pad on the ground, "STAND ON THE PAD"
+    countdown  somebody is on it: 3, 2, 1 (step off to cancel)
+    launch     fire pours out underneath, and up it goes
+    top        "JUMP OFF AND GLIDE". Once nobody is left
+               on it for TOP_EMPTY_MS it heads back down (or after
+               TOP_HOLD_MS anyway - anyone still on rides back down)
+    return     back on the ground, ready again
+
+  TUNING (top of the script)
+    HEIGHT       how high it goes, metres
+    RISE_MS      how long the ride up takes. If the pad ever drops you
+                 on the way up, make this longer (slower ride).
+    FALL_MS      how long it takes to come back down
+    TOP_HOLD_MS  longest it waits at the top
+    PAD_R        pad radius, metres
+-->
+<m-group id="sky-pad"></m-group>
+<script>
+(() => {
+  // ==========================================================
+  // SETTINGS
+  // ==========================================================
+  const HEIGHT = 1280;          // metres up (20x the robot lift's 64m)
+  const RISE_MS = 2000;         // ground to the top
+  const FALL_MS = 1500;         // top back to the ground
+  const COUNT_MS = 500;          // countdown once somebody stands on it
+  const BOTTOM_WAIT_MS = 500;   // v2: launches after this anyway, like the j3ff lift
+  const TOP_EMPTY_MS = 300;     // at the top: go back down this long after the last person jumps
+  const TOP_MIN_MS = 300;       // v2: always stays at the top at least this long
+  const TOP_HOLD_MS = 500;      // at the top: go back down after this no matter what
+  const PAD_R = 4;              // pad radius
+  const DECK_Y = 0.4;           // deck top above the ground when parked
+
+  const GLOW = "#5fe3ff", GOLD = "#ffd23a", DECK = "#1b2233", RIM = "#0e1320";
+  const FIRE_RED = "#ff2210", FIRE_HOT = "#ffd23a", FIRE_ORANGE = "#ff5a14", FIRE_WHITE = "#fff4c8";
+
+  // ==========================================================
+  // HELPERS
+  // ==========================================================
+  const root = document.getElementById("sky-pad");
+  const r3 = (v) => Math.round(v * 1000) / 1000;
+  function el(tag, attrs, parent) {
+    const n = document.createElement(tag);
+    n.setAttribute("collide", "false");
+    for (const k in attrs) n.setAttribute(k, typeof attrs[k] === "number" ? r3(attrs[k]) : attrs[k]);
+    parent.append(n);
+    return n;
+  }
+  function group(attrs, parent) {
+    const g = document.createElement("m-group");
+    for (const k in attrs) g.setAttribute(k, typeof attrs[k] === "number" ? r3(attrs[k]) : attrs[k]);
+    parent.append(g);
+    return g;
+  }
+  const box = (p, x, y, z, w, h, d, color, o) =>
+    el("m-cube", Object.assign({ x: x, y: y, z: z, width: w, height: h, depth: d, color: color }, o || {}), p);
+  const cyl = (p, x, y, z, r, h, color, o) =>
+    el("m-cylinder", Object.assign({ x: x, y: y, z: z, radius: r, height: h, color: color }, o || {}), p);
+  function anim(p, attr, a, b, ms, pingpong) {
+    const n = document.createElement("m-attr-anim");
+    n.setAttribute("attr", attr);
+    n.setAttribute("start", String(a));
+    n.setAttribute("end", String(b));
+    n.setAttribute("duration", String(Math.round(ms)));
+    n.setAttribute("loop", "true");
+    if (pingpong !== false) n.setAttribute("ping-pong", "true");
+    p.append(n);
+    return n;
+  }
+  function setText(n, t) { if (n._t !== t) { n._t = t; n.setAttribute("content", t); } }
+
+  // ==========================================================
+  // THE BASE - stays on the ground
+  // ==========================================================
+  cyl(root, 0, 0.05, 0, PAD_R + 1, 0.1, RIM);
+  const baseGlow = cyl(root, 0, 0.11, 0, PAD_R + 0.8, 0.02, GLOW, { opacity: 0.5 });
+  anim(baseGlow, "opacity", 0.25, 0.7, 900);
+  // a status sign on each side of the pad, low down, facing out
+  const signs = [0, 90, 180, 270].map((ry) => {
+    const g = group({ ry: ry }, root);
+    return el("m-label", {
+      x: 0, y: 0.9, z: PAD_R + 1.1, width: 5, height: 0.8,
+      "font-size": 40, alignment: "center", color: RIM, "font-color": GOLD, content: "",
+    }, g);
+  });
+  const sayGround = (t) => signs.forEach((n) => setText(n, t));
+
+  // ==========================================================
+  // THE PAD - the part that flies
+  // ==========================================================
+  const car = group({ y: DECK_Y }, root);
+  const carLerp = document.createElement("m-attr-lerp");
+  carLerp.setAttribute("attr", "y");
+  carLerp.setAttribute("duration", String(RISE_MS));
+  carLerp.setAttribute("easing", "easeInOutQuad");
+  car.append(carLerp);
+  // the deck: thick, so nobody sinks through it at speed
+  const deck = cyl(car, 0, -1, 0, PAD_R, 2, DECK, { collide: "true", "collision-interval": 100 });
+  const ring = cyl(car, 0, 0.02, 0, PAD_R - 0.2, 0.04, GLOW, { opacity: 0.85, collide: "true", "collision-interval": 100 });
+  cyl(car, 0, 0.05, 0, PAD_R - 0.7, 0.04, DECK);
+  const core = cyl(car, 0, 0.08, 0, 1.2, 0.04, GOLD, { opacity: 0.9, collide: "true", "collision-interval": 100 });
+  anim(core, "radius", 0.8, 1.6, 700);
+  // four arrows pointing up the middle, lying on the deck
+  for (let i = 0; i < 4; i++) {
+    const g = group({ ry: i * 90 }, car);
+    box(g, 0, 0.09, PAD_R * 0.55, 0.9, 0.04, 0.35, GOLD, { ry: 45 });
+  }
+  // a message on the deck floor, for whoever is standing on it
+  const deckMsg = [0, 180].map((ry) => {
+    const g = group({ ry: ry }, car);
+    return el("m-label", {
+      x: 0, y: 0.12, z: -PAD_R * 0.3, rx: -90, width: 5.5, height: 0.9,
+      "font-size": 44, alignment: "center", color: DECK, "font-color": "#ffffff", content: "",
+    }, g);
+  });
+  const sayDeck = (t) => deckMsg.forEach((n) => setText(n, t));
+
+  // fire under the pad while it climbs
+  const fire = group({ visible: "false" }, car);
+  const FL = 26, FN = 6;
+  for (let i = 0; i < FN; i++) {
+    const y = -2 - (i + 0.5) * (FL / FN);
+    const w = 2.2 + i * 0.9, seg = FL / FN + 0.6;
+    const c = box(fire, 0, y, 0, w * 0.45, seg, w * 0.45, FIRE_WHITE, { opacity: 0.95, ry: 45 });
+    const m = box(fire, 0, y, 0, w * 0.85, seg, w * 0.85, FIRE_ORANGE, { opacity: 0.8 });
+    const o = box(fire, 0, y, 0, w * 1.35, seg * 0.9, w * 1.35, FIRE_RED, { opacity: 0.45, ry: 45 });
+    anim(c, "sx", 0.7, 1.3, 130 + i * 17);
+    anim(m, "sz", 1.25, 0.75, 150 + i * 19);
+    anim(o, "sx", 0.8, 1.3, 210 + i * 29);
+    anim(o, "ry", 30, 60, 400 + i * 41);
+  }
+  [520, 640, 760].forEach((ms, k) => {
+    const g = box(fire, 0, 0, 0, 2 + k * 0.4, 3, 2 + k * 0.4, k % 2 ? FIRE_WHITE : FIRE_HOT, { opacity: 0.85, ry: 45 });
+    anim(g, "y", -2, -2 - FL, ms, false);
+  });
+  el("m-light", { type: "point", y: -4, intensity: 0.01, distance: 10, color: "#ff7a2a" }, fire);   // v2: almost off
+  const fireOn = (on) => fire.setAttribute("visible", on ? "true" : "false");
+
+  // ==========================================================
+  // WHO IS ON IT
+  // ==========================================================
+  // Two sources, merged: collisions with the deck, and a position probe
+  // riding on the pad. Only read while the pad is parked (bottom or
+  // top) - while it moves the server already thinks it's arrived.
+  const onBy = new Map();       // connectionId -> Set of sources
+  const mark = (id, src) => { let s = onBy.get(id); if (!s) onBy.set(id, (s = new Set())); s.add(src); };
+  const unmark = (id, src) => { const s = onBy.get(id); if (!s) return; s.delete(src); if (!s.size) onBy.delete(id); };
+  const riders = () => onBy.size;
+  const keyOf = (e) => (e && e.detail && e.detail.connectionId !== undefined ? e.detail.connectionId : "anon");
+  [deck, ring, core].forEach((n) => {
+    n.addEventListener("collisionstart", (e) => mark(keyOf(e), "c"));
+    n.addEventListener("collisionmove", (e) => mark(keyOf(e), "c"));
+    n.addEventListener("collisionend", (e) => unmark(keyOf(e), "c"));
+  });
+  const probe = el("m-position-probe", { y: 0, range: PAD_R + 6, interval: 250 }, car);
+  probe.removeAttribute("collide");
+  const onPos = (e) => {
+    const d = e && e.detail;
+    if (!d || d.connectionId === undefined) return;
+    const p = d.elementRelative && d.elementRelative.position;
+    if (!p) return;
+    const inside = p.x * p.x + p.z * p.z < (PAD_R + 0.4) * (PAD_R + 0.4) && p.y > -1 && p.y < 3;
+    if (inside) mark(d.connectionId, "p"); else unmark(d.connectionId, "p");
+  };
+  probe.addEventListener("positionenter", onPos);
+  probe.addEventListener("positionmove", onPos);
+  probe.addEventListener("positionleave", (e) => { if (e && e.detail) unmark(e.detail.connectionId, "p"); });
+  window.addEventListener("disconnected", (e) => { if (e && e.detail) onBy.delete(e.detail.connectionId); });
+
+  // ==========================================================
+  // THE RIDE
+  // ==========================================================
+  let state = "ready", since = Date.now(), emptySince = 0;
+  const go = (s) => { state = s; since = Date.now(); emptySince = 0; };
+  const secs = (ms) => Math.max(1, Math.ceil(ms / 1000));
+  function moveTo(y, ms, easing) {
+    carLerp.setAttribute("duration", String(ms));
+    carLerp.setAttribute("easing", easing);
+    car.setAttribute("y", String(y));
+  }
+
+  setInterval(() => {
+    const now = Date.now(), t = now - since;
+    if (state === "ready") {
+      // v2: never waits forever - launches on the timer like the j3ff lift
+      const left = BOTTOM_WAIT_MS - t;
+      sayGround("STAND ON THE PAD - LAUNCH IN " + secs(left));
+      sayDeck("LAUNCH IN " + secs(left));
+      if (riders() > 0 && left > COUNT_MS) go("countdown");
+      else if (left <= 0) { since = now - COUNT_MS; state = "countdown"; }
+    } else if (state === "countdown") {
+      const left = COUNT_MS - t;
+      sayGround("LAUNCH IN " + secs(left));
+      sayDeck("LAUNCH IN " + secs(left));
+      if (left <= 0) {
+        fireOn(true);
+        moveTo(DECK_Y + HEIGHT, RISE_MS, "easeInOutQuad");
+        sayGround("LAUNCHING");
+        sayDeck("HOLD ON!");
+        go("up");
+      }
+    } else if (state === "up") {
+      sayGround("PAD IS ON ITS WAY UP");
+      if (t > RISE_MS * 0.85) fireOn(false);
+      if (t >= RISE_MS + 100) {
+        sayDeck("JUMP OFF AND GLIDE!");
+        go("top");
+      }
+    } else if (state === "top") {
+      if (t < 100) return;
+      if (riders() === 0) { if (!emptySince) emptySince = now; } else emptySince = 0;
+      const done = (t >= TOP_MIN_MS && emptySince && now - emptySince >= TOP_EMPTY_MS) || t >= TOP_HOLD_MS;
+      sayGround("PAD IS UP - COMING DOWN SOON");
+      sayDeck(riders() ? "JUMP OFF AND GLIDE! (" + secs(TOP_HOLD_MS - t) + ")" : "JUMP OFF AND GLIDE!");
+      if (done) {
+        sayDeck("GOING BACK DOWN");
+        moveTo(DECK_Y, FALL_MS, "easeInOutQuad");
+        go("down");
+      }
+    } else if (state === "down") {
+      sayGround("PAD COMING DOWN - " + secs(FALL_MS - t));
+      if (t >= FALL_MS + 100) {
+        onBy.clear();
+        go("ready");
+      }
+    }
+  }, 100);
+})();
+</script>

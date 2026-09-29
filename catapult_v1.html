@@ -1,0 +1,189 @@
+<!--
+  PLAYER CATAPULT (SMALL)  v1
+  ============================================================
+  One catapult (the same one as in Gray Ashlar Castle Battle) that flings
+  PLAYERS. Place it anywhere on the ground. It throws towards its FRONT
+  (the side away from the bucket) - turn the whole document to aim it,
+  and leave a big open space in front of it.
+
+  THE SMALL ONE: the castle's catapult at its real size, working exactly
+  like the big Player Catapult v4. Step into the bucket from the back
+  (the invisible floor you stand on is a bit wider than the bucket, so
+  you fit). After 3 seconds
+  in it, the arm swings up in one smooth motion with you in the bucket
+  and flings you over the top at the release point.
+  v4: THE BUCKET TIPS FORWARD as it swings up, like the castle's catapults
+  (v3 kept it upright the whole way, so it never looked like it threw
+  anything), and the arm speeds up through the swing the same way theirs
+  does, then slams to a stop. Your invisible floor rides with the tipping
+  bucket but stays flat, so you stay on it until you're thrown.
+  v3: no crates. The swing is one smooth animation (v2 was built from
+  pieces that could arrive late and skip ahead), it starts LEAD_MS after
+  the countdown so it reaches everyone in time to play from the start,
+  and the invisible floor follows the bucket's exact curve.
+
+  HOW IT WORKS (found with the Launch Lab): an invisible floor inside
+  the bucket is moved by animations - up with the bucket, then out at
+  full speed - and a moment later it vanishes from under you while still
+  moving. Otherside hands you its speed and you fly on your own.
+
+  SETTINGS TO TRY
+  * Further / shorter: SPEED (m/s). The Lab proved 25 and 50 work
+  * Higher / flatter throw: ANGLE (degrees above the ground)
+  * To make it bigger, set SCALE and put the same number in sx/sy/sz on
+    the "yaw" group
+-->
+<m-group id="root">
+  <m-group id="yaw">
+    <m-model cast-shadows="false" src="https://mmlstorage.com/f3c4bd58762094beb2c83639f2259dc96ac7809ea431f557fdf48c68b8efc4c1" x="-1.5999" y="1.4768" z="-0.0065" collide="false" clickable="false" rx="-126.8218" ry="89.8454" rz="126.9454" sx="3.6803" sy="3.6803" sz="3.6803"></m-model>
+    <m-model cast-shadows="false" src="https://mmlstorage.com/f3c4bd58762094beb2c83639f2259dc96ac7809ea431f557fdf48c68b8efc4c1" x="1.6001" y="1.4768" z="-0.0065" collide="false" clickable="false" rx="-126.8218" ry="89.8454" rz="126.9454" sx="3.6803" sy="3.6803" sz="3.6803"></m-model>
+    <m-model cast-shadows="false" src="https://mmlstorage.com/3ec1ffa87acddfe51619a1fd947b39ab5f27f362524672b98ec2a9a36bc8e48b" y="0.1609" z="-1.5825" collide="false" clickable="false" sx="3.5" sy="2.4638" sz="3.2856"></m-model>
+    <m-model cast-shadows="false" src="https://mmlstorage.com/3ec1ffa87acddfe51619a1fd947b39ab5f27f362524672b98ec2a9a36bc8e48b" y="0.1609" z="1.5825" collide="false" clickable="false" sx="3.5" sy="2.4638" sz="3.2856"></m-model>
+    <m-model cast-shadows="false" src="https://mmlstorage.com/a934500702d0e863cf4f5e63f21010465ac063943209be83df774fc1d12391e1" y="2.6047" z="-0.0007" collide="false" clickable="false" ry="90" sx="5.4917" sy="5.4919" sz="4.2"></m-model>
+    <m-group id="arm" y="2.6" rx="58">
+      <m-model cast-shadows="false" src="https://mmlstorage.com/3ec1ffa87acddfe51619a1fd947b39ab5f27f362524672b98ec2a9a36bc8e48b" y="0.0009" z="0.5" collide="false" clickable="false" ry="-90" sx="2.8" sy="2.3611" sz="2.738"></m-model>
+      <m-group id="counterweight" z="-0.9" rx="-58">
+        <m-model cast-shadows="false" src="https://mmlstorage.com/6d8753bde5f1958e08e0b636dda64436201a457bcea1d59ac6a899baf712635a" y="-0.4193" collide="false" clickable="false" sx="0.72" sy="0.7512" sz="0.8447"></m-model>
+      </m-group>
+      <m-group id="sling" z="1.9" rx="-58">
+        <m-model cast-shadows="false" src="https://mmlstorage.com/2d0c8535663f74d1ba4384224133604e2e4b4d9e124a3e6aa9c93e49b668af88" y="-0.4005" z="0.31" collide="false" clickable="false" sx="1.0186" sy="0.5313" sz="0.9"></m-model>
+        <m-model cast-shadows="false" src="https://mmlstorage.com/588246c9b7d88301e5a6ee0607403bce560095dbec062ab8b348da93d8cef83a" y="-0.1805" z="0.62" collide="false" clickable="false" sy="1.0001"></m-model>
+      </m-group>
+    </m-group>
+    <!-- the frame's sides are solid (invisible), as in the castle -->
+    <m-cube collide="true" clickable="false" visible="false" x="-1.6" y="1.3" width="1" height="2.6" depth="3.64"></m-cube>
+    <m-cube collide="true" clickable="false" visible="false" x="1.6" y="1.3" width="1" height="2.6" depth="3.64"></m-cube>
+  </m-group>
+</m-group>
+
+<script>
+(function () {
+  "use strict";
+
+  // ==========================================================
+  // SETTINGS
+  // ==========================================================
+  const SPEED = 60;                   // launch speed, m/s (the Lab proved 25 and 50)
+  const ANGLE = 42;                   // degrees above the ground
+  const CARRY_M = 12;                 // after the swing, the invisible floor carries you this far, then vanishes
+  const RUN_ON_M = 8;                 // and keeps going this much further, empty
+  const SWING_MS = 350;               // the arm swings up (with you in the bucket) over this long
+  const COUNT_S = 3;
+  const LEAD_MS = 500;                // the swing is sent this far ahead, so it plays from the very start for everyone
+  const SCALE = 1;                    // must match sx/sy/sz on the "yaw" group above
+
+  // ==========================================================
+  const rootEl = document.getElementById("root");
+  const arm = document.getElementById("arm");
+  const sling = document.getElementById("sling");
+  const cw = document.getElementById("counterweight");
+  const DEG = Math.PI / 180;
+  const r3 = (v) => Math.round(v * 1000) / 1000;
+  function el(tag, attrs, parent) {
+    const n = document.createElement(tag);
+    if ((tag === "m-cube" || tag === "m-cylinder" || tag === "m-label") && !(attrs && attrs.collide !== undefined)) n.setAttribute("collide", "false");
+    for (const k in attrs) n.setAttribute(k, typeof attrs[k] === "number" ? String(r3(attrs[k])) : String(attrs[k]));
+    (parent || rootEl).appendChild(n);
+    return n;
+  }
+  function set(n, k, v) { const sv = typeof v === "number" ? String(r3(v)) : String(v); if (n.getAttribute(k) !== sv) n.setAttribute(k, sv); }
+  function guard(fn) { return function () { try { return fn.apply(this, arguments); } catch (e) { console.log("catapult:", e && e.message); } }; }
+  const on = (n, t, fn) => n.addEventListener(t, guard(fn));
+  const idOf = (e) => (e && e.detail && e.detail.connectionId !== undefined ? e.detail.connectionId : null);
+  const T0 = Date.now();
+  function docNow() {
+    try { if (document.timeline && typeof document.timeline.currentTime === "number") return document.timeline.currentTime; } catch (e) {}
+    return Date.now() - T0;
+  }
+
+  // ---- where the bucket's floor is, for an arm angle (the castle catapult's own measurements, scaled)
+  const PIVOT_Y = 2.6, ARM_R = 1.9, IN_Y = -0.3, IN_Z = 0.62;    // bucket floor sits 0.3 below the sling, 0.62 along it
+  const READY = 58, RELEASE = -60.4, FOLLOW = -78;
+  const bucketAt = (a) => ({ y: SCALE * (PIVOT_Y - ARM_R * Math.sin(a * DEG) + IN_Y), z: SCALE * (ARM_R * Math.cos(a * DEG) + IN_Z) });
+  const REST = bucketAt(READY);
+  const BUCKET = Math.max(1.4, 0.9 * SCALE);   // the invisible floor: at least 1.4 m so a person fits on it
+
+  const say = () => {};               // no sign
+
+  // ---- THE INVISIBLE FLOOR IN THE BUCKET - moved ONLY by animations (that's what makes the launch work)
+  // It hangs off its own (invisible) copy of the arm, so it follows the bucket's exact curve:
+  // padArm swings like the arm, padSling tips like the bucket, level keeps the floor itself flat,
+  // and fling throws it out at the top.
+  const padArm = el("m-group", { y: PIVOT_Y * SCALE, rx: READY });
+  const padSling = el("m-group", { z: ARM_R * SCALE, rx: -READY }, padArm);
+  const inBucket = el("m-group", { y: IN_Y * SCALE, z: IN_Z * SCALE }, padSling);
+  const level = el("m-group", {}, inBucket);
+  const fling = el("m-group", {}, level);
+  const pad = el("m-cube", { y: -0.15, width: BUCKET, height: 0.3, depth: BUCKET, color: "#5a4020", visible: "false",
+    collide: "true", "collision-interval": 100 }, fling);
+
+  const onIt = new Map();
+  let state = "idle", count = 0, anims = [], held = [];
+  const heard = (id) => { if (id !== null) onIt.set(id, Date.now()); if (state === "idle") startCount(); };
+  on(pad, "collisionstart", (e) => heard(idOf(e)));
+  on(pad, "collisionmove", (e) => heard(idOf(e)));
+  on(pad, "collisionend", (e) => onIt.delete(idOf(e)));
+  const anyone = () => { const now = Date.now(); let n = 0; onIt.forEach((t, id) => { if (now - t < 8000) n++; else onIt.delete(id); }); return n; };
+
+  function startCount() { state = "count"; count = COUNT_S; say(String(count)); setTimeout(guard(countDown), 1000); }
+  function countDown() {
+    if (!anyone()) { state = "idle"; say(""); return; }   // stepped out: cancelled
+    count--;
+    if (count > 0) { say(String(count)); setTimeout(guard(countDown), 1000); return; }
+    launch();
+  }
+
+  // forward is -z (the way the castle catapults throw)
+  const cy = Math.sin(ANGLE * DEG), cz = -Math.cos(ANGLE * DEG);
+  const carryMs = (CARRY_M / SPEED) * 1000, flingMs = ((CARRY_M + RUN_ON_M) / SPEED) * 1000;
+  const drop = (a) => { if (a.parentNode) a.parentNode.removeChild(a); };
+  const anim = (node, attr, a, b, t, ms, easing) => {
+    const o = { attr: attr, start: a, end: b, duration: Math.max(1, Math.round(ms)), "start-time": Math.round(t), loop: "false" };
+    if (easing) o.easing = easing;
+    return el("m-attr-anim", o, node);
+  };
+  // The swing speeds up all the way (easeInCubic, like the castle). The visible arm carries on
+  // past RELEASE to FOLLOW on the same curve, so it passes RELEASE exactly when the pad lets fly,
+  // then stops dead. The bucket tips from upright to lined up with the arm by RELEASE.
+  const EASE = "easeInCubic";
+  const ARM_MS = SWING_MS * Math.cbrt((READY - FOLLOW) / (READY - RELEASE));
+  function launch() {
+    state = "launch"; say("");
+    const ts = docNow() + LEAD_MS, L = CARRY_M + RUN_ON_M;
+    anims = [
+      // 1. up with the bucket: one smooth, speeding-up swing, READY -> RELEASE
+      anim(padArm, "rx", READY, RELEASE, ts, SWING_MS, EASE),
+      anim(padSling, "rx", -READY, 0, ts, SWING_MS, EASE),            // tips with the bucket...
+      anim(level, "rx", 0, -RELEASE, ts, SWING_MS, EASE),             // ...but the floor stays flat
+      // 2. at the release point: out over the top at full speed
+      anim(fling, "y", 0, L * cy, ts + SWING_MS, flingMs), anim(fling, "z", 0, L * cz, ts + SWING_MS, flingMs),
+      // the visible arm and bucket, and the counterweight (which stays hanging level)
+      anim(arm, "rx", READY, FOLLOW, ts, ARM_MS, EASE),
+      anim(sling, "rx", -READY, 0, ts, SWING_MS, EASE),
+      anim(cw, "rx", -READY, -FOLLOW, ts, ARM_MS, EASE),
+    ];
+    held.forEach(drop); held = [];               // the "stay at home" anims from last time are no longer needed
+    setTimeout(guard(letGo), LEAD_MS + SWING_MS + carryMs);
+  }
+  function letGo() {
+    set(pad, "collide", "false");                  // gone from under you while still moving: you fly on
+    onIt.clear();
+    setTimeout(guard(reload), 2500);
+  }
+  function reload() {
+    // bring everything home with NEW animations that end later than the throw's, so they win
+    // even if Otherside keeps playing the old ones after they're removed
+    const t0 = docNow() + 60;
+    held = [
+      anim(padArm, "rx", READY, READY, t0, 1), anim(padSling, "rx", -READY, -READY, t0, 1), anim(level, "rx", 0, 0, t0, 1),
+      anim(fling, "y", 0, 0, t0, 1), anim(fling, "z", 0, 0, t0, 1),
+      // wind the arm back down slowly
+      anim(arm, "rx", FOLLOW, READY, t0, 1500, "easeInOutQuad"),
+      anim(sling, "rx", 0, -READY, t0, 1500, "easeInOutQuad"),
+      anim(cw, "rx", -FOLLOW, -READY, t0, 1500, "easeInOutQuad"),
+    ];
+    anims.forEach(drop); anims = [];
+    setTimeout(guard(() => { set(pad, "collide", "true"); state = "idle"; say(""); }), 1700);
+  }
+})();
+</script>
