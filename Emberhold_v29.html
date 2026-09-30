@@ -1,5 +1,17 @@
 <!--
-  OTHERSIDE EMBERHOLD  v55  -  "THE DELVE"
+  OTHERSIDE EMBERHOLD  v56  -  "THE DELVE"
+
+  NEW IN v56 - UNDER THE TRIANGLE BUDGET AGAIN
+  ------------------------------------------------------------
+    v55 read 4,000 over the 1,000,000 budget: the merged models were
+    counted on top of the hidden pieces they replace. Now only the 40
+    merged blocks that are solid stay in the document (hidden, still
+    walls); the other 1,594 merged pieces leave it altogether - about
+    13,000 fewer triangles from the blocks alone (and ~145,000 if Otherside
+    counted the hidden rocks, pines and torches too), and ~1,600 fewer
+    things for every screen to load. The remote's Separate switch still
+    puts every piece back, and a piece the game ever changes still comes
+    back by itself. Same three .glb files as v55 - nothing new to upload.
 
   NEW IN v55 - THE FRAME-RATE FIX: MERGED SCENERY
   ------------------------------------------------------------
@@ -7247,10 +7259,26 @@
     const src = g("src");
     return n.tagName.toLowerCase() + "|" + g("x") + "|" + g("y") + "|" + g("z") + "|" + g("width") + "|" + g("height") + "|" + g("depth") + "|" + g("color") + "|" + g("opacity") + "|" + src.slice(-40) + ";";
   }
-  function hideMerged(n) { if (!n.__mg) { n.__vis = n.getAttribute("visible"); n.__mg = true; n.setAttribute("visible", "false"); } }
+  // v56: a solid piece stays in the document, hidden (it is still a wall). Every other
+  // merged piece leaves the document altogether - hidden pieces still count towards
+  // Otherside's triangle budget, and it is ~1,600 fewer things for every screen to load.
+  function hideMerged(n) {
+    if (n.__mg) return;
+    n.__mg = true;
+    if (n.getAttribute("collide") === "true") { n.__vis = n.getAttribute("visible"); n.setAttribute("visible", "false"); return; }
+    n.__home = { p: n.parentNode, next: n.nextSibling };
+    n.remove();
+  }
   function unmergeNode(n) {
     if (!n.__mg) return;
     n.__mg = false;
+    if (n.__home) {
+      const h = n.__home; n.__home = null;
+      let nx = h.next;
+      while (nx && nx.parentNode !== h.p) nx = nx.__home ? nx.__home.next : null;   // the next piece may be out too
+      h.p.insertBefore(n, nx || null);
+      return;
+    }
     if (n.__vis === null || n.__vis === undefined) n.removeAttribute("visible"); else n.setAttribute("visible", n.__vis);
   }
   function setStaticMode(m) {
@@ -7261,7 +7289,7 @@
       staticGlb.models.removeAttribute("visible"); staticGlb.blocks.removeAttribute("visible");
       staticGlb.blocks.setAttribute("src", ASSET_BASE + STATIC_FILES[m]);
     } else {
-      staticNodes.forEach(unmergeNode);
+      staticNodes.slice().reverse().forEach(unmergeNode);   // back in reverse, so each finds its place
       staticGlb.models.setAttribute("visible", "false"); staticGlb.blocks.setAttribute("visible", "false");
     }
     return true;
