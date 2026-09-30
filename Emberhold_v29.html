@@ -1,5 +1,17 @@
 <!--
-  OTHERSIDE EMBERHOLD  v56  -  "THE DELVE"
+  OTHERSIDE EMBERHOLD  v57  -  "THE DELVE"
+
+  NEW IN v57 - FRAME-RATE TESTS ON THE REMOTE
+  ------------------------------------------------------------
+    v55/v56's merged scenery did not move the fps (50 before and after),
+    so draw jobs are not what is holding it down. The remote's new
+    "Frame-rate tests" panel switches whole kinds of thing off, live, so
+    the fps counter shows what really costs frames: lights, animations,
+    see-through pieces, pictures, the Honey B scenery, its carved (solid)
+    wall sheets, all models, all blocks - or the whole dungeon at once.
+    Press one, watch the fps, press it again to put it back. Nothing about
+    the game changes. (The walls test also makes the carved sheets
+    not-solid while it's on - don't leave it on in a real run.)
 
   NEW IN v56 - UNDER THE TRIANGLE BUDGET AGAIN
   ------------------------------------------------------------
@@ -6886,6 +6898,48 @@
     ENCS.forEach((E) => { E.nextBlock = 0; });
     return P.name;
   }
+  // v57: FRAME-RATE TESTS - the remote switches whole kinds of thing off, live, so the
+  // host can watch the fps counter and see what actually costs frames. Nothing here
+  // changes the game; switching one back on puts everything back where it was.
+  const PERF = { lights: false, anims: false, glass: false, pics: false, decor: false, walls: false, models: false, blocks: false, all: false };
+  const perfStash = {};
+  function stashOut(key, nodes) {             // take nodes out of the document, remembering where they were
+    const list = [];
+    nodes.forEach((n) => { if (n.parentNode) { list.push({ n: n, p: n.parentNode, next: n.nextSibling }); } });
+    list.forEach((q) => q.n.remove());
+    perfStash[key] = list;
+  }
+  function stashBack(key) {
+    const list = perfStash[key] || [];
+    for (let i = list.length - 1; i >= 0; i--) { const q = list[i]; q.p.insertBefore(q.n, q.next && q.next.parentNode === q.p ? q.next : null); }
+    perfStash[key] = null;
+  }
+  function hideAll(key, nodes, on) {           // hide / show by the visible attribute
+    if (on) { perfStash[key] = nodes.map((n) => [n, n.getAttribute("visible")]); nodes.forEach((n) => n.setAttribute("visible", "false")); }
+    else { (perfStash[key] || []).forEach(([n, v]) => { if (v === null) n.removeAttribute("visible"); else n.setAttribute("visible", v); }); perfStash[key] = null; }
+  }
+  const byId = (id) => document.getElementById(id);
+  function perfToggle(k) {
+    if (!(k in PERF)) return "UNKNOWN TEST " + k;
+    const on = PERF[k] = !PERF[k];
+    const q = (sel) => Array.prototype.slice.call(document.querySelectorAll(sel));
+    switch (k) {
+      case "lights": on ? stashOut(k, q("m-light")) : stashBack(k); break;
+      case "anims": on ? stashOut(k, q("m-attr-anim")) : stashBack(k); break;
+      case "glass": hideAll(k, q("m-cube").filter((n) => { const o = n.getAttribute("opacity"); return o !== null && +o > 0 && +o < 1; }), on); break;
+      case "pics": hideAll(k, q("m-image"), on); break;
+      case "decor": hideAll(k, ["honeyb-decor", "honeyb-hoard-rings"].map(byId).filter(Boolean), on); break;
+      case "walls": {                           // the carved wall sheets: hidden AND not solid
+        const w = byId("honeyb-decor-walls");
+        if (w) { if (on) { w.setAttribute("visible", "false"); w.setAttribute("collide", "false"); } else { w.removeAttribute("visible"); w.setAttribute("collide", "true"); } }
+        break;
+      }
+      case "models": hideAll(k, q("#world m-model"), on); break;
+      case "blocks": hideAll(k, q("#world m-cube"), on); break;
+      case "all": hideAll(k, [world, mobRoot, cageRoot, markRoot, fxRoot].concat(["honeyb-decor", "honeyb-decor-walls", "honeyb-hoard-rings"].map(byId)).filter(Boolean), on); break;
+    }
+    return (on ? "OFF: " : "BACK ON: ") + k.toUpperCase();
+  }
   function playerById(id) { let f = null; players.forEach((p) => { if (String(p.id) === String(id)) f = p; }); return f; }
   function remoteRun(cmd, arg) {
     const now = Date.now(), n = arg === "" ? NaN : Number(arg);
@@ -6985,6 +7039,12 @@
         if (!staticGlb) return "NO MERGED SCENERY IN THIS BUILD";
         setStaticMode(Math.round(n));
         return staticMode ? "SCENERY MERGED (COLOURS " + (staticMode === 1 ? "A" : "B") + ")" : "SCENERY AS SEPARATE PIECES";
+      case "PERF": {     // v57: frame-rate tests (arg = which)
+        const names = ["lights", "anims", "glass", "pics", "decor", "walls", "models", "blocks", "all"];
+        const k = names[n];
+        if (!k) return "PICK 0-8";
+        return perfToggle(k);
+      }
       case "PRESET": {
         const nm = applyPreset(n);
         if (!nm) return "PICK 1-4";
@@ -7007,7 +7067,7 @@
   const REMOTE_CMDS = ["START", "END", "ROLESCLEAR", "ROLESOPEN", "FREEALL", "HEALALL", "CLEARADDS", "SKIP", "WIPE", "GATES", "HARD",
     "MOBUP", "MOBDOWN", "MOBZERO", "BOSSHP", "REVIVE", "LAVAPAUSE", "LAVABACK", "POUNCE", "BLOCKS", "PFREE", "PHEAL", "PROLE",
     "STICKY", "MARKSFROM", "WARN", "PACE", "SWARM", "DMGUP", "DMGDOWN", "DMGZERO", "PIPSUP", "PIPSDOWN", "PIPSZERO",
-    "NOCAGE", "TANKUP", "TANKDOWN", "HEALUP", "HEALDOWN", "CAPSOFF", "PRESET", "STATIC"];
+    "NOCAGE", "TANKUP", "TANKDOWN", "HEALUP", "HEALDOWN", "CAPSOFF", "PRESET", "STATIC", "PERF"];
   REMOTE_CMDS.forEach((cmd) => rbtn("emb-cmd-" + cmd, (c) => {
     if (!remoteOk.has(c)) { rack("LOCKED - TYPE THE PIN FIRST"); return; }
     const arg = remoteArg; remoteArg = "";
@@ -7035,7 +7095,7 @@
       now: now, ph: phase, pa: phaseAt, hard: hard, mob: mobMod, boss: bossPct, rev: Math.round(reviveMs / 1000),
       lp: lavaPaused, ro: rolesOpen, pp: packPounce, bl: blocksOn,
       sm: stickyMarks, mf: marksFrom, wp: warnPct, pc: pacePct, dm: dmgMod, sw: swarmPct, pm: pipMod, nc: noCage,
-      tb: tankBonus, hb: healBonus, co: capsOff, sc: staticGlb ? staticMode : -1, ev: now < noteUntil ? note : "", lava: lava,
+      tb: tankBonus, hb: healBonus, co: capsOff, sc: staticGlb ? staticMode : -1, pf: PERF, ev: now < noteUntil ? note : "", lava: lava,
       caps: { t: roleCap(TANK, N), h: roleCap(HEALER, N) },
       st: runStats,
       f: ENCS.map((E) => [E.name, E.state, Math.round(E.hp || 0), Math.round(E.max || 0), E.mode || ""]),
