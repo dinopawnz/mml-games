@@ -1,5 +1,33 @@
 <!--
-  OTHERSIDE EMBERHOLD  v57  -  "THE DELVE"
+  OTHERSIDE EMBERHOLD  v60  -  "THE DELVE"
+
+  NEW IN v60 - THE REAL FRAME-RATE FIX: SPARES LEAVE THE DOCUMENT
+  ------------------------------------------------------------
+    The remote's tests found it: hiding the whole dungeon changed nothing,
+    but taking the 4,000 hidden spares OUT brought a world from 50 fps back
+    to 150. Otherside spends frames on every piece that exists, hidden or
+    not. So now every parked spare - the 100-cage pool, the telegraph
+    discs and lanes, monsters waiting to spawn, spell bursts, harpoon
+    shots, idle markers - leaves the document while it waits and comes
+    back the instant it's used (and leaves again when it's done).
+    At rest the dungeon is now ~2,400 pieces instead of ~6,450; in a fight
+    only what's actually in use is added. Gameplay is unchanged (full bot
+    run, every boss, cages, swarms, discs, lava - all checked).
+    PARK_DETACH false = the old way. The merged scenery .glb files are
+    unchanged - nothing new to upload but this file.
+
+  FIX IN v59: "Remove dungeon" took the remote's own hidden board out with the
+  dungeon, so the remote could not put it back. The board now always stays.
+
+  NEW IN v58 - MORE FRAME-RATE TESTS
+  ------------------------------------------------------------
+    Hiding things (v57) did not move the fps at all, so the three new
+    tests take things OUT of the document instead of hiding them:
+    Remove dungeon (everything), Remove spares (every hidden spare: the
+    cage pool, the telegraph discs, the monsters waiting in the pools -
+    about 4,000 things nobody sees), and Remove glides (the 480 movement
+    smoothers). Press again to put everything back. Test in the camp
+    with no run going.
 
   NEW IN v57 - FRAME-RATE TESTS ON THE REMOTE
   ------------------------------------------------------------
@@ -1402,6 +1430,23 @@
   // --- v24 performance ------------------------------------------
   const PARK_HIDES = true;     // a parked thing (pools, fx, idle mobs) is also
                                // visible="false", so no screen draws or culls it
+  // v60: THE FRAME-RATE FIX. A parked spare (a cage waiting in the pool, a telegraph
+  // disc, a monster waiting to spawn, a spell burst...) now LEAVES THE DOCUMENT while
+  // it waits, and comes back the moment it's used. Otherside spends frames on every
+  // piece that exists, hidden or not: 4,000 hidden spares took a world from 150 fps
+  // to 50. PARK_DETACH false = the old way (spares stay in, hidden).
+  const PARK_DETACH = true;
+  function parkOut(node, parent) {
+    node._pk = true;
+    if (PARK_DETACH) { node.__ph = parent || node.parentNode || node.__ph; if (node.parentNode) node.remove(); }
+    else if (node.getAttribute("visible") !== "false") node.setAttribute("visible", "false");
+  }
+  function parkIn(node) {
+    node._pk = false;
+    if (PARK_DETACH) { if (!node.parentNode && node.__ph) node.__ph.appendChild(node); }
+    else node.removeAttribute("visible");
+  }
+  const isParkY = (v) => v !== undefined && v !== null && String(v) === String(PARK);
   const HOUND_SEND_MS = 200;   // hounds' positions go out 5x a second (was 10)
   const FACE_DEADBAND = 4;     // a monster only turns when it's this many degrees off
   const PRUNE_MS = 60000;      // someone gone this long is forgotten: their marker
@@ -1457,6 +1502,10 @@
   const fxRoot = document.getElementById("fx");
   let nodeCount = 0, lightCount = 0, solidCount = 0, labelCount = 0, animCount = 0, roundCount = 0;
 
+  function nodeTail(tag, node) {
+    if (tag === "m-light") { lightCount++; if (node && !node.hasAttribute("cast-shadows")) node.setAttribute("cast-shadows", "false"); }   // v54: no light casts shadows
+    if (tag === "m-cylinder" || tag === "m-sphere") roundCount++;
+  }
   function el(tag, attrs, parent) {
     const node = document.createElement(tag);
     nodeCount++;
@@ -1470,9 +1519,8 @@
     }
     if (attrs && attrs.collide === "true") solidCount++;
     if (HIDE_INVISIBLE && attrs && attrs.opacity === 0 && attrs.collide === "true") node.setAttribute("visible", "false");
-    else if (PARK_HIDES && attrs && attrs.y === PARK) { node._pk = true; node.setAttribute("visible", "false"); }
-    if (tag === "m-light") { lightCount++; if (!(attrs && "cast-shadows" in attrs)) node.setAttribute("cast-shadows", "false"); }   // v54: no light casts shadows (the biggest frame-rate cost)
-    if (tag === "m-cylinder" || tag === "m-sphere") roundCount++;
+    else if (PARK_HIDES && attrs && isParkY(attrs.y)) { parkOut(node, parent || world); if (!PARK_DETACH) (parent || world).append(node); nodeTail(tag); return node; }
+    nodeTail(tag, node);
     (parent || world).append(node);
     return node;
   }
@@ -1501,7 +1549,7 @@
     const g = document.createElement("m-group");
     nodeCount++;
     for (const k in (attrs || {})) g.setAttribute(k, typeof attrs[k] === "number" ? r3(attrs[k]) : attrs[k]);
-    if (PARK_HIDES && attrs && attrs.y === PARK) { g._pk = true; g.setAttribute("visible", "false"); }
+    if (PARK_HIDES && attrs && isParkY(attrs.y)) { parkOut(g, parent || world); if (!PARK_DETACH) (parent || world).append(g); return g; }
     (parent || world).append(g);
     return g;
   }
@@ -1633,10 +1681,10 @@
     if (src) { if (node.getAttribute("src") !== src) node.setAttribute("src", src); return true; }
     const a = Object.assign({}, la);
     ["x", "y", "z", "rx", "ry", "rz", "visible", "collide"].forEach((q) => { const cur = node.getAttribute(q); if (cur !== null) a[q] = cur; else delete a[q]; });
-    const lab = el("m-label", a, node.parentNode);
-    node.parentNode.insertBefore(lab, node);
-    if (node._pk) lab._pk = true;
-    node.remove();
+    const par = node.parentNode || node.__ph;             // v60: it may be parked out of the document
+    const lab = el("m-label", a, par);                    // (el keeps a parked one out too)
+    if (!lab._pk && node.parentNode) node.parentNode.insertBefore(lab, node);
+    if (node.parentNode) node.remove();
     LABEL_FIT.set(lab, node.__fit);
     node.__real = lab;
     return true;
@@ -1724,8 +1772,8 @@
     node.setAttribute(k, sv);
     // v24: parked is hidden - no screen spends a frame on it
     if (k === "y" && PARK_HIDES) {
-      if (sv === PARK_S) { if (!node._pk && node.getAttribute("visible") !== "false") { node._pk = true; node.setAttribute("visible", "false"); } }
-      else if (node._pk) { node._pk = false; node.removeAttribute("visible"); }
+      if (sv === PARK_S) { if (!node._pk) parkOut(node); }
+      else if (node._pk) parkIn(node);
     }
     if (k === "content") {
       const f = LABEL_FIT.get(node);
@@ -6901,7 +6949,8 @@
   // v57: FRAME-RATE TESTS - the remote switches whole kinds of thing off, live, so the
   // host can watch the fps counter and see what actually costs frames. Nothing here
   // changes the game; switching one back on puts everything back where it was.
-  const PERF = { lights: false, anims: false, glass: false, pics: false, decor: false, walls: false, models: false, blocks: false, all: false };
+  const PERF = { lights: false, anims: false, glass: false, pics: false, decor: false, walls: false, models: false, blocks: false, all: false,
+    gone: false, spares: false, glides: false };
   const perfStash = {};
   function stashOut(key, nodes) {             // take nodes out of the document, remembering where they were
     const list = [];
@@ -6936,7 +6985,18 @@
       }
       case "models": hideAll(k, q("#world m-model"), on); break;
       case "blocks": hideAll(k, q("#world m-cube"), on); break;
-      case "all": hideAll(k, [world, mobRoot, cageRoot, markRoot, fxRoot].concat(["honeyb-decor", "honeyb-decor-walls", "honeyb-hoard-rings"].map(byId)).filter(Boolean), on); break;
+      // v58: REMOVED, not just hidden - an element can cost frames even while hidden
+      // v59: everything EXCEPT the remote's own board (v58 took the board out too, so the
+      // remote could not press the button again to put the dungeon back)
+      case "gone": on ? stashOut(k, Array.prototype.slice.call(world.children).filter((n) => n !== remoteG)
+        .concat([mobRoot, cageRoot, markRoot, fxRoot], ["honeyb-decor", "honeyb-decor-walls", "honeyb-hoard-rings"].map(byId)).filter(Boolean)) : stashBack(k); break;
+      case "spares": {                          // every hidden spare (cages, discs, monsters waiting in the pools...)
+        const top = q("[visible=false]").filter((n) => { for (let p = n.parentElement; p; p = p.parentElement) if (p.getAttribute && p.getAttribute("visible") === "false") return false; return true; });
+        on ? stashOut(k, top) : stashBack(k);
+        break;
+      }
+      case "glides": on ? stashOut(k, q("m-attr-lerp")) : stashBack(k); break;
+      case "all": hideAll(k, Array.prototype.slice.call(world.children).filter((n) => n !== remoteG).concat([mobRoot, cageRoot, markRoot, fxRoot]).concat(["honeyb-decor", "honeyb-decor-walls", "honeyb-hoard-rings"].map(byId)).filter(Boolean), on); break;
     }
     return (on ? "OFF: " : "BACK ON: ") + k.toUpperCase();
   }
@@ -7040,9 +7100,9 @@
         setStaticMode(Math.round(n));
         return staticMode ? "SCENERY MERGED (COLOURS " + (staticMode === 1 ? "A" : "B") + ")" : "SCENERY AS SEPARATE PIECES";
       case "PERF": {     // v57: frame-rate tests (arg = which)
-        const names = ["lights", "anims", "glass", "pics", "decor", "walls", "models", "blocks", "all"];
+        const names = ["lights", "anims", "glass", "pics", "decor", "walls", "models", "blocks", "all", "gone", "spares", "glides"];
         const k = names[n];
-        if (!k) return "PICK 0-8";
+        if (!k) return "PICK 0-11";
         return perfToggle(k);
       }
       case "PRESET": {
@@ -7311,7 +7371,7 @@
   //   emberhold_static_blocks.glb, emberhold_static_blocks_b.glb
   const STATIC_MERGE = true;
   const STATIC_FILES = { models: "emberhold_static_models.glb", 1: "emberhold_static_blocks.glb", 2: "emberhold_static_blocks_b.glb" };
-  const STATIC_LIST = "0-12,14,16,18,1a,1w-2g,2i-32,34-3t,3w-4l,4n,4p,4r,4t,4v,4x,57-6b,6e-6f,6i-6j,6l-6m,6t-6u,6w-6x,6z-70,72-73,75,77,79,7b,7d,7f,7h-7p,7r-7s,7u,7w,7y,80,82,84,86-9j,9v-a6,a8-a9,ab-ac,af,am-bm,bp-d5,d7,d9-dc,df,ds-e9,ec,ef,ei,el,eo,er,eu,ex,f0,f3,f6,f9,fc,ff,fj,fm,fp,fs,fv,fy,g1,g4,g7,ga,gd,gg,gj,gm,gp-mh,mj,mm-mn,mp-mq,mw,mz-n0,n2-n7,na,nr-oc,oe-og,oi-pa,pc-pp,pr-pv,px-qw,qy,r0,r2,r4,r6,r8,ra,rc,re,rg,ri,rk,rm,ro,rq,rs,ru,rw,ry,s0,s2,s4,s6,s8,sa,sc,se,sg,si,sk,sm,so,sq,ss,su,sw,sy,t0,t2,t4-u2,u5-ud,ug-uo,ur,ut,uv,ux,uz,v1,v3,v5,v7,v9,vb,vd,vf,vh,vj,vl,vn,vp,vr,vt,vv,vx,vz,w1,w3,w5,w7-wx,x0-xp,xs-zv,zy-zz,101-102,104-105,107-108,10e-10h,10k,10v-10z,111-112,114,116-119,11b,11d-12f,12i-14a,14d-14e,14g-14h,14n-14q,14u-15y,160,162-16z,171-182,185-186,18o,18q-18s,18u-18w,18y-190,192-194,196-198,19a,1c7-1es,1ey-1ez,1f1-1f2,1f8-1fb,1ff,1fh,1fj-1fm,1fo-1fs,1fu-1fz,1gn-1go,1gr-1gs,1hc-1hh,1i1,1i8-1id,1ii,1iu-1iz,1j5,1jh-1jm,1jq,1jz-1k2,1kd-1kg,1ks-1kv,1la-1lb,1lg,1ll,1lq,1lv-1lx,1mp-1mr,1nj-1nl,1od-1of,1p7-1p9,1q2,1qb-1qc,1qf,1qo-1qp,1qs,1r1-1r2,1r5,1re-1rf,1ri,1rr-1rs,1rv,1s4-1s5,1s8,1sh-1si,1sl,1su-1sv,1sy,1t7-1t8,1tb,1tk-1tl,1tq-1tr,1tx-1ty,1u3-1u5,1ua-1uc,1uh-1uj,1up-1uq,1uv-1ux,1v3-1v4,1va-1vb,1vg-1vi,1vn-1vp,1vu-1vw,1w1-1w3,1w9-1wa,1wg-1wh,1wn-1wo,1ww-1wx,1x3-1x4,1xa-1xb,1xg-1xi,1xn-1xp,1xv-1xw,1y1-1y3,1y8-1ya,1yf-1yh,1yn-1yo,1yt-1yv,1z1-1z2,1z8-1z9,1zf-1zg,1zm-1zn,1zt-1zu,1zz-201,206-208,20e-20f,20l-20m,215-217,219,21c-21d,21f,21i-21j,21l,21o-21p,21r,21u-21w,21y,221-222,224,227-228,22a,22d-22e,22g,22j-22l,22n,22q-22r,22t,22w-22x,22z,232-233,235,238-23a,23c,23f-23g,23i,23l-23m,23o,23r-23s,23u"; /*STATIC_LIST*/
+  const STATIC_LIST = "0-12,14,16,18,1a,1w-2g,2i-32,34-3t,3w-4l,4n,4p,4r,4t,4v,4x,57-6b,6e-6f,6i-6j,6l-6m,6t-6u,6w-6x,6z-70,72-73,75,77,79,7b,7d,7f,7h-7p,7r-7s,7u,7w,7y,80,82,84,86-9j,9v-a6,a8-a9,ab-ac,af,am-bm,bp-d5,d7,d9-dc,df,ds-e9,ec,ef,ei,el,eo,er,eu,ex,f0,f3,f6,f9,fc,ff,fj,fm,fp,fs,fv,fy,g1,g4,g7,ga,gd,gg,gj,gm,gp-mh,mj,mm-mn,mp-mq,mw,mz-n0,n2-n7,na,nr-oc,oe-og,oi-pa,pc-pp,pr-pv,px-qw,qy,r0,r2,r4,r6,r8,ra,rc,re,rg,ri,rk,rm,ro,rq,rs,ru,rw,ry,s0,s2,s4,s6,s8,sa,sc,se,sg,si,sk,sm,so,sq,ss,su,sw,sy,t0,t2,t4-u2,u5-ud,ug-uo,ur,ut,uv,ux,uz,v1,v3,v5,v7,v9,vb,vd,vf,vh,vj,vl,vn,vp,vr,vt,vv,vx,vz,w1,w3,w5,w7-wx,x0-xp,xs-zv,zy-zz,101-102,104-105,107-108,10e-10h,10k,10v-10z,111-112,114,116-119,11b,11d-12f,12i-14a,14d-14e,14g-14h,14n-14q,14u-15y,160,162-16z,171-182,185-186,18o,18q-18s,18u-18w,18y-190,192-194,196-198,19a,1c7-1es,1ey-1ez,1f1-1f2,1f8-1fb,1ff,1fh,1fj-1fm,1fo-1fs,1fu-1fz,1gn-1go,1gr-1gs,1hc-1hh,1i1,1i8-1id,1ii,1iu-1iz,1j5,1jh-1jm,1jq,1jz-1k2,1kd-1kg,1ks-1kv,1la-1lb,1lg,1ll,1lq,1lv-1lx,1mp-1mr,1nj-1nl,1od-1of,1p7-1p9,1q2,1qb-1qc,1qf,1qo-1qp,1qs,1r1-1r2,1r5,1re-1rf,1ri,1rr-1rs,1rv,1s4-1s5,1s8,1sh-1si,1sl,1su-1sv,1sy,1t7-1t8,1tb,1tk-1tl,1tq-1tr,1tw-1tx,1u1-1u3,1u7-1u9,1ud-1uf,1uk-1ul,1up-1ur,1uw-1ux,1v2-1v3,1v7-1v9,1vd-1vf,1vj-1vl,1vp-1vr,1vw-1vx,1w2-1w3,1w8-1w9,1we-1wf,1wk-1wl,1wq-1wr,1wv-1wx,1x1-1x3,1x8-1x9,1xd-1xf,1xj-1xl,1xp-1xr,1xw-1xx,1y1-1y3,1y8-1y9,1ye-1yf,1yk-1yl,1yq-1yr,1yw-1yx,1z1-1z3,1z7-1z9,1ze-1zf,1zk-1zl,1zn-1zp,1zr,1zu-1zv,1zx,200-201,203,206-207,209,20c-20e,20g,20j-20k,20m,20p-20q,20s,20v-20w,20y,211-213,215,218-219,21b,21e-21f,21h,21k-21l,21n,21q-21s,21u,21x-21y,220,223-224,226,229-22a,22c"; /*STATIC_LIST*/
   const STATIC_SIG = 315355039; /*STATIC_SIG*/
   let staticMode = 0, staticNodes = [], staticGlb = null;
   function staticSig(n) {
