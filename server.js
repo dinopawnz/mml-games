@@ -1,4 +1,4 @@
-// MML GAMES SERVER  v7 - sends every message in pieces under 3 KB (Otherside only reads ~4 KB at a time from Render)
+// MML GAMES SERVER  v7.1 - sends every message in pieces under 3 KB (Otherside only reads ~4 KB at a time from Render)
 // Serves every .html game in this folder (and in docs/, if there is one) as a live MML
 // document - the same way the official MML tool does on your computer (`mml serve-dir`,
 // version 0.26.1): same MML engine, same websocket library (ws 8), same protocol choice,
@@ -199,7 +199,7 @@ server.on("upgrade", (req, socket, head) => {
     const t0 = Date.now(), id = (++connCount);
     let outN = 0, outB = 0, inN = 0, inB = 0, bigOut = 0;
     smallFrames(ws);
-    const sendSplit = ws.send;
+    const sendSplit = ws.send.bind(ws);   // v7.1: bound - an old-protocol (remote) connection crashed without it
     ws.send = (data, ...rest) => { outN++; const n = data && (data.length ?? data.byteLength) || 0; outB += n; if (n > bigOut) bigOut = n; return sendSplit(data, ...rest); };
     ws.on("message", (d) => { inN++; inB += d.length || 0; });
     ws.on("error", (e) => console.log(`#${id} ERROR ${e && e.message}`));
