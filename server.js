@@ -1,4 +1,4 @@
-// MML GAMES SERVER  v6
+// MML GAMES SERVER  v6.1 (detailed connection logs)
 // Serves every .html game in this folder (and in docs/, if there is one) as a live MML
 // document - the same way the official MML tool does on your computer (`mml serve-dir`,
 // version 0.26.1): same MML engine, same websocket library (ws 8), same protocol choice,
@@ -27,6 +27,7 @@ const ALWAYS_ON = new Set((process.env.ALWAYS_ON || "").split(",").map((s) => s.
 // ---- the games: every .html in this folder and in docs/
 const games = new Map();   // file name -> { file, doc, sockets, timer }
 const alias = new Map();   // any accepted address -> file name
+let connCount = 0;
 for (const dir of [dirname, path.join(dirname, "docs")]) {
   if (!fs.existsSync(dir)) continue;
   for (const f of fs.readdirSync(dir).sort()) {
@@ -77,18 +78,30 @@ server.on("upgrade", (req, socket, head) => {
   const p = decodeURIComponent((req.url || "/").split("?")[0]).replace(/^\/+|\/+$/g, "");
   const f = alias.get(p) || alias.get(p.toLowerCase());
   if (!f) { socket.destroy(); return; }
+  const offered = req.headers["sec-websocket-protocol"] || "(none)";
+  const who = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "?").split(",")[0].trim();
+  const agent = (req.headers["user-agent"] || "?").slice(0, 60);
   wss.handleUpgrade(req, socket, head, (ws) => {
     const g = games.get(f);
     clearTimeout(g.timer); g.timer = null;
     g.sockets.add(ws);
+    const t0 = Date.now(), id = (++connCount);
+    let outN = 0, outB = 0, inN = 0, inB = 0, bigOut = 0;
+    const send0 = ws.send.bind(ws);
+    ws.send = (data, ...rest) => { outN++; const n = data && (data.length ?? data.byteLength) || 0; outB += n; if (n > bigOut) bigOut = n; return send0(data, ...rest); };
+    ws.on("message", (d) => { inN++; inB += d.length || 0; });
+    ws.on("error", (e) => console.log(`#${id} ERROR ${e && e.message}`));
     const doc = start(g, f);
     doc.addWebSocket(ws);
-    console.log(`join ${f} (${ws.protocol || "no protocol"}), ${g.sockets.size} connected`);
-    ws.on("close", () => {
+    console.log(`#${id} join ${f} from ${who} [${agent}] offered: ${offered} -> using ${ws.protocol || "none"} (${g.sockets.size} connected)`);
+    ws.on("close", (code, reason) => {
       try { doc.removeWebSocket(ws); } catch (e) {}
       g.sockets.delete(ws);
+      console.log(`#${id} left ${f} after ${((Date.now() - t0) / 1000).toFixed(1)}s, close code ${code}${reason && reason.length ? " (" + reason + ")" : ""}; sent ${outN} msgs/${outB} bytes (biggest ${bigOut}), got ${inN} msgs/${inB} bytes`);
       if (!g.sockets.size && !ALWAYS_ON.has(f)) g.timer = setTimeout(() => stop(g, f), IDLE_MINUTES * 60000);
     });
+    // every 20 s while connected: how much has gone each way
+    const tick = setInterval(() => { if (ws.readyState !== 1) { clearInterval(tick); return; } console.log(`#${id} ${f}: ${((Date.now() - t0) / 1000).toFixed(0)}s, sent ${outN} msgs/${outB} bytes, got ${inN} msgs`); }, 20000);
   });
 });
 
